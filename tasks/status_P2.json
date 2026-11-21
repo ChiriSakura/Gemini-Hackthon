@@ -2,8 +2,8 @@
   "agent": "P2_media",
   "contributor": "ChiriSakura",
   "branch": "feat/w1-media",
-  "current_milestone": "T6",
-  "status": "all_w1_t6_10_tasks_completed_and_audited",
+  "current_milestone": "T7",
+  "status": "all_t6_and_t7_tasks_completed_and_audited",
   "omni_flash_latency_sec": 18.64,
   "omni_flash_total_with_io_sec": 22.65,
   "omni_flash_dual_take_parallel_sec": 25.47,
@@ -113,7 +113,16 @@
     "storyboard_strip": "backend/assets/showcase_storyboard_strip.png (1.50MB)",
     "cache_savings": "26 vs 32 clips rendered, $0.96 saved across 4 branches (18.8% overall, 66.7% localized Scene-2 savings)",
     "burst_stress": "create_prop + dual-cam S3 concurrent wall 49.56s, qa=0.902, 0 retries, deadlock_free=true",
-    "pre_freeze_audits": "11/11 props 0 green halo & bottom-flush; 26/26 unique scene MP4s H.264 640x360 24fps w/ AAC audio"
+    "pre_freeze_audits": "11/11 props 0 green halo & bottom-flush; 28/28 preflight MP4s H.264 w/ AAC audio; 26/26 cached blueprints; 4/4 failover rehearsal passed"
+  },
+  "w1_t7_eval_summary": {
+    "cached_blueprints_total": 26,
+    "blueprints_branches": ["branch_v1", "branch_v2", "branch_v3", "branch_v4"],
+    "failover_rehearsal": "4/4 passed -> backend/assets/eval_failover_rehearsal.json",
+    "english_enforced_smoke": "PASSED -> backend/media/test_english_enforced.py",
+    "eval_dashboard_12s_audio_muxed": true,
+    "preflight_report": "backend/assets/preflight_report.json (preflight_passed=true, 28/28 MP4s H.264+audio)",
+    "metrics_summary": "backend/assets/metrics_summary_for_submission.json"
   },
   "completed_items": [
     "W1-CR1: Model aliases + sha1 collision-safe _slugify() + CAP_PROP_POS_MSEC .webm extraction + border-connected floodfill chroma-key with 2px rim despill",
@@ -135,8 +144,14 @@
     "W1-T6G: Built 2x4 BE vs HE storyboard strip PNG -> backend/assets/showcase_storyboard_strip.png",
     "W1-T6H: Quantified cache reuse & cost savings across 4 branches -> backend/assets/eval_cache_savings.json",
     "W1-T6I: Passed concurrent create_prop + dual-cam render burst stress test (49.56s, qa=0.902, deadlock_free=true) -> backend/assets/eval_burst_stress.json",
-    "W1-T6J: Completed pre-freeze audit suite: audit_props (11/11 passed, 0 halo) + audit_audio_codec (26/26 unique scene MP4s passed) + test_media_smoke (ALL PASSED)"
+    "W1-T6J: Completed pre-freeze audit suite: audit_props (11/11 passed, 0 halo) + audit_audio_codec (26/26 unique scene MP4s + 2/2 submission MP4s passed) + preflight_check (28/28 H.264+audio) + test_media_smoke (ALL PASSED)",
+    "W1-T7A: Extended stage_blueprint.py to pre-render branch_v3 & branch_v4 blueprints (26 total) and refreshed eval_blueprint_anchoring.json",
+    "W1-T7B: Added test_failover_rehearsal.py verifying empty/corrupt .webm fallback to PNG on /api/media/render-scene -> eval_failover_rehearsal.json (4/4 passed)",
+    "W1-T7C: Extended test_media_smoke.py HTTP 200 assertions to submission MP4s/charts, storyboard strip, and all desk props",
+    "W1-T7D: Added test_english_enforced.py verifying ASCII prop slugification, bilingual SI height estimation, English prompt rules, and 0 CJK leakage",
+    "W1-T7E: Muxed ambient stereo AAC track into eval_dashboard_12s.mp4 -> uniform H.264 + AAC across all 28 preflight MP4s",
+    "W1-T7F: Exported consolidated Devpost/pitch metric summary -> backend/assets/metrics_summary_for_submission.json"
   ],
   "blockers": [],
-  "last_updated": "2026-11-21T13:41:00-05:00"
+  "last_updated": "2026-11-21T14:17:30-05:00"
 }

@@ -72,7 +72,8 @@
         "grid": { "$ref": "#/$defs/GridCoord" },
         "facing": { "type": "string", "enum": ["left", "right", "front", "center"] },
         "action": { "type": "string", "enum": ["stand", "walk", "kneel", "reach", "sit", "jump", "crouch", "flee", "nuzzle", "shared_umbrella"] },
-        "holding_prop": { "type": ["string", "null"] }
+        "holding_prop": { "type": ["string", "null"] },
+        "height_m": { "type": ["number", "null"], "minimum": 0.05, "maximum": 3.0, "description": "Optional canonical physical stage height in meters (Proposal Sec 14: e.g. Lia=1.62, Nyx=0.40)" }
       }
     },
     "StagePropState": {
@@ -142,7 +143,8 @@
           "name": { "type": "string" },
           "image_url": { "type": "string" },
           "state": { "type": "string" },
-          "origin": { "type": "string", "enum": ["preset", "text_generated", "camera_physical"] }
+          "origin": { "type": "string", "enum": ["preset", "text_generated", "camera_physical"] },
+          "height_m": { "type": ["number", "null"], "minimum": 0.05, "maximum": 3.0, "description": "Optional fixed physical stage height in meters (Proposal Sec 14: handheld 0.15-0.30, tabletop 0.30-0.60, large >=1.0)" }
         }
       }
     },

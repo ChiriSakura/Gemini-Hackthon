@@ -1,0 +1,29 @@
+{
+  "generated_at": "2026-11-21T14:19:21",
+  "all_passed": true,
+  "cases_tested": 4,
+  "elapsed_sec": 0.09,
+  "cases": [
+    {
+      "case": "empty_webm_prepare_preview",
+      "passed": true,
+      "graceful_none": true
+    },
+    {
+      "case": "corrupt_webm_prepare_preview",
+      "passed": true,
+      "graceful_none": true
+    },
+    {
+      "case": "corrupt_webm_prop_extract",
+      "passed": true,
+      "graceful_none": true
+    },
+    {
+      "case": "http_render_scene_corrupt_webm_with_png_fallback",
+      "passed": true,
+      "http_status": 200,
+      "scene_id": 2
+    }
+  ]
+}

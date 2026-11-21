@@ -13,6 +13,7 @@ Feature & Use Cases:
   - `POST /api/media/render-scene`: Renders a scene (or whole branch) concurrently via Omni Flash + `judge()`.
 """
 
+import asyncio
 import base64
 import inspect
 import json
@@ -27,6 +28,7 @@ from fastapi.staticfiles import StaticFiles
 from backend import config
 from backend.director.hydrogen_judge import (
     check_contradiction,
+    classify_rewrite_intent,
     filter_affected_scenes,
     inspect_tail_frame,
     parse_director_input,
@@ -38,6 +40,8 @@ from backend.logger import log_function_call
 from backend.media.prop_maker import create_prop
 from backend.media.video_renderer import get_render_progress, render_branch_scenes, render_scene_media
 from backend.schemas import BranchState, Scene, SceneMedia, StagePropState
+
+_ALLOWED_PREVIEW_EXTS: set[str] = {".webm", ".mp4", ".png", ".jpg", ".jpeg"}
 
 app = FastAPI(title="StageState Director API", version="0.2.0")
 
@@ -57,12 +61,15 @@ if config.SHARED_ASSETS_DIR.exists():
 @app.get("/api/health")
 @log_function_call
 def health_check() -> dict:
-    """Return service health and centralized Gemini 4 model registry."""
+    """Return service health, explicit live-vs-mock status (R-01), and centralized Gemini 4 model registry (R-35)."""
+    has_key = bool(config.GEMINI_API_KEY)
+    live = has_key and not config.DEMO_MODE
     return {
         "status": "ok",
-        "demo_mode": config.DEMO_MODE,
         # `live` is False when no model key is configured or demo mode is on: every answer is canned.
-        "live": bool(config.GEMINI_API_KEY) and not config.DEMO_MODE,
+        "live": live,
+        "has_api_key": has_key,
+        "demo_mode": config.DEMO_MODE,
         "models": {
             "director": config.MODEL_DIRECTOR,
             "judge": config.MODEL_JUDGE,
@@ -102,6 +109,37 @@ def api_get_rules() -> dict:
 def api_get_render_progress(branch_id: str) -> dict:
     """Return live per-scene parallel render progress snapshot for `branch_id`."""
     return get_render_progress(branch_id)
+
+
+def _read_json_optional(path: Path) -> Optional[dict]:
+    """Safely load an empirical report JSON if present on disk."""
+    if not path.is_file():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+@app.get("/api/eval/summary")
+@log_function_call
+def api_get_eval_summary() -> dict:
+    """Return consolidated empirical evaluation reports across P1 (eval/) and P2 (backend/assets/)."""
+    return {
+        "stress_report": _read_json_optional(config.BASE_DIR / "eval" / "stress_report.json"),
+        "latest_eval": _read_json_optional(config.BASE_DIR / "eval" / "latest_report.json"),
+        "dual_cam_stats": _read_json_optional(config.ASSETS_DIR / "eval_dual_cam_stats.json"),
+        "calibration_20_clips": _read_json_optional(config.ASSETS_DIR / "calibration_20_clips.json"),
+        "decisions_multimodal": _read_json_optional(config.ASSETS_DIR / "eval_decisions_multimodal.json"),
+        "audio_mood": _read_json_optional(config.ASSETS_DIR / "eval_audio_mood.json"),
+        "branch_matrix": _read_json_optional(config.ASSETS_DIR / "eval_branch_matrix.json"),
+        "prop_persistence": _read_json_optional(config.ASSETS_DIR / "eval_prop_persistence.json"),
+        "cache_savings": _read_json_optional(config.ASSETS_DIR / "eval_cache_savings.json"),
+        "resolution_bench": _read_json_optional(config.ASSETS_DIR / "eval_720p_vs_360p.json"),
+        "failover_rehearsal": _read_json_optional(config.ASSETS_DIR / "eval_failover_rehearsal.json"),
+        "submission_summary": _read_json_optional(config.ASSETS_DIR / "metrics_summary_for_submission.json"),
+        "preflight": _read_json_optional(config.ASSETS_DIR / "preflight_report.json"),
+    }
 
 
 def _next_branch_id() -> str:
@@ -156,6 +194,8 @@ async def api_director_fork(
         text_fallback=text,
         target_scene_id=target_scene_id,
     )
+    # R-16: Always honor the scene explicitly selected by the director/judge
+    parsed.target_scene_id = target_scene_id
 
     updated_registry = dict(parent.props_registry)
     if parsed.has_physical_prop and parsed.prop_name:
@@ -168,8 +208,12 @@ async def api_director_fork(
         updated_registry[prop_id] = prop_item
 
     prior_scenes = [s for s in parent.scenes if s.scene_id < parsed.target_scene_id]
+    # Run Decisions API intent routing (`choice`) concurrently with contradiction check (`noul`)
     if not ignore_conflict and prior_scenes:
-        has_conflict, reason = await check_contradiction(parsed.instruction, prior_scenes)
+        (has_conflict, reason), _intent_route = await asyncio.gather(
+            check_contradiction(parsed.instruction, prior_scenes),
+            classify_rewrite_intent(parsed.instruction),
+        )
         if has_conflict:
             return BranchState(
                 branch_id=f"{parent_branch_id}_conflict",
@@ -181,6 +225,8 @@ async def api_director_fork(
                 props_registry=updated_registry,
                 scenes=parent.scenes,
             )
+    else:
+        await classify_rewrite_intent(parsed.instruction)
 
     new_scenes = await plan_scenes(
         parsed_input=parsed,
@@ -208,7 +254,7 @@ async def api_director_fork(
         if scene.scene_id in affected_ids or state_changed:
             scene.needs_rerender = True
             scene.reused_from_branch = None
-            # A rewritten scene has no clip or QA of its own yet; never inherit the parent's.
+            # R-03: A rewritten scene has no clip or QA of its own yet; never inherit the parent's.
             scene.media = SceneMedia()
             final_scenes.append(scene)
         else:
@@ -238,10 +284,11 @@ async def api_media_create_prop(
     description: str = Form(""),
     branch_id: str = Form("branch_v1"),
     scene_id: int = Form(1),
+    placement: str = Form("table"),
     frame_timestamp_sec: Optional[float] = Form(None),
     image: Optional[UploadFile] = File(None),
 ) -> dict:
-    """Create a transparent 2D stage prop from text or a camera image snapshot and sync it to `branch.scenes`."""
+    """Create a transparent 2D stage prop from text or a camera image snapshot and sync placement to `branch.scenes`."""
     img_bytes = await image.read() if image else None
     prop_id, item = await _invoke_create_prop(
         name=name,
@@ -249,15 +296,35 @@ async def api_media_create_prop(
         camera_frame_bytes=img_bytes,
         frame_timestamp_sec=frame_timestamp_sec,
     )
+    norm_placement = placement if placement in ("table", "held", "floor") else "table"
+    on_floor = norm_placement == "floor"
+    prop_state = "held" if norm_placement == "held" else "glowing"
+    prop_grid = [1.08, 1.08] if norm_placement == "table" else ([1.15, 1.48] if on_floor else [0.92, 1.15])
+    item.state = prop_state
+
     branch = get_branch(branch_id)
     if branch:
         branch.props_registry[prop_id] = item
         for s in branch.scenes:
-            if s.scene_id >= scene_id and not any(p.id == prop_id for p in s.stage_props):
-                s.stage_props.append(StagePropState(id=prop_id, grid=[1.15, 1.35], on_floor=False, state="glowing"))
+            if s.scene_id >= scene_id:
+                if norm_placement == "held":
+                    for actor in s.actors:
+                        if actor.id == "lia":
+                            actor.holding_prop = prop_id
+                    s.stage_props = [p for p in s.stage_props if p.id != prop_id]
+                else:
+                    existing = next((p for p in s.stage_props if p.id == prop_id), None)
+                    if existing:
+                        existing.grid = prop_grid
+                        existing.on_floor = on_floor
+                        existing.state = prop_state
+                    else:
+                        s.stage_props.append(
+                            StagePropState(id=prop_id, grid=prop_grid, on_floor=on_floor, state=prop_state)
+                        )
                 s.needs_rerender = True
         save_branch(branch)
-    return {"prop_id": prop_id, "image_url": item.image_url, "item": item}
+    return {"prop_id": prop_id, "image_url": item.image_url, "item": item, "placement": norm_placement}
 
 
 async def _save_preview_file(
@@ -273,7 +340,8 @@ async def _save_preview_file(
         end_path = config.PREVIEWS_DIR / f"{branch_id}_s{scene_id}_{cam_id}_end.png"
         end_path.write_bytes(base64.b64decode(end_png_b64.split(",")[-1]))
     if upload is not None:
-        ext = Path(upload.filename or "").suffix.lower() or ".webm"
+        raw_ext = Path(upload.filename or "").suffix.lower()
+        ext = raw_ext if raw_ext in _ALLOWED_PREVIEW_EXTS else ".webm"
         out_path = config.PREVIEWS_DIR / f"{branch_id}_s{scene_id}_{cam_id}{ext}"
         out_path.write_bytes(await upload.read())
         return f"/assets/previews/{out_path.name}"
@@ -329,17 +397,24 @@ async def api_media_render_scene(
         refs = [str(config.SHARED_ASSETS_DIR / "lia.png"), str(config.SHARED_ASSETS_DIR / "nyx.png")] + [
             p.image_url for p in branch.props_registry.values()
         ]
-        target.media = await render_scene_media(
-            target,
-            refs,
-            cam_a_preview_path=target.media.cam_a_preview_url,
-            cam_b_preview_path=target.media.cam_b_preview_url,
-            tail_inspector=inspect_tail_frame,
-        )
-        if target.media.qa_retries > 0 and target.media.qa_result:
-            for item in target.media.qa_result.items:
-                if not item.passed:
-                    add_rule(f"Scene {target.scene_id} check reminder: {item.question}")
+        # R-15: Enforce hard 95s per-scene timeout with graceful 2.5D preview fallback
+        try:
+            target.media = await asyncio.wait_for(
+                render_scene_media(
+                    target,
+                    refs,
+                    cam_a_preview_path=target.media.cam_a_preview_url,
+                    cam_b_preview_path=target.media.cam_b_preview_url,
+                    tail_inspector=inspect_tail_frame,
+                ),
+                timeout=95.0,
+            )
+        except asyncio.TimeoutError:
+            target.media = SceneMedia(
+                cam_a_preview_url=target.media.cam_a_preview_url,
+                cam_b_preview_url=target.media.cam_b_preview_url,
+                fallback_to_preview=True,
+            )
         save_branch(branch)
         return {"scene_id": target.scene_id, "media": target.media, "environment_notes": target.environment_notes}
 

@@ -54,5 +54,13 @@
     }
   },
   "delta_avg_p_true": -0.149,
-  "delta_pass_rate": -0.5
+  "delta_pass_rate": -0.5,
+  "cached_blueprints_total": 26,
+  "cached_blueprints_branches": [
+    "branch_v1",
+    "branch_v2",
+    "branch_v3",
+    "branch_v4"
+  ],
+  "cached_blueprints_elapsed_sec": 5.31
 }

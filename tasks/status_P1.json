@@ -1,15 +1,18 @@
 {
   "agent": "P1_director",
   "branch": "main",
-  "current_milestone": "T2",
-  "status": "t1_all_3_agents_merged_into_main",
+  "current_milestone": "T4_FEATURE_FROZEN_REHEARSAL_READY",
+  "status": "all_worker_branches_merged_7_plus_6_gates_green_p2_p3_frozen",
   "completed_items": [
-    "Live-verified Decisions API v1beta (models/gemini-decision-1: noul 0.66s-1.58s w/ PNG, choice, score)",
-    "Live-verified Gemini 4 Neon (thinking_level=LOW -> 27s) + Neon schema & affected-scene diff fix",
-    "Reviewed & merged origin/feat/w1-media (P2 prop_maker + dual-take Omni Flash renderer) with 2.5D preview anchoring",
-    "Reviewed & merged origin/feat/w2-frontend (P3 Three.js 2.5D dual-camera stage + Vite build verified)",
-    "Aligned FastAPI /api/director/fork & /api/media/render-scene with frontend FormData and Vite /assets proxy"
+    "Live-verified Decisions API v1beta (models/gemini-decision-1: noul 95.0% acc / 100% TNR, choice 100% EN+ZH routing, score 1.000 pairwise AUC)",
+    "Live-verified Gemini 4 Neon + Hydrogen + Omni Flash 360p (17.1-18.6s) + Nano Banana 2.1 props",
+    "Merged & audited all worker branches: feat/w1-media (8e1c808), feat/w1-media-opt (7a61f20), cherry-picked feat/w1-physics-opt (ff97fd5), feat/w2-polish (2cd4e60), and feat/w2-frontend (10fd4a3)",
+    "Added optional height_m physical scale field to shared/schema.json & backend/schemas.py (Proposal Section 14)",
+    "Added hard structural invariant validation + 1x automatic Neon retry & clamping in backend/director/neon_director.py (Proposal Section 10)",
+    "Wired Decisions API choice routing concurrently in /api/director/fork, added placement persistence to /api/media/create-prop, and exposed GET /api/eval/summary",
+    "Verified all backend pre-pitch suites (4 cached branches 0 CJK, 28/28 H.264+AAC MP4s, 26/26 blueprints, 11/11 zero-halo RGBA props, failover rehearsal, English slug enforcement, burst concurrency)",
+    "Published complete live empirical benchmark tables in README.md and updated tasks/BOARD.md while preserving P2 & P3 feature-freeze queues"
   ],
   "blockers": [],
-  "last_updated": "2026-11-21T12:41:00-05:00"
+  "last_updated": "2026-11-21T14:25:00-05:00"
 }

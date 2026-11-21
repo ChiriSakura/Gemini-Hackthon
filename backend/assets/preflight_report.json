@@ -1,6 +1,6 @@
 {
   "preflight_passed": true,
-  "elapsed_sec": 1.59,
+  "elapsed_sec": 1.8,
   "api_checks": {
     "health_200": true,
     "branches_200": true,
@@ -44,7 +44,7 @@
   "mp4_summary": {
     "total_mp4s": 28,
     "all_h264": true,
-    "with_audio_count": 27,
+    "with_audio_count": 28,
     "files": [
       {
         "file": "finals/branch_v2_scene_2_cam_a.mp4",
@@ -334,18 +334,18 @@
       },
       {
         "file": "submission/eval_dashboard_12s.mp4",
-        "bytes": 296356,
+        "bytes": 392707,
         "fourcc": "h264",
         "is_h264": true,
         "resolution": "1280x720",
         "fps": 24.0,
         "frames": 288,
         "duration_sec": 12.0,
-        "has_audio": false
+        "has_audio": true
       },
       {
         "file": "submission/hook_10s_dualcam_twist.mp4",
-        "bytes": 2261983,
+        "bytes": 2110049,
         "fourcc": "h264",
         "is_h264": true,
         "resolution": "1280x720",
@@ -440,7 +440,7 @@
     ]
   },
   "blueprints_summary": {
-    "count": 14,
+    "count": 26,
     "all_http_200": true
   }
 }

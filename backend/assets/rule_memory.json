@@ -1,12 +1,6 @@
 [
-  "Once crystal_vase is broken in scene k, it MUST remain broken on the floor in all scenes > k unless explicitly repaired.",
+  "Once crystal_vase is broken in scene k, it MUST remain broken on the floor in all scenes > k unless explicitly prevented before breaking.",
   "Every registered prop in props_registry has at most ONE holder (or rests on stage_props) per scene; never duplicate held props.",
   "Never introduce extra unintended human characters beyond Lia and Nyx unless explicitly instructed.",
-  "The red umbrella stays closed (furled) indoors; write 'opens the umbrella' explicitly in the narration of any scene where it is open.",
-  "Scene 3 (cam_b) continuity fix: Maintain a spotless conservatory floor with no shards. Keep the crystal vase intact on the round table. Clearly show the glowing star keepsake between kneeling Lia (silver hair, dark blue starry cloak, red umbrella) and fluffy black cat Nyx (golden moon collar).",
-  "Scene 2 (cam_a) continuity fix: Cold rainy blue lighting. Keep only Lia (silver hair, dark blue starry cloak, holding red umbrella) and Nyx (fluffy black cat, golden moon collar). Show Nyx startled, leaping right, with the shattered crystal vase and scattered blue rose petals on the wet floor.",
-  "Scene 2 (cam_b) continuity fix: Cold rainy blue lighting, no extra characters. Keep silver-haired Lia (dark blue starry cloak) holding red umbrella, and fluffy black cat Nyx (golden moon collar) leaping startled right. Shattered crystal vase and scattered blue rose petals on floor.",
-  "Scene 1 (cam_a) continuity fix: Safe, clear framing, no extra humans: silver-haired Lia (dark blue starry cloak) stands left holding red umbrella; Nyx (fluffy black cat, golden moon collar) sits right; intact crystal vase with blue rose on center round table. Keep Camera A/B actor positions identical.",
-  "Scene 3 (cam_b) continuity fix: Maintain cold rainy blue lighting. Lia (silver hair, dark blue starry cloak) stands still holding her red umbrella. Fluffy black cat Nyx (golden moon collar) crouches cautiously in the right corner. Keep broken crystal vase shards visible on the wet floor.",
-  "Scene 1 (cam_b) continuity fix: Silver-haired Lia in dark blue starry cloak stands left holding a closed red umbrella at her side. Fluffy black cat Nyx with golden moon collar sits right. Intact blue-rose crystal vase on center round table. Match Camera A/B positions; no extra people."
+  "The red umbrella stays closed (furled) indoors; write 'opens the umbrella' explicitly in the narration of any scene where it is open."
 ]

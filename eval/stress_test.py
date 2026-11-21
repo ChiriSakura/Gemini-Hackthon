@@ -129,16 +129,17 @@ async def _run_stateless_baseline(num_scenes: int = 4) -> dict[str, Any]:
         )
         history.append(out)
 
+    # R-07: Evaluate stateless baseline with the EXACT SAME questions used for StageState
     qa = await judge(
         [
-            "Does Scene 2 explicitly keep the crystal vase broken through Scene 4?",
-            "Does every scene explicitly preserve consistent 3x3 grid coordinates and camera framing?",
-            "Does the story keep the exact same prop state without ambiguity?",
+            f"Do scenes 2..{num_scenes} keep crystal_vase broken continuously?",
+            "Are all character coordinates inside 0..2 without duplicating red_umbrella?",
         ],
         context_text="\n".join(f"Scene {i+1}: {t}" for i, t in enumerate(history)),
     )
     return {
         "system": "Stateless Text Chaining Baseline",
+        "eval_scope": "plan_level_n1",
         "scenes": num_scenes,
         "judge_score": qa.overall_score,
         "all_passed": qa.all_passed,

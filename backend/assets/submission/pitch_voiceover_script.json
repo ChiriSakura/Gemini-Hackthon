@@ -1,0 +1,63 @@
+{
+  "output_mp4": "C:\\Users\\11345\\.gemini\\antigravity\\scratch\\StageState-p2-t4\\backend\\assets\\submission\\pitch_submission_1min_narrated.mp4",
+  "asset_url": "/assets/submission/pitch_submission_1min_narrated.mp4",
+  "srt_file": "/assets/submission/pitch_submission_1min.srt",
+  "tts_model": "gemini-3.8-flash-tts",
+  "tts_voice": "Kore",
+  "resolution": "1280x720",
+  "fps": 24,
+  "total_frames": 1308,
+  "duration_sec": 54.5,
+  "under_1min_gate": true,
+  "file_size_mb": 6.19,
+  "is_h264": true,
+  "ambient_bed_mixed": true,
+  "elapsed_sec": 77.28,
+  "chapters": [
+    {
+      "id": "seg1_hook",
+      "label": "Opening Hook — Dual-Cam Sync & Time-Travel Twist",
+      "start_sec": 0.0,
+      "end_sec": 10.0,
+      "raw_tts_sec": 9.52,
+      "atempo": 1.0,
+      "text": "Rewrite one moment in the past and every camera reshapes in sync. Watch StageState turn a stormy tragedy into a starlit rescue."
+    },
+    {
+      "id": "seg2_be_vs_he",
+      "label": "Causal Branching — Prefix Reuse & Concurrent Omni Flash",
+      "start_sec": 10.0,
+      "end_sec": 23.0,
+      "raw_tts_sec": 9.84,
+      "atempo": 1.0,
+      "text": "Scene one stays cached with zero rerender. Speak and show a real prop at scene two—Gemini Four Neon forks the world while Omni Flash renders both cameras."
+    },
+    {
+      "id": "seg3_branches_props",
+      "label": "4-Branch Multiverse & 11 Zero-Halo Live Props",
+      "start_sec": 23.0,
+      "end_sec": 33.0,
+      "raw_tts_sec": 9.16,
+      "atempo": 1.0,
+      "text": "Nano Banana Two Point One turns desk objects into zero-halo stage props in fifteen seconds—persisting one hundred percent across four timelines."
+    },
+    {
+      "id": "seg4_architecture",
+      "label": "Gemini 4 Multimodal Pipeline & Decisions API Trifecta",
+      "start_sec": 33.0,
+      "end_sec": 42.5,
+      "raw_tts_sec": 8.68,
+      "atempo": 1.0,
+      "text": "Hydrogen hears emotion and gestures. Decisions API checks every clip in under one second, and Best-of-Two Omni Flash hits one hundred percent QA."
+    },
+    {
+      "id": "seg5_eval_close",
+      "label": "Empirical Evaluation & Closing Tagline",
+      "start_sec": 42.5,
+      "end_sec": 54.5,
+      "raw_tts_sec": 12.32,
+      "atempo": 1.049,
+      "text": "Live benchmarks: zero-point-nine-five versus zero-point-five-six baseline, four times faster, seventy-one percent cheaper at three-sixty-p. StageState—direct the past, keep the world intact."
+    }
+  ]
+}

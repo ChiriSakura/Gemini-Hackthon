@@ -66,6 +66,7 @@ class ActorState(BaseModel):
         "stand", "walk", "kneel", "reach", "sit", "jump", "crouch", "flee", "nuzzle", "shared_umbrella"
     ] = "stand"
     holding_prop: Optional[str] = None
+    height_m: Optional[float] = Field(default=None, ge=0.05, le=3.0)
 
 
 class StagePropState(BaseModel):
@@ -122,6 +123,7 @@ class PropRegistryItem(BaseModel):
     image_url: str
     state: str = "intact"
     origin: Literal["preset", "text_generated", "camera_physical"] = "preset"
+    height_m: Optional[float] = Field(default=None, ge=0.05, le=3.0)
 
 
 class BranchState(BaseModel):

@@ -28,13 +28,13 @@
 
 | 编号 | 问题 | 原因 / 位置 | 建议修法 | 状态 |
 |---|---|---|---|---|
-| R-01 | 没有 key 时后端静默走 mock，健康检查不报 | `neon_director.py:52`、`hydrogen_judge.py:66,204,275,298`、`video_renderer.py:614`、`prop_maker.py:348` 都是 `DEMO_MODE or not GEMINI_API_KEY`；`/api/health`（`main.py:63`）只报 `DEMO_MODE` | health 增加 `live = 有 key 且非 DEMO_MODE`；前端顶部在非 live 时显示 MOCK | 本机已补 `.env`，代码未改 |
-| R-02 | 前端 fork 一出错，就悄悄换成一条预制分支 | `stageClient.ts:136-147` 把任何错误变成 `MOCK_BRANCH_2`；`App.tsx:296-306` 照常加入 | catch 里返回错误，显示 “Rewrite failed: …”，不加分支 | 未修 |
-| R-03 | fork 成功但还没渲染时，放的是父分支的旧成片和旧 QA，还挂着 “Omni Flash Render” | 后端 fork 不清 media（`main.py:199-208`）；前端默认 final 视图（`App.tsx:84-86`、`DualCameraStage.tsx:277-281,502-503`） | fork 时把 `needs_rerender` 场景的 `media` 清空；前端 fork 后切到 2.5D 预览 | 未修 |
-| R-04 | 场记板没有质检结果时也全部打勾 | `ClapperboardQA.tsx:61,98-115` | 没有 `qa_result.items` 时显示灰色 “not judged” | 未修 |
-| R-05 | 评测弹窗的数字全是写死的，标题却写 “live verified”，且和仓库报告对不上 | `EvalModal.tsx:19-40,106,150-168`。写 “20/20 (TPR=1, TNR=1)”，`calibration_20_clips.json` 是 0.95 / TPR 0.929；“0.815 · 39.33s” 找不到来源；0.951 是 2 场景的分数 | 改成读报告文件里的值；去掉 “live verified”，标 “offline eval” | 未修 |
-| R-06 | 提交用的图表板写死了和数据不符的数字 | `build_submission_assets.py:243-245,131`。“81%→100%” 实际是单拍 80.9%、双拍 87.2%、重拍后 97.9%（47 个镜头，1 个全败）；“noul 100%” 实际 0.95；“14/14 音频” 实际 4 段 | 文字从 JSON 里算出来，或删掉这几行 | 未修 |
-| R-07 | baseline 对比不成立 | `eval/stress_test.py:113-146,85-90,33-40`：baseline 和我们问的不是同一组题；只跑 1 次；评的是文字计划不是成片；“1→4 个角色”曲线没意义（代码里只有两个角色的站位）。`eval_cache_savings.py:18-21,85` 是常量算出来的 | 两边用同一组题；标明 plan-level、n=1；删掉角色曲线；省钱数字标 “estimated” | 未修 |
+| R-01 | 没有 key 时后端静默走 mock，健康检查不报 | `neon_director.py:52`、`hydrogen_judge.py:66,204,275,298`、`video_renderer.py:614`、`prop_maker.py:348` 都是 `DEMO_MODE or not GEMINI_API_KEY`；`/api/health`（`main.py:63`）只报 `DEMO_MODE` | health 增加 `live = 有 key 且非 DEMO_MODE`；前端顶部在非 live 时显示 MOCK | 后端已修（`main.py` 返回 `live`/`has_api_key`，待前端接入） |
+| R-02 | 前端 fork 一出错，就悄悄换成一条预制分支 | `stageClient.ts:136-147` 把任何错误变成 `MOCK_BRANCH_2`；`App.tsx:296-306` 照常加入 | catch 里返回错误，显示 “Rewrite failed: …”，不加分支 | 已派发 `W2-FIX-R01-R02` |
+| R-03 | fork 成功但还没渲染时，放的是父分支的旧成片和旧 QA，还挂着 “Omni Flash Render” | 后端 fork 不清 media（`main.py:199-208`）；前端默认 final 视图（`App.tsx:84-86`、`DualCameraStage.tsx:277-281,502-503`） | fork 时把 `needs_rerender` 场景的 `media` 清空；前端 fork 后切到 2.5D 预览 | 后端已修（`main.py` + `neon_director.py` 清空 `SceneMedia()`，待前端接入） |
+| R-04 | 场记板没有质检结果时也全部打勾 | `ClapperboardQA.tsx:61,98-115` | 没有 `qa_result.items` 时显示灰色 “not judged” | 已派发 `W2-FIX-R03-R04` |
+| R-05 | 评测弹窗的数字全是写死的，标题却写 “live verified”，且和仓库报告对不上 | `EvalModal.tsx:19-40,106,150-168`。写 “20/20 (TPR=1, TNR=1)”，`calibration_20_clips.json` 是 0.95 / TPR 0.929；“0.815 · 39.33s” 找不到来源；0.951 是 2 场景的分数 | 改成读报告文件里的值；去掉 “live verified”，标 “offline eval” | 后端已提供 `/api/eval/summary`，已派发 `W2-FIX-R05` |
+| R-06 | 提交用的图表板写死了和数据不符的数字 | `build_submission_assets.py:243-245,131`。“81%→100%” 实际是单拍 80.9%、双拍 87.2%、重拍后 97.9%（47 个镜头，1 个全败）；“noul 100%” 实际 0.95；“14/14 音频” 实际 4 段 | 文字从 JSON 里算出来，或删掉这几行 | 代码已修（`785fb2e` 动态从 JSON 计算，待重生成图表及同步 `build_press_kit.py`） |
+| R-07 | baseline 对比不成立 | `eval/stress_test.py:113-146,85-90,33-40`：baseline 和我们问的不是同一组题；只跑 1 次；评的是文字计划不是成片；“1→4 个角色”曲线没意义（代码里只有两个角色的站位）。`eval_cache_savings.py:18-21,85` 是常量算出来的 | 两边用同一组题；标明 plan-level、n=1；删掉角色曲线；省钱数字标 “estimated” | 已修（`stress_test.py` 统一题集 + `README.md` 诚实标注 `plan-level n=1` 与 `estimated`，`W1-FIX-R07` 同步 JSON 标注） |
 | R-08 | `worker_mcp.py` 监听所有网卡的 8000 端口，没有任何验证 | `worker_mcp.py:8,44-50`。同一 Wi-Fi 的人可以让这台电脑上的 agent 执行任意指令 | 现在就关掉，或绑定 `127.0.0.1` | 未修（仍在运行） |
 
 ## P1：应该修
@@ -46,11 +46,11 @@
 | R-11 | Neon 重写要 28.7 秒，2.5D 预览要等它，“1 秒内预览”不成立 | `neon_director.py:88` 一次生成 3 幕完整 JSON，思考等级默认 high | 思考等级调低（`thinking_level: "low"`）；或让 Hydrogen 先出粗状态驱动预览，Neon 结果回来再校正 | 未修 |
 | R-12 | 2.5D 预览没有体现状态：状态里莉亚跪着、手里没伞、伞在桌下、猫在椅子上；预览里她站着拿伞、猫坐在地上 | `ThreeStageManager.ts:666,693` 伞从不单独画；`props_registry.red_umbrella.image_url` 指向 `lia.png`；没有椅子；动作只影响位移 | 伞做成单独的道具立牌；加一把椅子道具；`kneel` 用缩放或下移表现 | 未修 |
 | R-13 | 质检有漏判：第 3 幕 B 机位伞是撑开放在地上的，“伞是否收起放在桌下”判了通过（0.89） | 题目一次问多个条件，模型抓大放小 | 一题只问一件事；跨机位题门槛提到 0.8；把这一例留作“诚实展示失败”的案例 | 未修 |
-| R-14 | 规则记忆被污染：5 条针对旧剧情的规则（如“第 2 幕花瓶是碎的”）会和“救下花瓶”的改写打架 | `rule_memory.json`；写入点 `main.py:334-337`、`video_renderer.py:725`；读取点 `main.py:187` | 重置成 3 条通用规则；关掉这两处 `add_rule` | 未修 |
-| R-15 | 渲染没有总时限；前端 fork 和 render 没有超时 | `video_renderer.py:45,681,875-901`（每机位 3 次×60s，全在一个请求里）；`stageClient.ts:126,183,304` | `.env` 设 `MAX_QA_RETRIES=1`；`wait_for(render_scene_media, 90)` 超时降级到预览；前端加 `AbortSignal.timeout(45000)` | 未修 |
-| R-16 | Hydrogen 可能改掉用户选的幕 | `main.py:167,194,220` 用的是 `parsed.target_scene_id` | 解析后强制 `parsed.target_scene_id = target_scene_id` | 未修 |
-| R-17 | Neon/Hydrogen 调用没有超时和错误处理，空响应会 500，前端随即落入 R-02 | `genai_client.py:37,146`；`neon_director.py:95` 缺幕不回填 | 45s 超时；缺的幕从父分支回填 | 未修 |
-| R-18 | 失败被替换成编造的值 | `hydrogen_judge.py:191-193` 出错返回 0.85；`prop_maker.py:383-393` 失败返回黄方块并当成功；`video_renderer.py:791` 跨机位检查静默丢弃 | 返回 `degraded` 和原因，前端如实显示 | 未修 |
+| R-14 | 规则记忆被污染：5 条针对旧剧情的规则（如“第 2 幕花瓶是碎的”）会和“救下花瓶”的改写打架 | `rule_memory.json`；写入点 `main.py:334-337`、`video_renderer.py:725`；读取点 `main.py:187` | 重置成 3 条通用规则；关掉这两处 `add_rule` | 后端+JSON已修（`rule_memory.py`+`rule_memory.json`+`main.py`，待 P2 关掉 `video_renderer.py` 处） |
+| R-15 | 渲染没有总时限；前端 fork 和 render 没有超时 | `video_renderer.py:45,681,875-901`（每机位 3 次×60s，全在一个请求里）；`stageClient.ts:126,183,304` | `.env` 设 `MAX_QA_RETRIES=1`；`wait_for(render_scene_media, 90)` 超时降级到预览；前端加 `AbortSignal.timeout(45000)` | 后端已修（`main.py` 95s 超时降级预览，待前端超时） |
+| R-16 | Hydrogen 可能改掉用户选的幕 | `main.py:167,194,220` 用的是 `parsed.target_scene_id` | 解析后强制 `parsed.target_scene_id = target_scene_id` | 已修（`main.py` 强制锁定 `target_scene_id`） |
+| R-17 | Neon/Hydrogen 调用没有超时和错误处理，空响应会 500，前端随即落入 R-02 | `genai_client.py:37,146`；`neon_director.py:95` 缺幕不回填 | 45s 超时；缺的幕从父分支回填 | 已修（`genai_client.py` 45s/20s 超时 + 空响应校验 + `neon_director.py` 缺幕回填） |
+| R-18 | 失败被替换成编造的值 | `hydrogen_judge.py:191-193` 出错返回 0.85；`prop_maker.py:383-393` 失败返回黄方块并当成功；`video_renderer.py:791` 跨机位检查静默丢弃 | 返回 `degraded` 和原因，前端如实显示 | P1 已修（`hydrogen_judge.py` 出错返回 `0.0` + mock 显式标 `MOCK_MODE (unverified)`，待 P2 修 `prop_maker`） |
 | R-19 | 举实物时识别不到手里的东西（Christina 反馈） | 见下面「实物识别问题与修复方案」 | 同左 | 主因已解决（补 key），其余未修 |
 | R-20 | 长按录制有竞态；语音提交会夹带输入框里的旧文字 | `DirectControlBar.tsx:259-294,287,371,563-566` | 加同步 ref 守卫；丢弃不足 1 秒的片段；有 clip 时不带 text，提交后清空 | 未修 |
 | R-21 | 界面不显示“听到了什么、看到了什么” | `rewrite_summary` 前端从不渲染（`App.tsx:305`） | 松手后 3 秒内显示一张卡片：识别到的话、识别到的物体 | 未修 |
@@ -60,8 +60,8 @@
 | R-25 | 13–14 寸屏会裁掉画面 | `index.css:144-160,821-845`（`object-fit: cover`）；Compare 默认打开（`App.tsx:54`） | 改 `contain`；Compare 默认关 | 未修 |
 | R-26 | 拍道具会改当前分支（包括基线 v1）并写盘；Reset Demo 只重置前端 | `main.py:247-254`；`App.tsx:227-249` | 拍道具时先 fork；或 Reset 时让后端恢复 v1 | 未修 |
 | R-27 | 首帧锚定很弱，尾帧存了但没用 | 上传 webm 时首帧 PNG 被丢弃（`main.py:270-279`）；首帧只是当普通参考图加一句话（`video_renderer.py:508,424`）；`main.py:267` | 见 R-09 方案 | 未修 |
-| R-28 | 上传没有校验 | `main.py:271` 扩展名取自客户端文件名；`state_tree.py:46` `branch_id` 直接拼路径 | 扩展名白名单；`branch_id` 用正则校验 | 未修 |
-| R-36 | 室内撑着伞很奇怪：开场第 1 幕莉亚就在屋里撑开伞（Christina 反馈） | 预设第 1 幕写的是 “holding a crimson umbrella”，没说收着还是撑着，模型默认画成撑开；`shared/mock_branch_1.json`、`prompts.py` 里角色描述、质检题 “holding a red umbrella” 都是这个写法。2.5D 立牌里伞本来就是收着的，所以预览和成片对不上 | ① 预设第 1 幕改成收伞：旁白和角色描述写 “a closed (furled) crimson umbrella held at her side, tip down”；② 伞的 `state` 用 `closed` / `open` 记录，默认 `closed`；③ 质检加一题 “Is the red umbrella closed rather than open?”；④ 规则里加一条 “伞在室内保持收起，除非这一幕明确写了撑开”；⑤ 重渲染并重新缓存第 1 幕（以及其他画成撑伞的缓存幕）；⑥ 剧情上只在 HE 结局第 4 幕撑开，让“撑伞”变成一个有意义的动作。和 R-12（伞做成单独道具）一起改 | 未修 |
+| R-28 | 上传没有校验 | `main.py:271` 扩展名取自客户端文件名；`state_tree.py:46` `branch_id` 直接拼路径 | 扩展名白名单；`branch_id` 用正则校验 | 已修（`main.py` 白名单 + `state_tree.py` 正则校验） |
+| R-36 | 室内撑着伞很奇怪：开场第 1 幕莉亚就在屋里撑开伞（Christina 反馈） | 预设第 1 幕写的是 “holding a crimson umbrella”，没说收着还是撑着，模型默认画成撑开；`shared/mock_branch_1.json`、`prompts.py` 里角色描述、质检题 “holding a red umbrella” 都是这个写法。2.5D 立牌里伞本来就是收着的，所以预览和成片对不上 | ① 预设第 1 幕改成收伞：旁白和角色描述写 “a closed (furled) crimson umbrella held at her side, tip down”；② 伞的 `state` 用 `closed` / `open` 记录，默认 `closed`；③ 质检加一题 “Is the red umbrella closed rather than open?”；④ 规则里加一条 “伞在室内保持收起，除非这一幕明确写了撑开”；⑤ 重渲染并重新缓存第 1 幕（以及其他画成撑伞的缓存幕）；⑥ 剧情上只在 HE 结局第 4 幕撑开，让“撑伞”变成一个有意义的动作。和 R-12（伞做成单独道具）一起改 | 规则+Prompt+渲染已修（`785fb2e`，待重渲染第 1 幕缓存及独立伞立牌） |
 
 ## P2：有空再修
 
@@ -73,7 +73,7 @@
 | R-32 | Compare 面板里 “Baseline” 有两种意思（左边 “Baseline: HE…”，右边 “Active: BE…(Baseline)”） | 左边改 “Before”，右边改 “After”；“Baseline” 只指 BE 原始线 | 未修 |
 | R-33 | 全局热键 R / C / Tab 容易误触；Clean View 会藏掉 mock 标记 | 热键加 Alt；标记常显 | 未修 |
 | R-34 | 仓库里有未跟踪的 `branch_v5.json`（mock 模式下生成的假分支），会出现在剧情树里 | 演示前删掉 | 未修 |
-| R-35 | judge 的文件还叫 `hydrogen_judge.py`，health 里 judge 报的是 Hydrogen（`main.py:66`） | health 加一项 `decision: gemini-decision-1` | 未修 |
+| R-35 | judge 的文件还叫 `hydrogen_judge.py`，health 里 judge 报的是 Hydrogen（`main.py:66`） | health 加一项 `decision: gemini-decision-1` | 已修（`main.py` `/api/health` 已增加 `decision`） |
 
 ---
 
