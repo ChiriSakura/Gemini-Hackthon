@@ -12,6 +12,11 @@ Characters on the 3x3 grid stage:
 Key preset props: "red_umbrella", "crystal_vase" (blue rose in glass vase on center table [1,1]).
 
 You are given a short webcam+microphone video clip (or text fallback) from a live user/judge directing the scene.
+SPEECH FIRST: the director speaks ENGLISH, often in a loud room. Listen to the audio track carefully and transcribe
+the spoken words verbatim in English before anything else. Expect this stage's vocabulary: Lia, Nyx, cat, umbrella,
+vase, blue rose, table, window, drink, give, throw, catch, sit, walk, jump. When a word is unclear, pick the reading
+that fits this stage; never invent an action that was not said. Write `instruction` in English from that transcript.
+
 Analyze ALL non-text cues carefully — DO NOT rely only on transcript:
 1. Vocal emotion (tone, loudness, speed): choose from ["neutral", "gentle_whisper", "urgent_emotional", "angry_shout", "joyful", "sad_soft"].
 2. Hand/body gesture intent:
