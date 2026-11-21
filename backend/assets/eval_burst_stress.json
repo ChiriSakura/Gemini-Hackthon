@@ -1,15 +1,32 @@
 {
-  "generated_at": "2026-11-21T13:39:34",
-  "concurrent_ops": [
-    "create_prop(t6i_burst_moon_compass)",
-    "render_scene_media(S3 dual-cam)"
-  ],
-  "wall_latency_sec": 49.56,
-  "deadlock_free": true,
-  "collision_free": true,
-  "created_prop_id": "t6i_burst_moon_compass",
-  "rendered_qa_score": 0.902,
-  "rendered_qa_retries": 0,
-  "cam_a_generated": true,
-  "cam_b_generated": true
+  "generated_at": "2026-11-21T14:17:03",
+  "all_passed": true,
+  "scene_ref_pruning": {
+    "passed": true,
+    "selected_refs": [
+      "lia_clean_ref.png",
+      "nyx.png",
+      "crystal_vase.png",
+      "star_token.png",
+      "showcase_desk_coffee_mug.png"
+    ],
+    "pruned_unused_count": 3
+  },
+  "retry_regression_guard": {
+    "passed": true,
+    "attempt_0_score": 0.72,
+    "attempt_1_score": 0.45,
+    "preserved_score": 0.72,
+    "retries": 2
+  },
+  "concurrent_burst_stress": {
+    "passed": true,
+    "concurrent_jobs": 6,
+    "elapsed_sec": 0.018,
+    "unique_prop_ids": 3,
+    "unique_cam_a_outputs": 3,
+    "unique_cam_b_outputs": 3,
+    "upload_cache_mtime_invalidation_ok": true,
+    "zero_deadlocks_or_collisions": true
+  }
 }

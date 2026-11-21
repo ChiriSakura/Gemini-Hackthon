@@ -51,9 +51,11 @@ def _slugify(name: str) -> str:
 
 
 _PROP_HEIGHT_KEYWORDS: list[tuple[tuple[str, ...], float]] = [
-    (("star", "token", "ring", "coin", "key", "charm", "badge", "brooch", "星", "信物", "胸牌", "钥匙"), 0.10),
+    (("key", "ring", "coin", "brooch", "badge", "钥匙", "戒指", "硬币", "胸牌"), 0.08),
+    (("heart", "origami", "crane", "watch", "pocket_watch", "pocket watch", "心", "千纸鹤", "怀表"), 0.09),
+    (("star", "token", "charm", "星", "信物"), 0.10),
     (("cup", "mug", "can", "cola", "coffee", "apple", "teacup", "杯", "罐", "可乐", "咖啡"), 0.13),
-    (("book", "diary", "letter", "phone", "bottle", "jar", "书", "信", "瓶"), 0.22),
+    (("quill", "pen", "feather", "wand", "book", "diary", "letter", "phone", "bottle", "jar", "羽毛笔", "书", "信", "瓶"), 0.22),
     (("lantern", "lamp", "candle", "bouquet", "flower", "rose", "灯", "花束"), 0.28),
     (("vase", "crystal_vase", "花瓶"), 0.32),
     (("plush", "bear", "doll", "box", "gift", "bag", "礼盒", "玩偶"), 0.36),
@@ -72,6 +74,23 @@ def estimate_prop_height_m(name: str, description: str = "") -> float:
     return 0.22
 
 
+def _create_ascii_temp_file(suffix: str) -> Path:
+    """Create a temporary file at an ASCII-safe path so Windows OpenCV never fails on Unicode paths."""
+    tmp_dir = Path(tempfile.gettempdir())
+    if not str(tmp_dir).isascii():
+        fallback_dir = Path("C:/Windows/Temp") if Path("C:/Windows/Temp").exists() else Path("/tmp")
+        if fallback_dir.exists():
+            tmp_dir = fallback_dir
+    with tempfile.NamedTemporaryFile(suffix=suffix, dir=str(tmp_dir), delete=False) as tmp:
+        return Path(tmp.name)
+
+
+def _frame_sharpness_score(frame: np.ndarray) -> float:
+    """Compute Laplacian variance sharpness metric (higher = crisper, less motion blur)."""
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    return float(cv2.Laplacian(gray, cv2.CV_64F).var())
+
+
 def _extract_image_from_bytes(
     raw_bytes: bytes,
     timestamp_sec: Optional[float] = None,
@@ -81,7 +100,8 @@ def _extract_image_from_bytes(
 
     When `/api/director/fork` forwards a 3s `.webm` clip as `camera_frame_bytes`, seeks to
     `timestamp_sec` (when provided by Hydrogen `prop_frame_timestamp_sec`) or the midpoint
-    frame via OpenCV so the image model receives the sharpest RGB still.
+    frame via OpenCV, picking the sharpest frame within a small `±0.20s` window to reject
+    handheld motion blur and dark fade-in frames.
     """
     if not raw_bytes:
         return None
@@ -97,36 +117,47 @@ def _extract_image_from_bytes(
         pass
 
     # Fallback: treat bytes as a short video clip (e.g. webcam `.webm`) and grab target/midpoint frame.
-    tmp_path = None
+    tmp_path: Optional[Path] = None
     try:
-        with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as tmp:
-            tmp.write(raw_bytes)
-            tmp_path = tmp.name
-        cap = cv2.VideoCapture(tmp_path)
+        tmp_path = _create_ascii_temp_file(".webm")
+        tmp_path.write_bytes(raw_bytes)
+        cap = cv2.VideoCapture(str(tmp_path))
         total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
-        frame = None
+        est_fps = fps if 1.0 <= fps <= 120.0 else 30.0
+        frame: Optional[np.ndarray] = None
 
-        if timestamp_sec is not None and timestamp_sec >= 0.0:
-            cap.set(cv2.CAP_PROP_POS_MSEC, timestamp_sec * 1000.0)
-            ok, cand = cap.read()
-            if ok and cand is not None:
-                frame = cand
-            elif fps > 1.0:
-                target_idx = int(round(timestamp_sec * fps))
-                if total > 1:
-                    target_idx = max(0, min(total - 1, target_idx))
+        # Decode up to 150 frames sequentially when needed (Chrome MediaRecorder .webm often has total <= 0)
+        # OR sample a local sharpness window around `timestamp_sec` when random seek works.
+        if timestamp_sec is not None and timestamp_sec >= 0.0 and total > 1:
+            candidates: list[np.ndarray] = []
+            for delta in (0.0, -0.10, 0.10, -0.20, 0.20):
+                t_ms = max(0.0, (timestamp_sec + delta) * 1000.0)
+                cap.set(cv2.CAP_PROP_POS_MSEC, t_ms)
+                ok, cand = cap.read()
+                if ok and cand is not None and float(np.mean(cand)) > 4.0:
+                    candidates.append(cand)
+            if not candidates and fps > 1.0:
+                target_idx = max(0, min(total - 1, int(round(timestamp_sec * fps))))
                 cap.set(cv2.CAP_PROP_POS_FRAMES, target_idx)
                 ok, cand = cap.read()
                 if ok and cand is not None:
-                    frame = cand
+                    candidates.append(cand)
+            if candidates:
+                frame = max(candidates, key=_frame_sharpness_score)
         elif total > 1:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, total // 2)
-            ok, cand = cap.read()
-            if ok and cand is not None:
-                frame = cand
+            mid = total // 2
+            candidates = []
+            for offset in (0, -2, 2, -4, 4):
+                idx = max(0, min(total - 1, mid + offset))
+                cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+                ok, cand = cap.read()
+                if ok and cand is not None and float(np.mean(cand)) > 4.0:
+                    candidates.append(cand)
+            if candidates:
+                frame = max(candidates, key=_frame_sharpness_score)
 
-        # Handle Chrome MediaRecorder .webm clips where CAP_PROP_FRAME_COUNT <= 0.
+        # Handle Chrome MediaRecorder .webm clips where CAP_PROP_FRAME_COUNT <= 0 or seek failed.
         if frame is None:
             cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
             decoded_frames: list[np.ndarray] = []
@@ -137,11 +168,14 @@ def _extract_image_from_bytes(
                 decoded_frames.append(cand)
             if decoded_frames:
                 if timestamp_sec is not None and timestamp_sec >= 0.0:
-                    est_fps = fps if 1.0 <= fps <= 120.0 else 30.0
-                    idx = max(0, min(len(decoded_frames) - 1, int(round(timestamp_sec * est_fps))))
+                    center_idx = max(0, min(len(decoded_frames) - 1, int(round(timestamp_sec * est_fps))))
                 else:
-                    idx = len(decoded_frames) // 2
-                frame = decoded_frames[idx]
+                    center_idx = len(decoded_frames) // 2
+                radius = max(1, int(round(0.15 * est_fps)))
+                lo = max(0, center_idx - radius)
+                hi = min(len(decoded_frames), center_idx + radius + 1)
+                window = [f for f in decoded_frames[lo:hi] if float(np.mean(f)) > 4.0] or [decoded_frames[center_idx]]
+                frame = max(window, key=_frame_sharpness_score)
 
         cap.release()
         if frame is not None:
@@ -151,8 +185,8 @@ def _extract_image_from_bytes(
     except Exception:
         pass
     finally:
-        if tmp_path:
-            Path(tmp_path).unlink(missing_ok=True)
+        if tmp_path is not None:
+            tmp_path.unlink(missing_ok=True)
     return None
 
 
@@ -197,19 +231,32 @@ def _chroma_key_green_to_rgba(raw_image_bytes: bytes, max_size: int = 512) -> Im
     border_labels.discard(0)
     bg_mask = np.isin(labels, list(border_labels))
 
-    # Also clear neon chroma-green interior loops (e.g. inside pocket-watch/lantern rings).
+    # Also clear chroma-green interior cutouts (tiny gaps inside chain links, key bows,
+    # filigree, and larger pure-chroma handle loops) while keeping real green props intact.
     for lbl in range(1, num_labels):
         if lbl in border_labels:
             continue
         area = int(stats[lbl, cv2.CC_STAT_AREA])
-        if area < 20:
-            continue
         region = labels == lbl
         med_excess = float(np.median(green_excess[region]))
         med_sat = float(np.median(s_chan[region]))
         med_val = float(np.median(v_chan[region]))
         med_hue = float(np.median(h_chan[region]))
-        if med_excess > 140.0 and med_sat > 210.0 and med_val > 205.0 and 50.0 <= med_hue <= 70.0:
+        is_tiny_filigree_hole = (
+            area <= 250
+            and med_excess >= 42.0
+            and med_sat >= 100.0
+            and med_val >= 80.0
+            and 42.0 <= med_hue <= 82.0
+        )
+        is_large_neon_loop = (
+            area > 250
+            and med_excess > 140.0
+            and med_sat > 210.0
+            and med_val > 205.0
+            and 50.0 <= med_hue <= 70.0
+        )
+        if is_tiny_filigree_hole or is_large_neon_loop:
             bg_mask |= region
 
     alpha = np.where(bg_mask, 0.0, 255.0).astype(np.float32)
@@ -230,12 +277,18 @@ def _chroma_key_green_to_rgba(raw_image_bytes: bytes, max_size: int = 512) -> Im
     # Despill green cast strictly along the outer boundary band (including opaque 2px rim pixels)
     # so zero green halo survives while interior green props remain untouched.
     despill_mask = boundary_band & (alpha > 0) & (green_excess > 8)
-    g_despilled = np.where(despill_mask, np.minimum(g, np.maximum(r, b) + 4), g)
+    g_despilled = np.where(despill_mask, np.minimum(g, np.maximum(r, b)), g)
 
-    # Also suppress any isolated neon chroma-green rim pixels bordering transparent alpha.
-    dilated_outer = cv2.dilate(bg_u8, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)), iterations=1)
-    tight_rim = (dilated_outer > 0) & (~bg_mask) & (alpha >= 200) & (h_chan >= 35) & (h_chan <= 95) & (s_chan >= 70) & (green_excess > 12)
+    # Clear faint translucent green fringe (< 180 alpha) completely and suppress neon rim pixels.
+    clear_fringe = boundary_band & (alpha > 0) & (alpha < 180) & (h_chan >= 34) & (h_chan <= 96) & (green_excess > 14)
+    alpha = np.where(clear_fringe, 0.0, alpha)
+
+    dilated_outer = cv2.dilate(bg_u8, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)), iterations=1)
+    tight_rim = (dilated_outer > 0) & (~bg_mask) & (alpha > 0) & (h_chan >= 34) & (h_chan <= 96) & (s_chan >= 45) & (green_excess > 12)
     g_despilled = np.where(tight_rim, np.minimum(g_despilled, np.maximum(r, b)), g_despilled)
+
+    # Strip invisible alpha dust (< 16) so bounding box & Three.js sprite base are razor-crisp.
+    alpha = np.where(alpha < 16.0, 0.0, alpha)
 
     rgba_bgr = np.stack(
         [
@@ -253,7 +306,7 @@ def _chroma_key_green_to_rgba(raw_image_bytes: bytes, max_size: int = 512) -> Im
     # so Three.js sprites with center=(0.5, 0.0) rest directly on surfaces without hovering.
     bbox = pil_img.getbbox()
     if bbox:
-        pad = 10
+        pad = 6
         x0 = max(0, bbox[0] - pad)
         y0 = max(0, bbox[1] - pad)
         x1 = min(pil_img.width, bbox[2] + pad)
@@ -262,7 +315,23 @@ def _chroma_key_green_to_rgba(raw_image_bytes: bytes, max_size: int = 512) -> Im
 
     if max(pil_img.width, pil_img.height) > max_size:
         pil_img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
-    return pil_img
+
+    # Post-thumbnail sanitization: LANCZOS downscaling can introduce 1px translucent bottom rows
+    # or faint green anti-aliased edge pixels; enforce 0px bottom gap & zero translucent green spill.
+    final_arr = np.array(pil_img, dtype=np.uint8)
+    fa = final_arr[:, :, 3]
+    fa = np.where(fa < 16, 0, fa).astype(np.uint8)
+    fr = final_arr[:, :, 0].astype(np.int16)
+    fg = final_arr[:, :, 1].astype(np.int16)
+    fb = final_arr[:, :, 2].astype(np.int16)
+    translucent_green = (fa > 0) & (fa < 252) & (fg > np.maximum(fr, fb))
+    fg = np.where(translucent_green, np.maximum(fr, fb), fg)
+    final_arr[:, :, 1] = np.clip(fg, 0, 255).astype(np.uint8)
+    final_arr[:, :, 3] = fa
+    ys_final = np.where(fa >= 16)[0]
+    if len(ys_final) > 0:
+        final_arr = final_arr[: int(ys_final.max()) + 1, :, :]
+    return Image.fromarray(final_arr, mode="RGBA")
 
 
 def _generate_prop_sync(
@@ -279,6 +348,8 @@ def _generate_prop_sync(
         f"Create a single centered 2D anime visual-novel stage prop illustration of '{name}' "
         f"({desc_text}). Style: crisp hand-painted anime cel-shaded game prop, clean silhouette, "
         "front-facing 3/4 view, NO human hands, NO characters, NO text, NO watermark. "
+        "Use warm rich ivory, gold, brass, crimson, amber, ceramic white, silver, or sapphire tones on the prop "
+        "(avoid neon green or emerald reflections on the prop itself unless explicitly requested). "
         "Place the object completely isolated on a flat, uniform, solid bright chroma-key green "
         "background (#00FF00) with zero floor shadows and zero green spill on the prop."
     )

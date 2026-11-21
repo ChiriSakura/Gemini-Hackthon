@@ -2,34 +2,9 @@
   "worker": "worker-2 (P3)",
   "branch": "feat/w2-frontend",
   "pull_main_first": true,
-  "batch_deadline": "16:50",
   "feature_freeze": true,
+  "status": "ALL_COMPLETE_FEATURE_FROZEN_READY_FOR_PITCH",
   "owned_paths": ["frontend/**", "tasks/status_P3.json"],
-  "note": "Master merged cfee377 (`npm run verify` passed 100%!). However, running `node scripts/smoke_preview.mjs` on Master's Windows Node v24 caught `Error: spawn EINVAL` on line 45 (`spawn('npx.cmd', ...)` without shell fails under Node CVE-2024-27980). Pull main first and knock out these 4 zero-risk script & offline-asset fixes (no UI component edits!).",
-  "parallel_tasks": [
-    {
-      "task_id": "W2-T12A",
-      "priority": "P0",
-      "title": "Fix `smoke_preview.mjs` Windows Node v24 `spawn EINVAL` Bug",
-      "details": "In `frontend/scripts/smoke_preview.mjs`: replace `spawn(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['vite', ...])` with `spawn(process.execPath, [path.join(frontendDir, 'node_modules', 'vite', 'bin', 'vite.js'), 'preview', '--host', '127.0.0.1', '--port', String(PORT), '--strictPort'], { cwd: frontendDir, stdio: ['ignore', 'pipe', 'pipe'] })` so it passes cleanly on Windows Node v24, macOS, and Linux without `shell: true`."
-    },
-    {
-      "task_id": "W2-T12B",
-      "priority": "P1",
-      "title": "Ensure `stage_concept_split.png` & Showcase Desk Fallback Coverage Under `frontend/public/assets/`",
-      "details": "Verify `frontend/public/assets/` has all key fallback PNGs (`actors/lia.png`, `actors/nyx.png`, `props/crystal_vase.png`, `props/crystal_vase_broken.png`, `props/star_token.png`, `concept/stage_concept_split.png`) and extend `smoke_preview.mjs` ENDPOINTS to check them all with HTTP 200."
-    },
-    {
-      "task_id": "W2-T12C",
-      "priority": "P1",
-      "title": "Chain `smoke_preview.mjs` Into `npm run verify` in `frontend/package.json`",
-      "details": "Once `W2-T12A` is fixed cross-platform, add `&& node scripts/smoke_preview.mjs` onto `frontend/package.json` `verify` script so one command tests TypeScript, bundle build, 0-CJK locale, disk assets, helper unit tests, and live HTTP 200 preview serving."
-    },
-    {
-      "task_id": "W2-T12D",
-      "priority": "P0",
-      "title": "Re-Verify Full `npm run verify` After Windows Fix & Lock `tasks/status_P3.json`",
-      "details": "Run `npm run verify` cleanly, confirm 0 errors across all 6 checks, and update `tasks/status_P3.json`."
-    }
-  ]
+  "note": "Master merged 10fd4a3 and verified all 6 `npm run verify` gates pass 100% on Windows Node v24 (tsc, build 882ms, 0-CJK locale, 13 actor/prop assets, 9 submission assets, test_stage_helpers, and 10/10 HTTP 200 smoke_preview!). Frontend is now FEATURE FROZEN and ready for live booth rehearsal. No further tasks queued unless rehearsal reveals a UI bug.",
+  "parallel_tasks": []
 }
