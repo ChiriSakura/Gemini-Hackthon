@@ -30,10 +30,10 @@
 | 前端第二批（录制防重复、短片段丢弃、显示 Heard / Saw、真实等待计时、Before / After 标签、超时） | 代码已完成并通过 `npm run verify`，在本次提交里；**没有用真实摄像头和麦克风试过** |
 | 开场收伞 | 基线第 1–3 幕、盾牌分支第 3 幕已重渲染并设为存档。两条 HE 存档分支的第 2–3 幕本来就是伞放在地上，没动。**没有人工逐段复查过全部存档片** |
 | B 机位 45° 且画面不歪 | 提示词已改。新渲染的片子大多数是正的，**个别片子开头 1 秒仍有黑边**（原因见 R-40） |
-| 提交图表板和 12 秒片尾 | 已由 Master 重新生成并合并至 `main`（`e921f58`，29/29 MP4 H.264+AAC 预检通过）；仅待 P2 同步 `build_press_kit.py` TTS 口播文案 |
-| A/B 机位一致性的根本修法（固定布景图、B 从 A 推出来） | 没做，已派给 P2（`W1-V2-03`），方案在下面 |
-| R-38 并发渲染覆盖 / R-41 导演慢 / R-39 输入过滤 / R-40 起始帧黑边 | **R-38 已修**（分支级异步锁+原子单幕写回），**R-41 已加单幕 `/api/director/extend` 与 `/api/director/perceive`**；R-39/R-40 待 P2/P3 落地 |
-| 其余 P1 / P2 条目 | **R-15、R-16、R-17、R-18(P1)、R-28 已在 `main` 修复**；剩余 R-12、R-13、R-18(P2 `prop_maker`)、R-24、R-26、R-27、R-33 已在 `queue_W1`/`queue_W2` 跟进 |
+| 提交图表板和 12 秒片尾 | **100% 已完成并合并至 `main`**（`e921f58` 动态重生成图表板+12s片尾，`3dd0de6` 同步 `build_press_kit.py` TTS 55.5s 配音/字幕与架构图，29/29 MP4 H.264+AAC 预检通过） |
+| A/B 机位一致性的根本修法（固定布景图、B 从 A 推出来） | **已合入 `main`（`3dd0de6`）**：已生成 `conservatory_cam_a/b.png` 固定空房参考与独立 `red_umbrella_closed/open.png`、`wooden_chair.png` 并注入渲染参考 + `CROSS_CAM_THRESHOLD=0.80` 三题拆分 |
+| R-38 并发渲染覆盖 / R-41 导演慢 / R-39 输入过滤 / R-40 起始帧黑边 | **R-38、R-40(尾帧裁黑边)、R-41(单幕 `/extend` + `/perceive` + `fast_live_mode`) 已合入 `main`**；R-39 已做温和措辞+降级，待 P3 加界面提示条 |
+| 其余 P1 / P2 条目 | **R-09、R-10、R-13、R-14、R-15(后端)、R-16、R-17、R-18(全栈)、R-28 已合入 `main`**；剩余 R-12/R-24/R-26/R-33 待 P3 接入 `ThreeStageManager` 与前端 |
 
 **先说清楚：存档不是问题。** 提前跑好的存档分支（`branch_v1`–`v4`）是今天真实生成的结果，留着是为了演示时能立刻展示成品。系统要同时支持两条路：**看存档（Saved）**和**实时生成（Live）**。下面表格里凡是写 “mock / 预制分支” 的地方，指的都是“实时请求失败时界面没有说明、悄悄切到了存档”这件事，不是说存档本身有问题。
 
@@ -85,7 +85,7 @@
 | R-03 | fork 成功但还没渲染时，放的是父分支的旧成片和旧 QA，还挂着 “Omni Flash Render” | 后端 fork 不清 media（`main.py:199-208`）；前端默认 final 视图（`App.tsx:84-86`、`DualCameraStage.tsx:277-281,502-503`） | fork 时把 `needs_rerender` 场景的 `media` 清空；前端 fork 后切到 2.5D 预览 | 已修（后端 `215417f` + 前端 `6bb0954` `hasOwnFinalMedia`） |
 | R-04 | 场记板没有质检结果时也全部打勾 | `ClapperboardQA.tsx:61,98-115` | 没有 `qa_result.items` 时显示灰色 “not judged” | 已修（`6bb0954`） |
 | R-05 | 评测弹窗的数字全是写死的，标题却写 “live verified”，且和仓库报告对不上 | `EvalModal.tsx:19-40,106,150-168`。写 “20/20 (TPR=1, TNR=1)”，`calibration_20_clips.json` 是 0.95 / TPR 0.929；“0.815 · 39.33s” 找不到来源；0.951 是 2 场景的分数 | 改成读报告文件里的值；去掉 “live verified”，标 “offline eval” | 已修（`6bb0954` 动态读报告文件并移除无来源行与角色曲线） |
-| R-06 | 提交用的图表板写死了和数据不符的数字 | `build_submission_assets.py:243-245,131`。“81%→100%” 实际是单拍 80.9%、双拍 87.2%、重拍后 97.9%（47 个镜头，1 个全败）；“noul 100%” 实际 0.95；“14/14 音频” 实际 4 段 | 文字从 JSON 里算出来，或删掉这几行 | 已修（`785fb2e` 动态计算 + 已重生成 `eval_charts_board.png` & `eval_dashboard_12s.mp4`；待同步 `build_press_kit.py` TTS 口播） |
+| R-06 | 提交用的图表板写死了和数据不符的数字 | `build_submission_assets.py:243-245,131`。“81%→100%” 实际是单拍 80.9%、双拍 87.2%、重拍后 97.9%（47 个镜头，1 个全败）；“noul 100%” 实际 0.95；“14/14 音频” 实际 4 段 | 文字从 JSON 里算出来，或删掉这几行 | 已修（`785fb2e` 动态计算 + `e921f58` 重生成图表板/12s片尾 + `3dd0de6` 同步 `build_press_kit.py` 55.5s TTS 口播/字幕与架构图） |
 | R-07 | baseline 对比不成立 | `eval/stress_test.py:113-146,85-90,33-40`：baseline 和我们问的不是同一组题；只跑 1 次；评的是文字计划不是成片；“1→4 个角色”曲线没意义（代码里只有两个角色的站位）。`eval_cache_savings.py:18-21,85` 是常量算出来的 | 两边用同一组题；标明 plan-level、n=1；删掉角色曲线；省钱数字标 “estimated” | 已修（`stress_test.py` 统一题集 + `README.md` 诚实标注 `plan-level n=1` 与 `estimated`，`W1-FIX-R07` 同步 JSON 标注） |
 | R-08 | `worker_mcp.py` 监听所有网卡的 8000 端口，没有任何验证 | `worker_mcp.py:8,44-50`。同一 Wi-Fi 的人可以让这台电脑上的 agent 执行任意指令 | 现在就关掉，或绑定 `127.0.0.1` | 未修（仍在运行） |
 
@@ -99,14 +99,14 @@
 | R-12 | 2.5D 预览没有体现状态：状态里莉亚跪着、手里没伞、伞在桌下、猫在椅子上；预览里她站着拿伞、猫坐在地上 | `ThreeStageManager.ts:666,693` 伞从不单独画；`props_registry.red_umbrella.image_url` 指向 `lia.png`；没有椅子；动作只影响位移 | 伞做成单独的道具立牌；加一把椅子道具；`kneel` 用缩放或下移表现 | P2 道具资产已备好（`red_umbrella_closed/open.png`, `wooden_chair.png`），待 P3 `ThreeStageManager` 接入 |
 | R-13 | 质检有漏判：第 3 幕 B 机位伞是撑开放在地上的，“伞是否收起放在桌下”判了通过（0.89） | 题目一次问多个条件，模型抓大放小 | 一题只问一件事；跨机位题门槛提到 0.8；把这一例留作“诚实展示失败”的案例 | P2 已修（`W1-V2-04`：`CROSS_CAM_THRESHOLD = 0.80` + 单条件三题拆分判定） |
 | R-14 | 规则记忆被污染：5 条针对旧剧情的规则（如“第 2 幕花瓶是碎的”）会和“救下花瓶”的改写打架 | `rule_memory.json`；写入点 `main.py:334-337`、`video_renderer.py:725`；读取点 `main.py:187` | 重置成 3 条通用规则；关掉这两处 `add_rule` | 已修（`W1-V2-04` 已移除 `video_renderer.py` 自动写规则，两端全停写） |
-| R-15 | 渲染没有总时限；前端 fork 和 render 没有超时 | `video_renderer.py:45,681,875-901`（每机位 3 次×60s，全在一个请求里）；`stageClient.ts:126,183,304` | `.env` 设 `MAX_QA_RETRIES=1`；`wait_for(render_scene_media, 90)` 超时降级到预览；前端加 `AbortSignal.timeout(45000)` | 后端已修（`main.py` 95s 超时降级预览，待前端超时） |
+| R-15 | 渲染没有总时限；前端 fork 和 render 没有超时 | `video_renderer.py:45,681,875-901`（每机位 3 次×60s，全在一个请求里）；`stageClient.ts:126,183,304` | `.env` 设 `MAX_QA_RETRIES=1`；`wait_for(render_scene_media, 90)` 超时降级到预览；前端加 `AbortSignal.timeout(45000)` | 已修（后端 `main.py` 95s 超时降级预览 + 前端 `d882633` 45s/105s/90s `AbortSignal.timeout`） |
 | R-16 | Hydrogen 可能改掉用户选的幕 | `main.py:167,194,220` 用的是 `parsed.target_scene_id` | 解析后强制 `parsed.target_scene_id = target_scene_id` | 已修（`main.py` 强制锁定 `target_scene_id`） |
 | R-17 | Neon/Hydrogen 调用没有超时和错误处理，空响应会 500，前端随即落入 R-02 | `genai_client.py:37,146`；`neon_director.py:95` 缺幕不回填 | 45s 超时；缺的幕从父分支回填 | 已修（`genai_client.py` 45s/20s 超时 + 空响应校验 + `neon_director.py` 缺幕回填） |
-| R-18 | 失败被替换成编造的值 | `hydrogen_judge.py:191-193` 出错返回 0.85；`prop_maker.py:383-393` 失败返回黄方块并当成功；`video_renderer.py:791` 跨机位检查静默丢弃 | 返回 `degraded` 和原因，前端如实显示 | P1 已修（`hydrogen_judge.py` 出错返回 `0.0` + mock 显式标 `MOCK_MODE (unverified)`，待 P2 修 `prop_maker`） |
-| R-19 | 举实物时识别不到手里的东西（Christina 反馈） | 见下面「实物识别问题与修复方案」 | 同左 | 主因已解决（补 key），其余未修 |
-| R-20 | 长按录制有竞态；语音提交会夹带输入框里的旧文字 | `DirectControlBar.tsx:259-294,287,371,563-566` | 加同步 ref 守卫；丢弃不足 1 秒的片段；有 clip 时不带 text，提交后清空 | 未修 |
-| R-21 | 界面不显示“听到了什么、看到了什么” | `rewrite_summary` 前端从不渲染（`App.tsx:305`） | 松手后 3 秒内显示一张卡片：识别到的话、识别到的物体 | 已部分完成（`d882633` 已在状态栏显示，后端已暴露 `POST /api/director/perceive` 实现 2s 首屏回显，待 `W2-V2-06` 串联） |
-| R-22 | 流水线进度是定时器假装的 | `App.tsx:267-271,328-331` | 改成 “Waiting for backend… Ns”，或用后端的 `/api/media/progress` | 未修 |
+| R-18 | 失败被替换成编造的值 | `hydrogen_judge.py:191-193` 出错返回 0.85；`prop_maker.py:383-393` 失败返回黄方块并当成功；`video_renderer.py:791` 跨机位检查静默丢弃 | 返回 `degraded` 和原因，前端如实显示 | 已修（`hydrogen_judge.py` 出错返回 `0.0` + `MOCK_MODE (unverified)`；`prop_maker.py` `3dd0de6` 显式标 `degraded_fallback` / `mock_placeholder`） |
+| R-19 | 举实物时识别不到手里的东西（Christina 反馈） | 见下面「实物识别问题与修复方案」 | 同左 | 主因已解决（补 key + `3dd0de6` 30s `detect_throw_peak` 抛入峰值提取），待前端 30s 录制窗实测 |
+| R-20 | 长按录制有竞态；语音提交会夹带输入框里的旧文字 | `DirectControlBar.tsx:259-294,287,371,563-566` | 加同步 ref 守卫；丢弃不足 1 秒的片段；有 clip 时不带 text，提交后清空 | 已修（`d882633` 代码已合入并过 `npm run verify`，待真实麦/摄实测） |
+| R-21 | 界面不显示“听到了什么、看到了什么” | `rewrite_summary` 前端从不渲染（`App.tsx:305`） | 松手后 3 秒内显示一张卡片：识别到的话、识别到的物体 | 已部分完成（`d882633` 已在状态栏显示，后端已暴露 `POST /api/director/perceive` 实现 2s 首屏回显，待 `W2-V2-04` 串联） |
+| R-22 | 流水线进度是定时器假装的 | `App.tsx:267-271,328-331` | 改成 “Waiting for backend… Ns”，或用后端的 `/api/media/progress` | 已修（`d882633`/`3154c34` `WaitingBanner` 如实显示等待秒数） |
 | R-23 | 分支树标签不准：缓存分支全写 “Reused (0s)”“100% rerender saved” | `StoryBranchTree.tsx:106-111,131-134,184` | 只按 `reused_from_branch` 判断；预渲染的标 “Cached” | 已修（`6bb0954`: `Reused` / `Cached` / `Rendered` / `Not rendered`） |
 | R-24 | 立牌大小按角色写死，没有高度字段；中心锚定；碎花瓶悬空约 0.1 | `ThreeStageManager.ts:548-549,722-728,954-956` | 加 `height` 字段；锚点放脚底 | 未修 |
 | R-25 | 13–14 寸屏会裁掉画面 | `index.css:144-160,821-845`（`object-fit: cover`）；Compare 默认打开（`App.tsx:54`） | 改 `contain`；Compare 默认关 | 未修 |
