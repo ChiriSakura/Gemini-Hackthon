@@ -8,9 +8,16 @@
  *   switching to `/assets/props/crystal_vase_broken.png` when broken) and live
  *   per-scene state badges (`intact` / `broken` / `held` / `glowing`).
  */
-import React from 'react';
+import React, { useState } from 'react';
 import type { PropRegistryItem, Scene } from '../types/schema';
 import { getPropNameEn } from '../utils/displayLocale';
+
+function getPropFallbackEmoji(propId: string): string {
+  if (propId.includes('umbrella')) return '☂️';
+  if (propId.includes('vase')) return '🏺';
+  if (propId.includes('star')) return '⭐';
+  return '✨';
+}
 
 interface ClapperboardQAProps {
   scene: Scene;
@@ -23,6 +30,7 @@ export const ClapperboardQA: React.FC<ClapperboardQAProps> = ({
   rules,
   propsRegistry,
 }) => {
+  const [failedThumbUrls, setFailedThumbUrls] = useState<Record<string, boolean>>({});
   const media = scene.media;
   const qaItems = media.qa_result?.items;
   const scorePct = Math.round((media.qa_score ?? 0) * 100);
@@ -82,10 +90,15 @@ export const ClapperboardQA: React.FC<ClapperboardQAProps> = ({
           {propEntries.map(([id, item]) => {
             const label = getPropNameEn(id, item);
             const liveState = resolveLivePropState(id, item.state);
-            const thumbUrl =
+            const preferredThumbUrl =
               id === 'crystal_vase' && liveState === 'broken'
                 ? '/assets/props/crystal_vase_broken.png'
                 : item.image_url;
+            const resolvedThumbUrl = failedThumbUrls[preferredThumbUrl]
+              ? item.image_url
+              : preferredThumbUrl;
+            const showThumbImg =
+              Boolean(resolvedThumbUrl) && !failedThumbUrls[resolvedThumbUrl];
             const stateClass =
               liveState === 'broken'
                 ? 'fail'
@@ -100,19 +113,22 @@ export const ClapperboardQA: React.FC<ClapperboardQAProps> = ({
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}
                 title={`${label} · state=${liveState} · origin=${item.origin}`}
               >
-                <img
-                  src={thumbUrl}
-                  alt={label}
-                  style={{ width: 18, height: 18, objectFit: 'contain' }}
-                  onError={(e) => {
-                    const img = e.currentTarget as HTMLImageElement;
-                    if (img.src.includes('crystal_vase_broken')) {
-                      img.src = item.image_url;
-                    } else {
-                      img.style.display = 'none';
-                    }
-                  }}
-                />
+                {showThumbImg ? (
+                  <img
+                    src={resolvedThumbUrl}
+                    alt={label}
+                    style={{ width: 18, height: 18, objectFit: 'contain' }}
+                    onError={() => {
+                      setFailedThumbUrls((prev) =>
+                        prev[resolvedThumbUrl]
+                          ? prev
+                          : { ...prev, [resolvedThumbUrl]: true },
+                      );
+                    }}
+                  />
+                ) : (
+                  <span aria-hidden="true">{getPropFallbackEmoji(id)}</span>
+                )}
                 <span>{label}</span>
                 <span className="prop-state-tag">{liveState}</span>
               </span>
