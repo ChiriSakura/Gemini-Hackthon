@@ -75,6 +75,7 @@ interface DualCameraStageProps {
   onSelectCompareBranch?: (branchId: string) => void;
   onOpenSavedRun?: () => void;
   onTogglePlayStory: () => void;
+  onAdvanceStoryScene?: () => void;
   onExportStart?: () => void;
   onExportComplete?: (result: PreviewExportResult) => void;
   onRenderScene?: (scene: Scene, preview: PreviewExportResult) => void;
@@ -84,24 +85,60 @@ interface StageVideoProps {
   src: string;
   poster?: string;
   muted: boolean;
+  loop?: boolean;
+  /** When false, mounts pre-buffered underneath (`opacity: 0`) ready for 0ms seamless swap. */
+  active?: boolean;
   onError: () => void;
   /** Called with the clicked element so every visible clip toggles together. */
   onToggle: (video: HTMLVideoElement) => void;
+  /** Fires when non-looping clip reaches its true end (drives zero-gap story playback). */
+  onEnded?: () => void;
 }
 
 /**
  * Clip without native browser controls: click toggles play/pause, a thin gold
  * line shows progress, and a centred play glyph appears only while paused.
+ * Supports pre-buffered (`active=false`) mounting underneath the active clip
+ * so scene transitions during continuous playback have zero black flash.
  */
 const StageVideo = forwardRef<HTMLVideoElement, StageVideoProps>(function StageVideo(
-  { src, poster, muted, onError, onToggle },
+  { src, poster, muted, loop = true, active = true, onError, onToggle, onEnded },
   ref,
 ) {
   const [paused, setPaused] = useState(false);
+  const innerRef = useRef<HTMLVideoElement | null>(null);
   const barRef = useRef<HTMLSpanElement | null>(null);
   const lastRatioRef = useRef(0);
 
+  const assignRef = (el: HTMLVideoElement | null) => {
+    innerRef.current = el;
+    if (typeof ref === 'function') ref(el);
+    else if (ref) ref.current = el;
+  };
+
+  useEffect(() => {
+    const el = innerRef.current;
+    if (!el) return;
+    if (active) {
+      try {
+        el.currentTime = 0;
+        const p = el.play();
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+      } catch {
+        // Ignore playback errors from unmounted/unready videos
+      }
+    } else {
+      el.pause();
+      try {
+        el.currentTime = 0;
+      } catch {
+        // Ignore seek before metadata ready
+      }
+    }
+  }, [active, src]);
+
   const handleTimeUpdate = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    if (!active) return;
     const video = e.currentTarget;
     const bar = barRef.current;
     if (!bar || !Number.isFinite(video.duration) || video.duration <= 0) return;
@@ -115,29 +152,33 @@ const StageVideo = forwardRef<HTMLVideoElement, StageVideoProps>(function StageV
   return (
     <>
       <video
-        ref={ref}
+        ref={assignRef}
+        className={active ? 'cam-video-active' : 'cam-video-prebuffer'}
         src={src}
         poster={poster}
         preload="auto"
-        autoPlay
-        loop
-        muted={muted}
+        autoPlay={active}
+        loop={loop}
+        muted={active ? muted : true}
         playsInline
-        title="Click to pause or play"
-        onClick={(e) => onToggle(e.currentTarget)}
-        onPlay={() => setPaused(false)}
-        onPause={() => setPaused(true)}
-        onTimeUpdate={handleTimeUpdate}
+        title={active ? 'Click to pause or play' : undefined}
+        onClick={active ? (e) => onToggle(e.currentTarget) : undefined}
+        onPlay={active ? () => setPaused(false) : undefined}
+        onPause={active ? () => setPaused(true) : undefined}
+        onTimeUpdate={active ? handleTimeUpdate : undefined}
+        onEnded={active ? onEnded : undefined}
         onError={onError}
       />
-      {paused && (
+      {active && paused && (
         <span className="cam-paused" aria-hidden="true">
           <IconPlay size={26} />
         </span>
       )}
-      <span className="cam-progress" aria-hidden="true">
-        <span ref={barRef} />
-      </span>
+      {active && (
+        <span className="cam-progress" aria-hidden="true">
+          <span ref={barRef} />
+        </span>
+      )}
     </>
   );
 });
@@ -160,6 +201,8 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
       soundEnabled,
       modalOpen = false,
       footer,
+      onTogglePlayStory,
+      onAdvanceStoryScene,
       onExportStart,
       onExportComplete,
       onRenderScene,
@@ -360,28 +403,39 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
       scene,
       findParentScene(activeBranch, allBranches, scene.scene_id),
     );
+    const prevScene = activeSceneIndex > 0 ? activeBranch.scenes[activeSceneIndex - 1] : null;
+    const nextScene = activeBranch.scenes[activeSceneIndex + 1] ?? null;
+    const nextSceneOwnsFinal = nextScene
+      ? hasOwnFinalMedia(
+          nextScene,
+          findParentScene(activeBranch, allBranches, nextScene.scene_id),
+        )
+      : false;
 
     const camAUrl = sceneOwnsFinal ? (scene.media.cam_a_final_url ?? null) : null;
     const camBUrl = sceneOwnsFinal ? (scene.media.cam_b_final_url ?? null) : null;
+    const nextCamAUrl = nextSceneOwnsFinal ? (nextScene?.media.cam_a_final_url ?? null) : null;
+    const nextCamBUrl = nextSceneOwnsFinal ? (nextScene?.media.cam_b_final_url ?? null) : null;
+    // Use the previous scene's tail frame as poster (pixel-identical to frame 0 of this scene!)
+    // so transitions between consecutive scenes have zero visual jump.
     const camAPoster = sceneOwnsFinal
-      ? (scene.media.cam_a_tail_frame_url ?? undefined)
+      ? (prevScene?.media.cam_a_tail_frame_url ?? scene.media.cam_a_tail_frame_url ?? undefined)
       : undefined;
     const camBPoster = sceneOwnsFinal
-      ? (scene.media.cam_b_tail_frame_url ?? undefined)
+      ? (prevScene?.media.cam_b_tail_frame_url ?? scene.media.cam_b_tail_frame_url ?? undefined)
       : undefined;
 
-    // Preload the next scene's clips during film view / Play 1-4 to avoid black flashes
+    // Preload ALL remaining clips of the active branch with preload="auto" for zero-gap playback
     useEffect(() => {
       if (viewMode !== 'final' && !isPlayingStory) return;
-      const nextScene = activeBranch.scenes[activeSceneIndex + 1];
-      if (!nextScene) return;
-      const urls = [
-        nextScene.media.cam_a_final_url,
-        nextScene.media.cam_b_final_url,
-      ].filter((u): u is string => Boolean(u));
+      const upcoming = activeBranch.scenes.slice(activeSceneIndex + 1);
+      if (upcoming.length === 0) return;
+      const urls = upcoming
+        .flatMap((s) => [s.media.cam_a_final_url, s.media.cam_b_final_url])
+        .filter((u): u is string => Boolean(u));
       const preloadEls: HTMLVideoElement[] = urls.map((url) => {
         const v = document.createElement('video');
-        v.preload = 'metadata';
+        v.preload = 'auto';
         v.muted = true;
         v.src = url;
         return v;
@@ -402,6 +456,31 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
       viewMode === 'final' &&
       Boolean(camBUrl) &&
       !(camBUrl && failedVideoUrls[camBUrl]);
+
+    const camADeck: Array<{ url: string; poster?: string; active: boolean }> = [];
+    if (showFinalA && camAUrl) {
+      camADeck.push({ url: camAUrl, poster: camAPoster, active: true });
+      if (nextCamAUrl && nextCamAUrl !== camAUrl && !failedVideoUrls[nextCamAUrl]) {
+        camADeck.push({
+          url: nextCamAUrl,
+          poster: scene.media.cam_a_tail_frame_url ?? undefined,
+          active: false,
+        });
+      }
+    }
+    const camBDeck: Array<{ url: string; poster?: string; active: boolean }> = [];
+    if (showFinalB && camBUrl) {
+      camBDeck.push({ url: camBUrl, poster: camBPoster, active: true });
+      if (nextCamBUrl && nextCamBUrl !== camBUrl && !failedVideoUrls[nextCamBUrl]) {
+        camBDeck.push({
+          url: nextCamBUrl,
+          poster: scene.media.cam_b_tail_frame_url ?? undefined,
+          active: false,
+        });
+      }
+    }
+
+    const totalScenes = activeBranch.scenes.length;
 
     const onAir = (cam: 'A' | 'B') =>
       autoCutEnabled
@@ -427,32 +506,57 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
               {sceneText.narration}
             </button>
           </div>
-          <button
-            type="button"
-            className={`stage-view-toggle ${worldView ? 'active' : ''}`}
-            aria-pressed={worldView}
-            title={worldView ? 'Back to the clip' : 'Open the 3D world view: drag to orbit, drag a character to move it'}
-            onClick={() => setWorldView((v) => !v)}
-          >
-            {worldView ? 'Clip' : 'World view'}
-          </button>
+          <div className="stage-head-actions">
+            {totalScenes > 1 && (
+              <button
+                type="button"
+                className={`stage-view-toggle ${isPlayingStory ? 'active' : ''}`}
+                aria-pressed={isPlayingStory}
+                title={
+                  isPlayingStory
+                    ? 'Stop continuous playback (Space)'
+                    : 'Play all scenes of this branch seamlessly from Scene 1 to the end (Space)'
+                }
+                onClick={() => {
+                  setWorldView(false);
+                  onTogglePlayStory();
+                }}
+              >
+                {isPlayingStory
+                  ? `Stop (${activeSceneIndex + 1}/${totalScenes})`
+                  : 'Play story'}
+              </button>
+            )}
+            <button
+              type="button"
+              className={`stage-view-toggle ${worldView ? 'active' : ''}`}
+              aria-pressed={worldView}
+              title={worldView ? 'Back to the clip' : 'Open the 3D world view: drag to orbit, drag a character to move it'}
+              onClick={() => setWorldView((v) => !v)}
+            >
+              {worldView ? 'Clip' : 'World view'}
+            </button>
+          </div>
         </header>
 
         <div className="stage-cams">
           {/* Camera A stays mounted so the Three.js loop keeps running */}
           <div className={`cam ${onAir('A')}`}>
             <canvas ref={canvasARef} style={{ display: showFinalA ? 'none' : 'block' }} />
-            {showFinalA && camAUrl && (
+            {camADeck.map((slot) => (
               <StageVideo
-                ref={videoARef}
-                key={camAUrl}
-                src={camAUrl}
-                poster={camAPoster}
+                key={slot.url}
+                ref={slot.active ? videoARef : undefined}
+                src={slot.url}
+                poster={slot.poster}
+                active={slot.active}
+                loop={!isPlayingStory}
                 muted={!soundEnabled || modalOpen}
-                onError={() => markVideoFailed(camAUrl)}
+                onEnded={slot.active && isPlayingStory ? onAdvanceStoryScene : undefined}
+                onError={() => markVideoFailed(slot.url)}
                 onToggle={handleToggleVideos}
               />
-            )}
+            ))}
             {!worldView && !showFinalA && (
               <div className="cam-pending" role="status">
                 <span>{renderingScene ? 'Generating…' : 'Not generated yet'}</span>
@@ -466,17 +570,19 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
           {/* Camera B stays mounted alongside Camera A */}
           <div className={`cam ${onAir('B')}`}>
             <canvas ref={canvasBRef} style={{ display: showFinalB ? 'none' : 'block' }} />
-            {showFinalB && camBUrl && (
+            {camBDeck.map((slot) => (
               <StageVideo
-                ref={videoBRef}
-                key={camBUrl}
-                src={camBUrl}
-                poster={camBPoster}
+                key={slot.url}
+                ref={slot.active ? videoBRef : undefined}
+                src={slot.url}
+                poster={slot.poster}
+                active={slot.active}
+                loop={!isPlayingStory}
                 muted
-                onError={() => markVideoFailed(camBUrl)}
+                onError={() => markVideoFailed(slot.url)}
                 onToggle={handleToggleVideos}
               />
-            )}
+            ))}
             {!worldView && !showFinalB && (
               <div className="cam-pending" role="status">
                 <span>{renderingScene ? 'Generating…' : 'Not generated yet'}</span>

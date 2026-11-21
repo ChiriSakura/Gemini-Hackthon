@@ -2818,6 +2818,12 @@ body::before {
   flex: 1;
   min-width: 0;
 }
+.stage-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
 .stage-view-toggle {
   flex: none;
   padding: 6px 14px;
@@ -2836,6 +2842,20 @@ body::before {
 }
 .cam {
   position: relative;
+}
+.cam video.cam-video-active {
+  position: relative;
+  z-index: 2;
+  opacity: 1;
+}
+.cam video.cam-video-prebuffer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  opacity: 0;
+  pointer-events: none;
 }
 .cam-pending {
   position: absolute;
