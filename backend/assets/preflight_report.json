@@ -1,6 +1,6 @@
 {
   "preflight_passed": true,
-  "elapsed_sec": 5.91,
+  "elapsed_sec": 2.01,
   "api_checks": {
     "health_200": true,
     "branches_200": true,
@@ -223,8 +223,8 @@
         "has_audio": true
       },
       {
-        "file": "finals/scene_1_cam_a_fb8847.mp4",
-        "bytes": 1558937,
+        "file": "finals/scene_1_cam_a_f0a5fb.mp4",
+        "bytes": 1613776,
         "fourcc": "h264",
         "is_h264": true,
         "resolution": "640x360",
@@ -234,8 +234,8 @@
         "has_audio": true
       },
       {
-        "file": "finals/scene_1_cam_b_cb43a1.mp4",
-        "bytes": 1391834,
+        "file": "finals/scene_1_cam_b_270cea.mp4",
+        "bytes": 1455433,
         "fourcc": "h264",
         "is_h264": true,
         "resolution": "640x360",
@@ -245,8 +245,8 @@
         "has_audio": true
       },
       {
-        "file": "finals/scene_2_cam_a.mp4",
-        "bytes": 1782758,
+        "file": "finals/scene_2_cam_a_3bec87.mp4",
+        "bytes": 1891538,
         "fourcc": "h264",
         "is_h264": true,
         "resolution": "640x360",
@@ -256,8 +256,8 @@
         "has_audio": true
       },
       {
-        "file": "finals/scene_2_cam_b.mp4",
-        "bytes": 1738101,
+        "file": "finals/scene_2_cam_b_9814ad.mp4",
+        "bytes": 1788530,
         "fourcc": "h264",
         "is_h264": true,
         "resolution": "640x360",
@@ -267,8 +267,8 @@
         "has_audio": true
       },
       {
-        "file": "finals/scene_3_cam_a_34ad67.mp4",
-        "bytes": 1577853,
+        "file": "finals/scene_3_cam_a_2904ee.mp4",
+        "bytes": 1721042,
         "fourcc": "h264",
         "is_h264": true,
         "resolution": "640x360",
@@ -278,8 +278,8 @@
         "has_audio": true
       },
       {
-        "file": "finals/scene_3_cam_a_fa2651.mp4",
-        "bytes": 1689275,
+        "file": "finals/scene_3_cam_a_4b5598.mp4",
+        "bytes": 1753779,
         "fourcc": "h264",
         "is_h264": true,
         "resolution": "640x360",
@@ -289,8 +289,8 @@
         "has_audio": true
       },
       {
-        "file": "finals/scene_3_cam_b_40c994.mp4",
-        "bytes": 1529751,
+        "file": "finals/scene_3_cam_b_8eca74.mp4",
+        "bytes": 1510945,
         "fourcc": "h264",
         "is_h264": true,
         "resolution": "640x360",
@@ -300,8 +300,8 @@
         "has_audio": true
       },
       {
-        "file": "finals/scene_3_cam_b_958e35.mp4",
-        "bytes": 1562612,
+        "file": "finals/scene_3_cam_b_a1c072.mp4",
+        "bytes": 1471020,
         "fourcc": "h264",
         "is_h264": true,
         "resolution": "640x360",

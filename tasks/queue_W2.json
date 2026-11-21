@@ -2,22 +2,64 @@
   "worker": "worker-2 (P3)",
   "branch": "feat/w2-frontend",
   "pull_main_first": true,
+  "batch_deadline": "16:30",
   "feature_freeze": false,
-  "status": "ISSUES_MD_P1_POLISH_QUEUE",
   "owned_paths": ["frontend/**", "tasks/status_P3.json"],
-  "note": "Master merged 6bb0954 (ALL 5 frontend P0 bugs R-01..R-05 + R-23 fixed cleanly!). Pull main first, then knock out the remaining high-value P1 UX fixes below from ISSUES.md before final feature freeze.",
+  "note": "RE-OPENED FROM FREEZE FOR ARCHITECTURE UPGRADE + ISSUES.md WIP COMPLETION! Master merged d882633 + updated schemas.py/shared/schema.json/main.py/neon_director.py/state_tree.py for Design_Infinite_Sculpture.md (unbounded Scene >=1, extend_single_scene <3s, /api/director/perceive, /api/director/extend, R-38 per-branch locks, R-26 baseline safety, R-15 timeouts). Pull origin/main FIRST, then execute these 9 high-impact V2 tasks!",
   "parallel_tasks": [
     {
-      "task_id": "W2-FIX-R20-R21-R22",
-      "priority": "P1",
-      "title": "ISSUES.md R-20/R-21/R-22: Hold-to-Record Guard, 'Heard / Saw' Card & Honest Pipeline Elapsed Timer",
-      "details": "1) `DirectControlBar.tsx` (R-20): use a sync ref guard so mouse-leave does not abort a 3s recording prematurely, discard clips <1s, omit stale input-box text when submitting a `.webm` clip, and raise webcam capture resolution to 1280x720. 2) `App.tsx` (R-21): render a compact 'Heard / Saw' banner displaying `rewrite_summary` & detected props immediately after fork. 3) `App.tsx` (R-22): replace the fake timer stepper with honest 'Waiting for backend... Ns' or live `/api/media/progress`, forward `placement` in `createStageProp()`, and fix the `R` shortcut closure."
+      "task_id": "W2-V2-01",
+      "priority": "P0",
+      "title": "3D Sculpture Freeze Controller (`setSculptureFrozen`) & 3D Parabolic Thrown-Prop Animation (`Design §4.C.1`)",
+      "details": "In `frontend/src/stage/ThreeStageManager.ts`: (1) Add `setSculptureFrozen(frozen: boolean)` — when a scene playback finishes (`end_freeze_mode === 'sculpture'`), freeze character breathing/walking & particle motion and shift characters/props into a desaturated moonlight alabaster/silver sculpture shader/tint (supporting mouse orbit inspection around the frozen tableau), smoothly unfreezing to full color when the next continuation renders/plays; (2) Add `spawnThrownPropAnimation(propId, entryOrigin, targetGrid)` so physical props with `entry_motion === 'throw_arc'` fly along a smooth 3D parabolic arc from camera-front into the conservatory stage."
     },
     {
-      "task_id": "W2-FIX-R12-R24-R25-R32",
+      "task_id": "W2-V2-02",
+      "priority": "P0",
+      "title": "Fix 2.5D Prop Fidelity: Separate Umbrella & Chair Sprites, Bottom-Center Foot Anchor, & `object-fit: contain` (`R-12`, `R-24`, `R-25`)",
+      "details": "In `ThreeStageManager.ts` & `index.css`: (1) Stop aliasing `red_umbrella` to `lia.png` — render isolated `red_umbrella_closed.png` / `red_umbrella_open.png` and `wooden_chair.png` (supporting Nyx sitting/sleeping on the chair and umbrella hidden under table!); (2) Anchor all character & prop sprites cleanly at bottom-center (`center=(0.5, 0)`) and honor optional `height_m` so broken vase & held/placed props never float (`R-24`); (3) Switch stage `<video>` from `cover` to `contain` and keep Compare OFF by default so 13–14 inch screens never crop edges (`R-25`)."
+    },
+    {
+      "task_id": "W2-V2-03",
+      "priority": "P0",
+      "title": "Finish Collapsible Sidebar Snapshot Save-Slot Story Tree (`Design §4.C.2` & `R-29`)",
+      "details": "Complete the WIP snapshot tree in `frontend/src/components/StoryBranchTree.tsx`: collapsible left/right sidebar growing infinitely with `S1 🗿 -> S2 🗿 -> S3 🗿 -> S(N+1) 🗿` thumbnail nodes on glowing SVG bezier branches (shared prefix shown once, per-branch colors, BE/HE/Live badges, Saved vs Live tags). Clicking any past sculpture node immediately jumps back to that sculpture's frozen WorldState so the director can continue or fork a parallel branch."
+    },
+    {
+      "task_id": "W2-V2-04",
+      "priority": "P0",
+      "title": "Interactive Prop Prompt + 30s Real-Time Throw-In Recording Modal (`Design §4.C.3` & `R-19`)",
+      "details": "In `frontend/src/components/DirectControlBar.tsx` & `App.tsx`: when `/api/director/perceive` returns `needs_prop_prompt=true` (or user clicks Throw Prop), open a crisp 1280x720 webcam Throw-In Modal with a **30s countdown bar**, framing guide box, and `Thrown / Generate Now` stop button -> calls `POST /api/media/create-prop` (`detect_throw_peak=true`, `entry_motion=throw_arc`), shows cut-out thumbnail, fires `spawnThrownPropAnimation()` into the 3D stage, and proceeds cleanly into `POST /api/director/extend`."
+    },
+    {
+      "task_id": "W2-V2-05",
+      "priority": "P0",
+      "title": "Complete Minimalist 3-Block Stage Home Page & Magical Dynamic Conservatory Theme (`R-30`, `R-31`, `R-33`)",
+      "details": "Finish the home-page redesign started in `d882633`: Stage A+B command ~70% viewport cleanly, keep only Stage + Sidebar Tree + Unified Control Bar visible by default (Compare/Eval/Clapperboard tucked cleanly in drawer/menus), replace emojis with `Icons.tsx` SVG icons, render magical deep indigo-violet gradient + subtle stardust + thin gold proscenium frame + lighting-reactive rain/gold snow ambiance, keep `MOCK MODE` badge ALWAYS visible even in clean mode, and guard global hotkeys with `Alt+` (`R-33`)."
+    },
+    {
+      "task_id": "W2-V2-06",
       "priority": "P1",
-      "title": "ISSUES.md R-12/R-24/R-25/R-32: 2.5D Pose/Height Anchor, Non-Cropped Video (`contain`), Compare Off by Default",
-      "details": "1) `ThreeStageManager.ts` (R-12/R-24): support optional `height_m` with bottom-flush foot anchoring, visually express `kneel` via height/offset adjustment, and render standalone closed/open red umbrella sprite once P2 lands it. 2) `index.css` & `App.tsx` (R-25/R-32): switch camera video frames to `object-fit: contain` (no 13-inch cropping), default Compare OFF, and rename Compare labels from ambiguous `Baseline` to `Before` / `After`. Re-run `npm run verify` and update `tasks/status_P3.json`."
+      "title": "Wire `/api/director/perceive` (<2.5s Heard/Saw), `/api/director/extend` (`fast_live_mode=true`), & Moderation Retry Notice (`R-11`, `R-21`, `R-39`)",
+      "details": "Update `frontend/src/api/stageClient.ts` & `App.tsx`: (1) On Hold-to-Direct release, call `POST /api/director/perceive` first so Heard/Saw cues appear within ~2.5s before calling `/api/director/extend`; (2) Trigger `POST /api/media/render-scene` with `fast_live_mode=true` during live sculpture continuations for 10–20s AI unfreeze; (3) Surface crisp `'content_blocked, retrying'` or `'fallback to 2.5D'` toast when backend flags safety fallback (`R-39`)."
+    },
+    {
+      "task_id": "W2-V2-07",
+      "priority": "P1",
+      "title": "Mirror P2's New Isolated Stage Props (`red_umbrella_closed/open`, `wooden_chair`) + `Reset Demo` Baseline Guard (`R-26`)",
+      "details": "Copy or proxy-bypass `red_umbrella_closed.png`, `red_umbrella_open.png`, and `wooden_chair.png` under `frontend/public/assets/props/`, make prop snapshots never permanently corrupt offline baseline `branch_v1`, and verify `'Open a saved run'` button works cleanly if a live extend fails."
+    },
+    {
+      "task_id": "W2-V2-08",
+      "priority": "P1",
+      "title": "Update Types, `test_stage_helpers.mjs`, & `verify-locale.mjs` for Infinite Scenes (>=1) & Freeze/Throw Fields",
+      "details": "Update `frontend/src/types/schema.ts` and `frontend/scripts/test_stage_helpers.mjs` for `Scene.scene_id >= 1`, `end_freeze_mode`, `parent_scene_id`, `DirectorInputParsed.mode/needs_prop_prompt/prop_prompt_hint`, `StagePropState.entry_motion/entry_origin`, keeping zero CJK UI leaks in `verify-locale.mjs`."
+    },
+    {
+      "task_id": "W2-V2-09",
+      "priority": "P0",
+      "title": "Full End-to-End `npm run verify` + Live Mic/Cam/Sculpture Loop Rehearsal Check",
+      "details": "Execute `npm run verify` (`6/6` gates green!), test real webcam+mic Hold-to-Direct -> 30s Throw Prop -> Infinite Scene N+1 Unfreeze/Freeze -> Sidebar Sculpture Rewind in browser, and log updated test status in `ISSUES.md` & `tasks/status_P3.json`."
     }
   ]
 }

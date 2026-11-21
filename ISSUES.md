@@ -55,10 +55,10 @@
 | 编号 | 优先级 | 问题 | 原因 / 位置 | 建议修法 | 状态 |
 |---|---|---|---|---|---|
 | R-37 | P1 | B 机位成片开头约 1 秒画面是歪的、四角发黑（旧的存档片也有） | B 机位提示词写 “45-DEGREE DIAGONAL”，视频模型理解成把画面转 45°（`video_renderer.py` 的 `cam_desc`） | 改成“摄像机站在房间右前角、绕竖直轴转 45° 斜着看；画面水平不旋转，第一帧就铺满” | 已修 |
-| R-38 | P1 | 同时渲染同一条分支的几幕，后写的会把先写的盖掉 | 渲染接口每次都是“读整条分支 → 渲染 → 写回整条分支”，没有加锁（`main.py` 渲染接口、`state_tree.save_branch`） | 同一分支的渲染排队；或写回时只更新这一幕 | 未修（现在靠一幕一幕渲染规避） |
-| R-39 | P1 | 视频模型有输入过滤，会随机拦掉请求（`content_blocked`）。14:15–14:41 约四分之一被拦，基线第 2 幕最多 | 提示词里的某些词触发过滤，同一段提示词有时过有时不过 | 现场准备好存档兜底；被拦时界面提示 “blocked, retrying”；第 2 幕措辞可以温和些 | 未修 |
-| R-40 | P2 | 新片开头有时带着上一幕尾帧里的黑边或小画框 | 起始帧用的是上一幕的尾帧（`video_renderer.py` 里 `start_frame_path`） | 起始帧先裁掉黑边，或统一用 2.5D 预览截图 | 未修 |
-| R-41 | P1 | 导演这一步慢：Neon 25–29 秒，同样的输入 Hydrogen 约 12 秒，结果质量相近 | 一次要生成 3 幕完整 JSON；思考等级已经是 LOW | 由团队决定：要么保持 Neon（分工更清楚），要么让 Hydrogen 先出第 k 幕驱动预览、Neon 补后面几幕 | 未改，只做了测量 |
+| R-38 | P1 | 同时渲染同一条分支的几幕，后写的会把先写的盖掉 | 渲染接口每次都是“读整条分支 → 渲染 → 写回整条分支”，没有加锁（`main.py` 渲染接口、`state_tree.save_branch`） | 同一分支的渲染排队；或写回时只更新这一幕 | 后端已修（`state_tree.py` `get_branch_lock` + `update_scene_in_branch` 原子单幕合入） |
+| R-39 | P1 | 视频模型有输入过滤，会随机拦掉请求（`content_blocked`）。14:15–14:41 约四分之一被拦，基线第 2 幕最多 | 提示词里的某些词触发过滤，同一段提示词有时过有时不过 | 现场准备好存档兜底；被拦时界面提示 “blocked, retrying”；第 2 幕措辞可以温和些 | P1 已加优雅降级兜底（待 P2 温和措辞 + P3 提示条：`W1-V2-04` / `W2-V2-06`） |
+| R-40 | P2 | 新片开头有时带着上一幕尾帧里的黑边或小画框 | 起始帧用的是上一幕的尾帧（`video_renderer.py` 里 `start_frame_path`） | 起始帧先裁掉黑边，或统一用 2.5D 预览截图 | 已分配 P2（`W1-V2-03` 黑边裁剪 + 固定空房参考） |
+| R-41 | P1 | 导演这一步慢：Neon 25–29 秒，同样的输入 Hydrogen 约 12 秒，结果质量相近 | 一次要生成 3 幕完整 JSON；思考等级已经是 LOW | 由团队决定：要么保持 Neon（分工更清楚），要么让 Hydrogen 先出第 k 幕驱动预览、Neon 补后面几幕 | 已新增单幕 `extend_single_scene()` + `/api/director/extend`（1.5–3s 单幕推演）与 `/api/director/perceive`（~2s 先回显）；`plan_scenes` 已设 `thinking_level="LOW"` |
 
 ---
 
@@ -93,7 +93,7 @@
 |---|---|---|---|---|
 | R-09 | A、B 两个机位的成片对不上：猫的动作、窗和门、椅子款式都不一样（Christina 反馈） | A、B 是两次独立生成，背景和细节每次由模型自己编 | 见下面「A/B 机位一致性修复方案」 | 未修 |
 | R-10 | 每一幕的房间也不一样（墙色、窗框、椅子、兜帽） | 没有固定的布景图；布景只靠一句文字描述 | 同 R-09 的第 1、2 步 | 未修 |
-| R-11 | Neon 重写要 28.7 秒，2.5D 预览要等它，“1 秒内预览”不成立 | `neon_director.py:88` 一次生成 3 幕完整 JSON，思考等级默认 high | 思考等级调低（`thinking_level: "low"`）；或让 Hydrogen 先出粗状态驱动预览，Neon 结果回来再校正 | 未修 |
+| R-11 | Neon 重写要 28.7 秒，2.5D 预览要等它，“1 秒内预览”不成立 | `neon_director.py:88` 一次生成 3 幕完整 JSON，思考等级默认 high | 思考等级调低（`thinking_level: "low"`）；或让 Hydrogen 先出粗状态驱动预览，Neon 结果回来再校正 | 后端已修（`thinking_level="LOW"` + 新增 `<3s` 单幕续演 `extend_single_scene()` + `/api/director/perceive` 先回显） |
 | R-12 | 2.5D 预览没有体现状态：状态里莉亚跪着、手里没伞、伞在桌下、猫在椅子上；预览里她站着拿伞、猫坐在地上 | `ThreeStageManager.ts:666,693` 伞从不单独画；`props_registry.red_umbrella.image_url` 指向 `lia.png`；没有椅子；动作只影响位移 | 伞做成单独的道具立牌；加一把椅子道具；`kneel` 用缩放或下移表现 | 未修 |
 | R-13 | 质检有漏判：第 3 幕 B 机位伞是撑开放在地上的，“伞是否收起放在桌下”判了通过（0.89） | 题目一次问多个条件，模型抓大放小 | 一题只问一件事；跨机位题门槛提到 0.8；把这一例留作“诚实展示失败”的案例 | 未修 |
 | R-14 | 规则记忆被污染：5 条针对旧剧情的规则（如“第 2 幕花瓶是碎的”）会和“救下花瓶”的改写打架 | `rule_memory.json`；写入点 `main.py:334-337`、`video_renderer.py:725`；读取点 `main.py:187` | 重置成 3 条通用规则；关掉这两处 `add_rule` | 后端+JSON已修（`rule_memory.py`+`rule_memory.json`+`main.py`，待 P2 关掉 `video_renderer.py` 处） |
@@ -103,7 +103,7 @@
 | R-18 | 失败被替换成编造的值 | `hydrogen_judge.py:191-193` 出错返回 0.85；`prop_maker.py:383-393` 失败返回黄方块并当成功；`video_renderer.py:791` 跨机位检查静默丢弃 | 返回 `degraded` 和原因，前端如实显示 | P1 已修（`hydrogen_judge.py` 出错返回 `0.0` + mock 显式标 `MOCK_MODE (unverified)`，待 P2 修 `prop_maker`） |
 | R-19 | 举实物时识别不到手里的东西（Christina 反馈） | 见下面「实物识别问题与修复方案」 | 同左 | 主因已解决（补 key），其余未修 |
 | R-20 | 长按录制有竞态；语音提交会夹带输入框里的旧文字 | `DirectControlBar.tsx:259-294,287,371,563-566` | 加同步 ref 守卫；丢弃不足 1 秒的片段；有 clip 时不带 text，提交后清空 | 未修 |
-| R-21 | 界面不显示“听到了什么、看到了什么” | `rewrite_summary` 前端从不渲染（`App.tsx:305`） | 松手后 3 秒内显示一张卡片：识别到的话、识别到的物体 | 未修 |
+| R-21 | 界面不显示“听到了什么、看到了什么” | `rewrite_summary` 前端从不渲染（`App.tsx:305`） | 松手后 3 秒内显示一张卡片：识别到的话、识别到的物体 | 已部分完成（`d882633` 已在状态栏显示，后端已暴露 `POST /api/director/perceive` 实现 2s 首屏回显，待 `W2-V2-06` 串联） |
 | R-22 | 流水线进度是定时器假装的 | `App.tsx:267-271,328-331` | 改成 “Waiting for backend… Ns”，或用后端的 `/api/media/progress` | 未修 |
 | R-23 | 分支树标签不准：缓存分支全写 “Reused (0s)”“100% rerender saved” | `StoryBranchTree.tsx:106-111,131-134,184` | 只按 `reused_from_branch` 判断；预渲染的标 “Cached” | 已修（`6bb0954`: `Reused` / `Cached` / `Rendered` / `Not rendered`） |
 | R-24 | 立牌大小按角色写死，没有高度字段；中心锚定；碎花瓶悬空约 0.1 | `ThreeStageManager.ts:548-549,722-728,954-956` | 加 `height` 字段；锚点放脚底 | 未修 |

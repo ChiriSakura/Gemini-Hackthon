@@ -24,9 +24,10 @@ GestureIntent = Literal[
 
 
 class DirectorInputParsed(BaseModel):
-    """Output of Hydrogen Hear/See Agent from a 3s webcam+mic .webm clip or text."""
+    """Output of Hydrogen Hear/See Agent from a 3s-30s webcam+mic .webm clip or text."""
 
-    target_scene_id: int = Field(default=2, ge=1, le=4)
+    target_scene_id: int = Field(default=2, ge=1)
+    mode: Literal["extend", "fork"] = "fork"
     instruction: str
     vocal_emotion: VocalEmotion = "neutral"
     gesture_intent: GestureIntent = "none"
@@ -35,6 +36,8 @@ class DirectorInputParsed(BaseModel):
     prop_name: Optional[str] = None
     prop_description: Optional[str] = None
     prop_frame_timestamp_sec: Optional[float] = None
+    needs_prop_prompt: bool = False
+    prop_prompt_hint: Optional[str] = None
 
 
 class JudgeItem(BaseModel):
@@ -76,6 +79,8 @@ class StagePropState(BaseModel):
     grid: list[float] = Field(min_length=2, max_length=2)
     on_floor: bool = False
     state: Literal["intact", "broken", "held", "glowing"] = "intact"
+    entry_motion: Literal["place", "throw_arc", "held"] = "place"
+    entry_origin: Optional[list[float]] = None
 
 
 class SceneMedia(BaseModel):
@@ -97,7 +102,7 @@ class SceneMedia(BaseModel):
 class Scene(BaseModel):
     """Complete world-state snapshot and rendered artifacts for a single scene."""
 
-    scene_id: int = Field(ge=1, le=4)
+    scene_id: int = Field(ge=1)
     title: str
     duration_sec: float = 4.0
     narration: str
@@ -110,6 +115,8 @@ class Scene(BaseModel):
     environment_notes: str = ""
     needs_rerender: bool = True
     reused_from_branch: Optional[str] = None
+    end_freeze_mode: Literal["sculpture", "none"] = "sculpture"
+    parent_scene_id: Optional[int] = None
     actors: list[ActorState] = Field(default_factory=list)
     stage_props: list[StagePropState] = Field(default_factory=list)
     qa_questions: list[str] = Field(default_factory=list)
