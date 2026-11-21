@@ -1,29 +1,29 @@
 {
   "agent": "P2_media",
   "branch": "feat/w1-media",
-  "current_milestone": "T2",
-  "status": "t2_precached_and_smoke_tested",
+  "current_milestone": "T3",
+  "status": "w1_queue_completed_ready_for_master_merge",
   "omni_flash_latency_sec": 18.64,
   "omni_flash_total_with_io_sec": 22.65,
   "omni_flash_dual_take_parallel_sec": 25.47,
-  "branch_v1_full_cache_sec": 105.63,
+  "decisions_api_mp4_latency_sec": 1.45,
+  "branch_v1_and_v2_cache_sec": 268.09,
   "keep_4_scenes": true,
-  "decisions_api_available": false,
+  "decisions_api_available": true,
   "verified_model_ids": {
     "video": "gemini-omni-flash-preview",
-    "image": "gemini-nano-banana-2.1"
+    "image": "gemini-nano-banana-2.1",
+    "decision": "models/gemini-decision-1"
   },
   "completed_items": [
-    "T0: Verified live model list (gemini-omni-flash-preview, gemini-nano-banana-2.1; gemini-decision-1 unavailable)",
-    "T0: Benchmarked Omni Flash 360p 4s using shared/assets/lia.png + nyx.png (gen=18.64s, total=22.65s < 40s threshold -> keep 4 scenes)",
-    "T1: Implemented backend/media/prop_maker.py (create_prop via gemini-nano-banana-2.1 + OpenCV chroma-green keying + .webm frame extraction)",
-    "T1: Implemented backend/media/video_renderer.py (concurrent Dual-Take Best-of-2, File URI caching, PNG keyframe fallback support, prompt constraints for single prop & no black fade-in, OpenCV tail-frame extraction, judge() scoring & repair retries)",
-    "T2-Prep: Populated backend/assets/actors/{lia,nyx}.png and backend/assets/props/crystal_vase.png so /assets/* URLs serve 200 OK",
-    "T2-Prep: Pre-cached full 4-scene dual-camera branch_v1 (8 MP4 clips + 8 tail PNGs) via backend/media/cache_branch_v1.py into backend/assets/branches/branch_v1.json in 105.63s",
-    "T2-Prep: Added and passed backend/media/test_media_smoke.py covering /api/health, /api/branches, /assets/*, /api/media/create-prop, and /api/media/render-scene"
+    "W1-T2A: Pre-cached Branch 1 (all 4 scenes BE, 360p 4s) into backend/assets/finals/, tails/, and backend/assets/branches/branch_v1.json",
+    "W1-T2B: Wired Decisions API score_clip_alignment() + judge() (0.70*qa + 0.30*align) in video_renderer.py; verified native H.264 (h264) Chrome-playable MP4 output",
+    "W1-T2C: Generated transparent backend/assets/props/crystal_vase_broken.png (512x324 RGBA) and pre-cached Branch 2 fallback into backend/assets/branches/branch_v2_cached.json (branch_v2_scene_2..4)",
+    "W1-T2D: Verified photo-based create_prop() with JPEG camera frame (RGBA 217x512, origin=camera_physical) and benchmarked models/gemini-decision-1 on MP4 (1.45s, 588 tokens) vs PNG (5.36s, 1270 tokens)",
+    "W1-T3A: Recorded 14 live Best-of-2 shot metrics (take_0_score, take_1_score, selected_idx, passed) in backend/assets/eval_media_stats.jsonl (14/14 passed)",
+    "W1-T3B: Added 60s asyncio.wait_for per-take timeout safety guard in video_renderer.py",
+    "SI-Metric Physics: Added 1.62m Lia / 0.30m Nyx / 0.75m table / 0.32m vase / contact-shadow / zero-floating Prompt anchoring + physical-scale QA question in judge() (verified P(true)=0.85..0.91), plus 0px bottom-pad crop in prop_maker.py"
   ],
-  "blockers": [
-    "Note for P1: backend/config.py default strings ('omni-flash', 'gemini-3.1-flash-image-preview') are not in models.list(). P2 maps them safely to 'gemini-omni-flash-preview' and 'gemini-nano-banana-2.1', and recommends updating config.py defaults on main."
-  ],
-  "last_updated": "2026-11-21T12:46:00-05:00"
+  "blockers": [],
+  "last_updated": "2026-11-21T12:59:00-05:00"
 }
