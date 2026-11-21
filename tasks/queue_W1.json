@@ -2,10 +2,10 @@
   "worker": "worker-1 (P2)",
   "branch": "feat/w1-media",
   "pull_main_first": true,
-  "batch_deadline": "16:25",
+  "batch_deadline": "16:15",
   "feature_freeze": false,
   "owned_paths": ["backend/media/**", "backend/assets/**", "tasks/status_P2.json"],
-  "note": "Master merged 3dd0de6 (AWESOME work — all 8 W1-V2 tasks passed! Master fixed Windows Unicode cv2 path I/O in test_v2_infinite_sculpture.py and added conditional catch_from_camera prompt injection in video_renderer.py so default props stay on table/floor). Only 2 focused bonus verification tasks left while P3 finishes:",
+  "note": "Master merged 3dd0de6 cleanly (ALL 8 P2 tests + 14/14 zero-halo props + 29/29 MP4s passed!), fixed Windows Unicode test I/O in test_v2_infinite_sculpture.py, and wired conditional catch_from_camera prompt in video_renderer.py. While P3 finishes the UI, execute these 4 high-impact validation & everyday-prop tasks so Master + User can live-test immediately at ~15:40:",
   "parallel_tasks": [
     {
       "task_id": "W1-V2-B1",
@@ -15,9 +15,21 @@
     },
     {
       "task_id": "W1-V2-B2",
+      "priority": "P0",
+      "title": "Live Benchmark `fast_live_mode=True` Turnaround (Target 10–20s Unfreeze)",
+      "details": "Render 1 live Scene 5 single-take clip via `render_scene_media(..., fast_live_mode=True)` using a real everyday prop, measure exact wall-clock seconds & Decisions API single verify latency, verify it sits cleanly in the 10–20s budget, and save to `backend/assets/eval_fast_live_latency.json`."
+    },
+    {
+      "task_id": "W1-V2-B3",
       "priority": "P1",
-      "title": "Pre-Cache 1 Sample `fast_live_mode=True` Extended Scene 5 Clip (`eval_fast_live_latency.json`)",
-      "details": "Benchmark 1 live `render_scene_media(..., fast_live_mode=True)` call with an everyday desk prop (e.g. coffee cup / soda can) and verify wall-clock latency stays within the 10–20s target budget; save measurement to `backend/assets/eval_fast_live_latency.json`."
+      "title": "Everyday User-Requested Prop Kit Benchmark (`iced soda can`, `chips snack bag`, `silver laptop`)",
+      "details": "Run `create_prop()` on the exact 3 examples requested by the user (`chilled soda can drink`, `crunchy chips snack bag`, `sleek silver laptop`), verify zero chroma-green halo via `audit_props`, verify accurate SI height estimates (~0.13m can, ~0.22m snack bag, ~0.24m laptop), and save assets under `backend/assets/props/showcase_everyday_*.png`."
+    },
+    {
+      "task_id": "W1-V2-B4",
+      "priority": "P1",
+      "title": "Sync `frontend` Static Asset Readiness Check & Pre-Rehearsal Media Smoke",
+      "details": "After B1..B3 finish, re-run `audit_props`, `test_v2_infinite_sculpture`, `test_media_smoke`, and `preflight_check` so all assets/metrics stay 100% green for the user's live rehearsal."
     }
   ]
 }
