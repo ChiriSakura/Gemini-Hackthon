@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "verify": "tsc --noEmit && vite build && node scripts/verify-locale.mjs && node scripts/verify_frontend.mjs && node scripts/test_stage_helpers.mjs"
+    "verify": "tsc --noEmit && vite build && node scripts/verify-locale.mjs && node scripts/verify_frontend.mjs && node scripts/test_stage_helpers.mjs && node scripts/smoke_preview.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

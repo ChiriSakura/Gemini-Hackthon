@@ -1,10 +1,11 @@
 /**
- * Offline Vite Preview HTTP 200 Smoke Test (W2-T11C).
+ * Offline Vite Preview HTTP 200 Smoke Test (W2-T11C / W2-T12A / W2-T12B).
  *
  * Feature & Use Cases:
- * - Spawns `vite preview --port 4173 --strictPort` against the production `dist/`
- *   bundle, verifies HTTP 200 OK for `/` and core static assets (`lia.png`,
- *   `crystal_vase_broken.png`, `star_token.png`), and terminates cleanly.
+ * - Spawns Vite's JS CLI directly via `process.execPath` (cross-platform safe on
+ *   Windows Node v24+, macOS, and Linux without `shell: true` or `npx.cmd`),
+ *   verifies HTTP 200 OK for `/` and all key offline fallback PNGs (actors,
+ *   props, concept split, and showcase desk cutouts), and terminates cleanly.
  */
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -13,14 +14,21 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const frontendDir = path.resolve(__dirname, '..');
+const viteBin = path.join(frontendDir, 'node_modules', 'vite', 'bin', 'vite.js');
 const PORT = 4173;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 
 const ENDPOINTS = [
   '/',
   '/assets/actors/lia.png',
+  '/assets/actors/nyx.png',
+  '/assets/props/crystal_vase.png',
   '/assets/props/crystal_vase_broken.png',
   '/assets/props/star_token.png',
+  '/assets/concept/stage_concept_split.png',
+  '/assets/props/showcase_desk_brass_key.png',
+  '/assets/props/showcase_desk_coffee_mug.png',
+  '/assets/props/showcase_desk_paper_heart.png',
 ];
 
 function sleep(ms) {
@@ -42,8 +50,8 @@ async function waitForServer(timeoutMs = 8000) {
 }
 
 const server = spawn(
-  process.platform === 'win32' ? 'npx.cmd' : 'npx',
-  ['vite', 'preview', '--host', '127.0.0.1', '--port', String(PORT), '--strictPort'],
+  process.execPath,
+  [viteBin, 'preview', '--host', '127.0.0.1', '--port', String(PORT), '--strictPort'],
   {
     cwd: frontendDir,
     stdio: ['ignore', 'pipe', 'pipe'],

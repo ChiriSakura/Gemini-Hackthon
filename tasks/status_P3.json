@@ -1,13 +1,13 @@
 {
   "agent": "P3_frontend",
   "branch": "feat/w2-frontend",
-  "current_milestone": "T11_FEATURE_FREEZE_VERIFIED",
+  "current_milestone": "T12_CROSS_PLATFORM_VERIFY_LOCKED",
   "status": "feature_freeze_verified_100pct_ready_for_pitch",
   "feature_freeze_verified": true,
   "capture_stream_mode": "webm_with_png_fallback",
   "auto_poll_enabled": true,
   "bundle_metrics": {
-    "build_time_ms": 595,
+    "build_time_ms": 610,
     "app_js_kb": 99.42,
     "app_js_gzip_kb": 28.64,
     "app_css_kb": 13.37,
@@ -17,14 +17,18 @@
     "cached_branches_verified": 4,
     "referenced_assets_verified": 13,
     "submission_and_desk_assets_verified": 9,
-    "smoke_preview_http_200_endpoints": 4
+    "smoke_preview_http_200_endpoints": 10
   },
   "completed_items": [
     "W2-T11A: Added combined `npm run verify` script in frontend/package.json chaining tsc, vite build, verify-locale.mjs, verify_frontend.mjs, and test_stage_helpers.mjs",
     "W2-T11B: Mirrored star_token.png into frontend/public/assets/props/ alongside crystal_vase.png and crystal_vase_broken.png for 100% real transparent PNG offline 2.5D rendering across all 4 branches",
     "W2-T11C: Added frontend/scripts/smoke_preview.mjs spawning `vite preview --port 4173` and asserting HTTP 200 OK for /, lia.png, crystal_vase_broken.png, and star_token.png with clean shutdown",
-    "W2-T11D: Executed `npm run verify` + `node scripts/smoke_preview.mjs` (100% PASS, zero UI component edits) and locked `feature_freeze_verified: true`"
+    "W2-T11D: Executed `npm run verify` + `node scripts/smoke_preview.mjs` (100% PASS, zero UI component edits) and locked `feature_freeze_verified: true`",
+    "W2-T12A: Fixed Windows Node v24 `spawn EINVAL` in frontend/scripts/smoke_preview.mjs by spawning `process.execPath` with `node_modules/vite/bin/vite.js` directly (no `npx.cmd` or `shell: true`)",
+    "W2-T12B: Verified stage_concept_split.png & mirrored showcase_desk_{brass_key,coffee_mug,paper_heart}.png under frontend/public/assets/props/, extending smoke_preview.mjs ENDPOINTS to assert HTTP 200 across all 10 offline paths",
+    "W2-T12C: Chained `node scripts/smoke_preview.mjs` directly into `npm run verify` in frontend/package.json (all 6 gates in 1 command)",
+    "W2-T12D: Re-ran full `npm run verify` cleanly (6/6 gates PASS, 10/10 HTTP 200 OK, zero UI component edits) and locked tasks/status_P3.json"
   ],
   "blockers": [],
-  "last_updated": "2026-11-21T13:59:00-05:00"
+  "last_updated": "2026-11-21T14:14:35-05:00"
 }
