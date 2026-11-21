@@ -14,7 +14,9 @@ import React, { useEffect, useState } from 'react';
 import { fetchEvalSummary } from '../api/stageClient';
 import calibration from '../../../backend/assets/calibration_20_clips.json';
 import res720 from '../../../backend/assets/eval_720p_vs_360p.json';
+import fixedRoomDefault from '../../../backend/assets/eval_dual_cam_fixed_room.json';
 import dualCam from '../../../backend/assets/eval_dual_cam_stats.json';
+import fastLiveDefault from '../../../backend/assets/eval_fast_live_latency.json';
 import propPersistence from '../../../backend/assets/eval_prop_persistence.json';
 import latestReport from '../../../eval/latest_report.json';
 import stressReport from '../../../eval/stress_report.json';
@@ -221,6 +223,8 @@ export const EvalModal: React.FC<EvalModalProps> = ({
   const [camState, setCamState] = useState<DeviceState>('unknown');
   const [takeStats, setTakeStats] = useState<TakeStats>(TAKE_STATS_SNAPSHOT);
   const [evalSummaryHydrated, setEvalSummaryHydrated] = useState(false);
+  const [fixedRoom, setFixedRoom] = useState(fixedRoomDefault);
+  const [fastLive, setFastLive] = useState(fastLiveDefault);
 
   useEffect(() => {
     if (!open || typeof navigator === 'undefined') return;
@@ -234,6 +238,12 @@ export const EvalModal: React.FC<EvalModalProps> = ({
     fetchEvalSummary().then((summary) => {
       if (!cancelled && summary) {
         setEvalSummaryHydrated(true);
+        if (summary.dual_cam_fixed_room && typeof summary.dual_cam_fixed_room === 'object') {
+          setFixedRoom(summary.dual_cam_fixed_room as typeof fixedRoomDefault);
+        }
+        if (summary.fast_live_latency && typeof summary.fast_live_latency === 'object') {
+          setFastLive(summary.fast_live_latency as typeof fastLiveDefault);
+        }
       }
     });
     return () => {
@@ -275,6 +285,21 @@ export const EvalModal: React.FC<EvalModalProps> = ({
         : backendReachable
           ? { className: 'qa-pill fail', text: 'Live generation off (no model key) · saved runs only' }
           : { className: 'qa-pill fail', text: 'Backend offline · saved runs only' };
+
+  const fixedChecks = fixedRoom.fixed_room_5_criteria_eval;
+  const liveBenchmarks: Array<{ label: string; fill: number; text: string }> = [
+    ...MEDIA_BENCHMARKS,
+    {
+      label: 'Fixed-Room Dual-Cam',
+      fill: fixedChecks.consistency_rate_0_80,
+      text: `${fixedChecks.passed_0_80_count}/${fixedChecks.total_checks} @ 0.80 · mean P ${fixedChecks.mean_p_true.toFixed(3)} · QA ${fixedRoom.render_result.qa_score.toFixed(3)}`,
+    },
+    {
+      label: 'Fast Live (Scene 5)',
+      fill: fastLive.qa_score,
+      text: `QA ${fastLive.qa_score.toFixed(3)} · ${fastLive.wall_clock_sec.toFixed(1)}s · ${fastLive.parallel_ref_upload_sec.toFixed(1)}s upload (2.9x)`,
+    },
+  ];
 
   const TAKE_ROWS = [
     { label: 'Single take', passed: takeStats.singleTakePass },
@@ -449,7 +474,7 @@ export const EvalModal: React.FC<EvalModalProps> = ({
             Dual-Cam, Prop, Calibration &amp; 360p/720p Media Benchmarks (offline runs)
           </div>
           <div className="eval-two-col" style={{ gap: 8 }}>
-            {MEDIA_BENCHMARKS.map((m) => (
+            {liveBenchmarks.map((m) => (
               <div
                 key={m.label}
                 className="bar-row"

@@ -288,6 +288,28 @@ try {
     false,
     'item.appearance_summary must have 0 CJK leaks',
   );
+
+  // W2-V3-06: Verify fetchEvalSummary preserves dual_cam_fixed_room and fast_live_latency
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        dual_cam_fixed_room: {
+          fixed_room_5_criteria_eval: { passed_0_80_count: 5, total_checks: 5, consistency_rate_0_80: 1.0 },
+        },
+        fast_live_latency: {
+          fast_live_mode: true,
+          parallel_ref_upload_sec: 4.6,
+          wall_clock_sec: 28.16,
+          qa_score: 0.895,
+        },
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    );
+  const evalSummaryLive = await client.fetchEvalSummary();
+  assert.ok(evalSummaryLive && evalSummaryLive.dual_cam_fixed_room);
+  assert.ok(evalSummaryLive && evalSummaryLive.fast_live_latency);
+  assert.equal(evalSummaryLive.dual_cam_fixed_room.fixed_room_5_criteria_eval.passed_0_80_count, 5);
+  assert.equal(evalSummaryLive.fast_live_latency.parallel_ref_upload_sec, 4.6);
 } finally {
   globalThis.fetch = originalFetch;
 }
