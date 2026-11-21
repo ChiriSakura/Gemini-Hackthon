@@ -144,14 +144,15 @@ def _chroma_key_green_to_rgba(raw_image_bytes: bytes, max_size: int = 512) -> Im
     rgba = cv2.cvtColor(rgba_bgr, cv2.COLOR_BGRA2RGBA)
     pil_img = Image.fromarray(rgba, mode="RGBA")
 
-    # Tightly crop to non-transparent bounds with a small margin.
+    # Tightly crop to non-transparent bounds: pad left/top/right slightly, flush bottom (0px)
+    # so Three.js sprites with center=(0.5, 0.0) rest directly on surfaces without hovering.
     bbox = pil_img.getbbox()
     if bbox:
-        pad = 12
+        pad = 10
         x0 = max(0, bbox[0] - pad)
         y0 = max(0, bbox[1] - pad)
         x1 = min(pil_img.width, bbox[2] + pad)
-        y1 = min(pil_img.height, bbox[3] + pad)
+        y1 = bbox[3]
         pil_img = pil_img.crop((x0, y0, x1, y1))
 
     if max(pil_img.width, pil_img.height) > max_size:
