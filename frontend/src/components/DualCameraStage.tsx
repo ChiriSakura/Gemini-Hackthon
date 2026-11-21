@@ -21,7 +21,10 @@ interface DualCameraStageProps {
   activeSceneIndex: number;
   viewMode: 'preview' | 'final';
   compareEnabled: boolean;
+  pixelArtMode: boolean;
+  renderingScene: boolean;
   onExportComplete?: (result: PreviewExportResult) => void;
+  onRenderScene?: (scene: Scene, preview: PreviewExportResult) => void;
 }
 
 export const DualCameraStage: React.FC<DualCameraStageProps> = ({
@@ -30,7 +33,10 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
   activeSceneIndex,
   viewMode,
   compareEnabled,
+  pixelArtMode,
+  renderingScene,
   onExportComplete,
+  onRenderScene,
 }) => {
   const canvasARef = useRef<HTMLCanvasElement | null>(null);
   const canvasBRef = useRef<HTMLCanvasElement | null>(null);
@@ -59,8 +65,13 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
     managerRef.current.applyScene(scene, activeBranch.props_registry);
   }, [scene, activeBranch.props_registry]);
 
-  const handleExportPreview = async () => {
-    if (!managerRef.current || exporting) return;
+  useEffect(() => {
+    if (!managerRef.current) return;
+    managerRef.current.setPixelArtMode(pixelArtMode);
+  }, [pixelArtMode]);
+
+  const handleExportPreview = async (triggerAiRender = false) => {
+    if (!managerRef.current || exporting || renderingScene) return;
     setExporting(true);
     setExportStatus('正在录制 A/B 双机位 4 秒 .webm 预览...');
     const result = await managerRef.current.exportScenePreview(4000);
@@ -77,6 +88,9 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
       );
     }
     onExportComplete?.(result);
+    if (triggerAiRender) {
+      onRenderScene?.(scene, result);
+    }
   };
 
   const showFinalA =
@@ -117,11 +131,21 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
           <button
             type="button"
             className="pill-btn"
-            onClick={handleExportPreview}
-            disabled={exporting}
+            onClick={() => handleExportPreview(false)}
+            disabled={exporting || renderingScene}
           >
-            {exporting ? '⏳ 录制双机位预览中...' : '🎬 导出 4s 双机位预览 (.webm / PNG)'}
+            {exporting ? '⏳ 录制预览中...' : '🎬 导出 4s 双机位预览'}
           </button>
+          {onRenderScene && (
+            <button
+              type="button"
+              className="pill-btn active"
+              onClick={() => handleExportPreview(true)}
+              disabled={exporting || renderingScene}
+            >
+              {renderingScene ? '⏳ Omni Flash 渲染中...' : '✨ 渲染本幕 AI 成片'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -163,9 +187,11 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
             {showFinalA ? (
               <span className="cam-tag ai-ready">Omni Flash 成片</span>
             ) : isDegraded ? (
-              <span className="cam-tag fallback">已降级 · 2.5D 实时预览</span>
+              <span className="cam-tag fallback">已降级 (2.5D Preview)</span>
             ) : (
-              <span className="cam-tag">2.5D 实时预览 (&lt;1s)</span>
+              <span className="cam-tag">
+                {pixelArtMode ? '像素风 2.5D 预览' : '2.5D 实时预览 (<1s)'}
+              </span>
             )}
           </div>
         </div>
@@ -190,7 +216,7 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
             {showFinalB ? (
               <span className="cam-tag ai-ready">Omni Flash 成片</span>
             ) : isDegraded ? (
-              <span className="cam-tag fallback">已降级 · 2.5D 实时预览</span>
+              <span className="cam-tag fallback">已降级 (2.5D Preview)</span>
             ) : (
               <span className="cam-tag">同步世界坐标</span>
             )}

@@ -138,6 +138,7 @@ export class ThreeStageManager {
   private animFrameId: number | null = null;
   private clock = new THREE.Clock();
   private disposed = false;
+  private pixelArtMode = false;
 
   /**
    * Initialize the shared 3D world and attach two WebGLRenderers for Camera A & B.
@@ -711,6 +712,26 @@ export class ThreeStageManager {
         elapsedMs: Math.round(performance.now() - startTime),
       };
     }
+  }
+
+  /**
+   * Toggle low-resolution upscaled Pixel-Art preview mode (`160x90` crisp pixelated).
+   */
+  public setPixelArtMode(enabled: boolean): void {
+    if (this.pixelArtMode === enabled) return;
+    this.pixelArtMode = enabled;
+    const width = enabled ? 160 : 640;
+    const height = enabled ? 90 : 360;
+    const dpr = enabled ? 1 : Math.min(window.devicePixelRatio, 2);
+
+    this.rendererA.setPixelRatio(dpr);
+    this.rendererA.setSize(width, height, false);
+    this.rendererB.setPixelRatio(dpr);
+    this.rendererB.setSize(width, height, false);
+
+    const rendering = enabled ? 'pixelated' : 'auto';
+    this.canvasA.style.imageRendering = rendering;
+    this.canvasB.style.imageRendering = rendering;
   }
 
   public dispose(): void {

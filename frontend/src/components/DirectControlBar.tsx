@@ -15,6 +15,9 @@ interface DirectControlBarProps {
   onTargetSceneChange: (sceneId: number) => void;
   submitting: boolean;
   contradictionWarning: string | null;
+  cleanCaptureMode?: boolean;
+  onDismissContradiction?: () => void;
+  onForceRewrite?: () => void;
   onSubmitFork: (opts: {
     clip?: Blob | null;
     text?: string;
@@ -22,10 +25,27 @@ interface DirectControlBarProps {
   }) => void;
 }
 
-const DEMO_PROMPTS = [
-  '第2幕她把红伞放下，轻轻递出星光礼物安抚黑猫，黑猫没有撞翻花瓶！',
-  '其实第2幕她举起雨伞挡在圆桌前，花瓶稳稳留在了桌上。',
-  '第3幕把灯光换成暖金初雪，黑猫跳上圆桌一起赏雪。',
+const DEMO_PROMPTS: Array<{ sceneId: number; label: string; text: string }> = [
+  {
+    sceneId: 2,
+    label: 'HE · 第2幕递星光礼物安抚黑猫',
+    text: '第2幕她把红伞放下，轻轻递出星光礼物安抚黑猫，黑猫没有撞翻花瓶！',
+  },
+  {
+    sceneId: 2,
+    label: '防护 · 第2幕举伞挡在圆桌前',
+    text: '其实第2幕她举起雨伞挡在圆桌前，花瓶稳稳留在了桌上。',
+  },
+  {
+    sceneId: 3,
+    label: '雪夜 · 第3幕暖金初雪共赏',
+    text: '第3幕把灯光换成暖金初雪，黑猫跳上圆桌一起赏雪。',
+  },
+  {
+    sceneId: 3,
+    label: '冲突测试 · 拿未碎花瓶献花',
+    text: '第3幕她把完好无损的水晶花瓶递给黑猫（测试矛盾检查）。',
+  },
 ];
 
 export const DirectControlBar: React.FC<DirectControlBarProps> = ({
@@ -33,6 +53,9 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
   onTargetSceneChange,
   submitting,
   contradictionWarning,
+  cleanCaptureMode = false,
+  onDismissContradiction,
+  onForceRewrite,
   onSubmitFork,
 }) => {
   const [text, setText] = useState('');
@@ -117,17 +140,33 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
   return (
     <section className="director-bar">
       {contradictionWarning && (
-        <div className="warning-banner">
-          ⚠️ <strong>逻辑矛盾检查：</strong>
-          {contradictionWarning}{' '}
-          <button
-            type="button"
-            className="pill-btn"
-            style={{ marginLeft: 8 }}
-            onClick={() => onSubmitFork({ text, confirmContradiction: true })}
-          >
-            仍要强制改写
-          </button>
+        <div className="warning-banner" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+          <span>
+            ⚠️ <strong>逻辑矛盾检查：</strong>
+            {contradictionWarning}
+          </span>
+          <span style={{ display: 'flex', gap: 8 }}>
+            {onDismissContradiction && (
+              <button
+                type="button"
+                className="pill-btn"
+                onClick={onDismissContradiction}
+              >
+                取消改写
+              </button>
+            )}
+            <button
+              type="button"
+              className="pill-btn active"
+              onClick={() =>
+                onForceRewrite
+                  ? onForceRewrite()
+                  : onSubmitFork({ text, confirmContradiction: true })
+              }
+            >
+              仍要强制改写
+            </button>
+          </span>
         </div>
       )}
 
@@ -186,22 +225,27 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
         </button>
       </form>
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-          快捷试戏：
-        </span>
-        {DEMO_PROMPTS.map((preset, idx) => (
-          <button
-            key={idx}
-            type="button"
-            className="pill-btn"
-            style={{ fontSize: '0.73rem', padding: '4px 10px' }}
-            onClick={() => setText(preset)}
-          >
-            {preset.slice(0, 22)}...
-          </button>
-        ))}
-      </div>
+      {!cleanCaptureMode && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+            快捷试戏：
+          </span>
+          {DEMO_PROMPTS.map((preset, idx) => (
+            <button
+              key={idx}
+              type="button"
+              className="pill-btn"
+              style={{ fontSize: '0.73rem', padding: '3px 10px' }}
+              onClick={() => {
+                setText(preset.text);
+                onTargetSceneChange(preset.sceneId);
+              }}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+      )}
     </section>
   );
 };
