@@ -2,33 +2,33 @@
   "worker": "worker-2 (P3)",
   "branch": "feat/w2-frontend",
   "pull_main_first": true,
-  "batch_deadline": "15:15",
+  "batch_deadline": "15:25",
   "owned_paths": ["frontend/**", "tasks/status_P3.json"],
-  "note": "W2-T2A..T2D merged cleanly! Pull main to get all 8 cached Branch 1 MP4 videos + Rule Memory API.",
+  "note": "W2-T2E..T3C merged cleanly into main! Pull main (also gets eval tables & latest backend), then knock out this T3.5/T4 demo-hardening batch.",
   "parallel_tasks": [
     {
-      "task_id": "W2-T2E",
+      "task_id": "W2-T3D",
       "priority": "P0",
-      "title": "Live Webcam Snapshot Prop button (create-prop UI + stage prop tray)",
-      "details": "Add a dedicated '📷 举实物造道具' button in DirectControlBar that grabs 1 webcam frame + prop name and posts FormData to POST /api/media/create-prop, then immediately updates props_registry & places the normalized transparent prop on the 3D stage."
+      "title": "Multimodal Cue Pills (Vocal Emotion, Gesture Intent & Tail-Frame Environment Notes)",
+      "details": "In DualCameraStage or ClapperboardQA, render compact subtle pills for the active scene's `vocal_emotion`, `gesture_intent`, and `environment_notes` (e.g. '🎙️ gentle_whisper · 🤲 beckon_soothe · 👁️ glass_conservatory_clean_floor') so judges immediately see raw audio/video signals driving the stage."
     },
     {
-      "task_id": "W2-T3A",
+      "task_id": "W2-T3E",
       "priority": "P0",
-      "title": "Reused (0s) vs Re-rendered badge + Rule Memory pill on Branch Tree",
-      "details": "Show a crisp 'Reused (0s)' vs 'Re-rendered' pill on each scene node in StoryBranchTree.tsx, and fetch GET /api/director/rules to display a tiny subtle Rule Memory count chip ('3 rules active') next to the QA bar."
+      "title": "'Play Full 1->4 Story' auto-sequence playback button",
+      "details": "Add a '▶ Play 1→4' button in DualCameraStage / StoryBranchTree that auto-advances scenes 1→4 every 4s (works seamlessly in both 2.5D Preview and AI Render + Auto-Cut A/B modes) for effortless live demo & 1-min video recording."
     },
     {
-      "task_id": "W2-T3B",
-      "priority": "P0",
-      "title": "Dual-Camera Auto-Cut ('智能剪辑') toggle & crystal_vase_broken visual swap",
-      "details": "1) Add an 'Auto-Cut A/B' playback toggle in DualCameraStage that smoothly highlights/switches focus between Cam A wide and Cam B close-up every 2s. 2) When prop.id === 'crystal_vase' && prop.state === 'broken', prefer `/assets/props/crystal_vase_broken.png` (fallback to tilted faded crystal_vase.png if not present yet)."
-    },
-    {
-      "task_id": "W2-T3C",
+      "task_id": "W2-T3F",
       "priority": "P1",
-      "title": "Verify cached Branch 1 8-MP4 playback & side-by-side BE vs HE sync",
-      "details": "Pull main and verify all 8 pre-cached MP4s in branch_v1 play smoothly in AI Render mode and side-by-side comparison mode with zero CORS or 404 errors."
+      "title": "Lightweight collapsible 'Eval & Failure Curve' modal (non-dashboard)",
+      "details": "Keep the main screen 100% stage-focused, and add a tiny top-bar button '📊 Eval' that opens a clean modal showing our real benchmark results: Stateless Baseline (0.564, 29.16s) vs StageState (0.951, 8.19s), 1->4 actor & 2->8 scene curves, and 66.7% rerender savings."
+    },
+    {
+      "task_id": "W2-T4A",
+      "priority": "P1",
+      "title": "End-to-end browser verification against live FastAPI + zero console errors",
+      "details": "Run `npm run build` and test against `uvicorn backend.main:app` (Play Branch 1 cached MP4s, trigger rewrite, test Play 1->4, test Clean Capture mode), logging pass status in tasks/status_P3.json."
     }
   ]
 }
