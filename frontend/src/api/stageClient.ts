@@ -10,7 +10,14 @@
  * - Reads `GET /api/health` so the UI can tell live models from canned answers.
  */
 import { INITIAL_MOCK_BRANCHES } from '../data/mockBranches';
-import type { BranchState, PropRegistryItem, Scene, SceneMedia } from '../types/schema';
+import type {
+  BranchState,
+  DirectorInputParsed,
+  PropEntryMotion,
+  PropRegistryItem,
+  Scene,
+  SceneMedia,
+} from '../types/schema';
 import {
   getPropNameEn,
   sanitizeBranchToEn,
@@ -25,6 +32,9 @@ export interface CreatePropPayload {
   branchId: string;
   sceneId?: number;
   placement?: 'table' | 'held' | 'floor';
+  entryMotion?: PropEntryMotion;
+  detectThrowPeak?: boolean;
+  mediaFilename?: string;
   imageBlob?: Blob | null;
 }
 
@@ -62,6 +72,8 @@ export interface CreatePropResponse {
   prop_id: string;
   image_url: string;
   item: PropRegistryItem;
+  placement?: 'table' | 'held' | 'floor';
+  entry_motion?: PropEntryMotion;
   simulated?: boolean;
 }
 
@@ -79,6 +91,21 @@ export interface ForkRequestPayload {
   confirmContradiction?: boolean;
 }
 
+export interface PerceiveRequestPayload {
+  targetSceneId: number;
+  clip?: Blob | null;
+  text?: string;
+}
+
+export interface ExtendStoryPayload {
+  branchId: string;
+  fromSceneId?: number;
+  clip?: Blob | null;
+  text?: string;
+  endFreezeMode?: 'sculpture' | 'none';
+  detectThrowPeak?: boolean;
+}
+
 export interface RenderScenePayload {
   branchId: string;
   scene: Scene;
@@ -89,6 +116,7 @@ export interface RenderScenePayload {
   camBStartPng?: string | null;
   camBEndPng?: string | null;
   prevTailFrameUrl?: string | null;
+  fastLiveMode?: boolean;
 }
 
 /**
@@ -146,9 +174,90 @@ export async function fetchHealth(): Promise<BackendHealth> {
   }
 }
 
+const PERCEIVE_TIMEOUT_MS = 18000;
 const FORK_TIMEOUT_MS = 45000;
 const RENDER_TIMEOUT_MS = 105000;
 const PROP_TIMEOUT_MS = 90000;
+
+/**
+ * Fast Stage-1 perception (`POST /api/director/perceive`, ~2s): returns Heard/Saw
+ * cues and `needs_prop_prompt` before Neon planning or video rendering starts.
+ */
+export async function perceiveDirectorInput(
+  payload: PerceiveRequestPayload,
+): Promise<{ parsed: DirectorInputParsed | null; error: string | null }> {
+  const formData = new FormData();
+  formData.append('target_scene_id', String(Math.max(1, payload.targetSceneId)));
+  if (payload.clip) {
+    formData.append('clip', payload.clip, 'director_input.webm');
+  } else if (payload.text && payload.text.trim()) {
+    formData.append('text', payload.text.trim());
+  }
+  try {
+    const res = await fetch('/api/director/perceive', {
+      method: 'POST',
+      body: formData,
+      signal: AbortSignal.timeout(PERCEIVE_TIMEOUT_MS),
+    });
+    if (!res.ok) {
+      return { parsed: null, error: await readErrorDetail(res) };
+    }
+    const raw = (await res.json()) as DirectorInputParsed;
+    return {
+      parsed: {
+        ...raw,
+        instruction: sanitizeTextToEn(raw.instruction, payload.text?.trim() || 'Continue scene'),
+        prop_name: raw.prop_name ? sanitizeTextToEn(raw.prop_name, raw.prop_name) : null,
+        prop_prompt_hint: raw.prop_prompt_hint
+          ? sanitizeTextToEn(raw.prop_prompt_hint, 'Hold or toss an object into your camera.')
+          : null,
+      },
+      error: null,
+    };
+  } catch (err) {
+    return { parsed: null, error: describeRequestError(err, PERCEIVE_TIMEOUT_MS) };
+  }
+}
+
+/**
+ * Unbounded Living-Sculpture continuation (`POST /api/director/extend`):
+ * generates Scene N+1 from the current frozen stage (or forks cleanly if
+ * rewound to an earlier historical node). Never fabricates a fake branch.
+ */
+export async function extendDirectorStory(
+  payload: ExtendStoryPayload,
+): Promise<{ branch: BranchState | null; error: string | null }> {
+  const formData = new FormData();
+  formData.append('branch_id', payload.branchId);
+  if (payload.fromSceneId != null) {
+    formData.append('from_scene_id', String(Math.max(1, payload.fromSceneId)));
+  }
+  if (payload.clip) {
+    formData.append('clip', payload.clip, 'director_input.webm');
+  } else if (payload.text && payload.text.trim()) {
+    formData.append('text', payload.text.trim());
+  }
+  formData.append('end_freeze_mode', payload.endFreezeMode ?? 'sculpture');
+  formData.append('detect_throw_peak', String(payload.detectThrowPeak ?? true));
+
+  try {
+    const res = await fetch('/api/director/extend', {
+      method: 'POST',
+      body: formData,
+      signal: AbortSignal.timeout(FORK_TIMEOUT_MS),
+    });
+    if (!res.ok) {
+      return { branch: null, error: await readErrorDetail(res) };
+    }
+    const raw = (await res.json()) as BranchState;
+    if (!raw || !Array.isArray(raw.scenes) || raw.scenes.length === 0) {
+      return { branch: null, error: 'backend returned a branch with no scenes' };
+    }
+    return { branch: sanitizeBranchToEn(raw), error: null };
+  } catch (err) {
+    return { branch: null, error: describeRequestError(err, FORK_TIMEOUT_MS) };
+  }
+}
 
 /**
  * Fetch consolidated offline evaluation summaries from `GET /api/eval/summary`.
@@ -274,6 +383,9 @@ export async function requestSceneRender(
   if (payload.prevTailFrameUrl) {
     formData.append('prev_tail_frame_url', payload.prevTailFrameUrl);
   }
+  if (payload.fastLiveMode) {
+    formData.append('fast_live_mode', 'true');
+  }
 
   try {
     const res = await fetch('/api/media/render-scene', {
@@ -331,8 +443,13 @@ export async function createStageProp(
   formData.append('branch_id', payload.branchId);
   formData.append('scene_id', String(payload.sceneId ?? 1));
   formData.append('placement', payload.placement ?? 'table');
+  formData.append('entry_motion', payload.entryMotion ?? 'place');
+  formData.append('detect_throw_peak', String(payload.detectThrowPeak ?? true));
   if (payload.imageBlob) {
-    formData.append('image', payload.imageBlob, 'webcam_prop.png');
+    const defaultFilename = payload.imageBlob.type.includes('video')
+      ? 'throw_prop.webm'
+      : 'webcam_prop.png';
+    formData.append('image', payload.imageBlob, payload.mediaFilename ?? defaultFilename);
   }
 
   try {
@@ -347,6 +464,8 @@ export async function createStageProp(
     return {
       prop_id: data.prop_id,
       image_url: data.image_url,
+      placement: data.placement ?? payload.placement ?? 'table',
+      entry_motion: data.entry_motion ?? payload.entryMotion ?? 'place',
       item: {
         ...rawItem,
         name: getPropNameEn(data.prop_id, rawItem),
@@ -361,12 +480,16 @@ export async function createStageProp(
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '_')
         .replace(/^_|_$/g, '') || `prop_${Date.now().toString().slice(-4)}`;
-    const imageUrl = payload.imageBlob
-      ? URL.createObjectURL(payload.imageBlob)
+    const isImageBlob =
+      Boolean(payload.imageBlob) && !payload.imageBlob!.type.includes('video');
+    const imageUrl = isImageBlob
+      ? URL.createObjectURL(payload.imageBlob!)
       : '/assets/props/star_token.png';
     return {
       prop_id: slug,
       image_url: imageUrl,
+      placement: payload.placement ?? 'table',
+      entry_motion: payload.entryMotion ?? 'place',
       item: {
         name: payload.name.trim(),
         image_url: imageUrl,

@@ -44,6 +44,16 @@ export interface DualCameraStageHandle {
   exportPreview: (triggerAiRender?: boolean) => Promise<void>;
   /** Restart every visible clip together. */
   syncReplay: () => void;
+  /** Freeze/unfreeze the 2.5D stage into moonlit alabaster sculpture mode (W2-V2-03). */
+  setSculptureFrozen: (frozen: boolean) => void;
+  /** Launch a newly captured prop along a 3D throw-in parabolic arc into the stage. */
+  spawnThrownProp: (
+    propId: string,
+    entryOrigin?: number[] | null,
+    targetGrid?: [number, number] | null,
+  ) => void;
+  /** Animate Lia reaching forward toward the front camera (`catch_from_camera`). */
+  triggerCameraGrab: () => void;
 }
 
 interface DualCameraStageProps {
@@ -56,6 +66,7 @@ interface DualCameraStageProps {
   pixelArtMode: boolean;
   autoCutEnabled: boolean;
   diffHaloEnabled: boolean;
+  sculptureFrozen?: boolean;
   renderingScene: boolean;
   renderProgress?: RenderProgressSnapshot | null;
   isPlayingStory: boolean;
@@ -67,6 +78,7 @@ interface DualCameraStageProps {
   footer?: React.ReactNode;
   onSoundEnabledChange: (enabled: boolean) => void;
   onViewModeChange: (mode: 'preview' | 'final') => void;
+  onToggleSculptureFreeze?: (frozen: boolean) => void;
   onSelectCompareBranch?: (branchId: string) => void;
   onOpenSavedRun?: () => void;
   onTogglePlayStory: () => void;
@@ -149,6 +161,7 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
       pixelArtMode,
       autoCutEnabled,
       diffHaloEnabled,
+      sculptureFrozen = false,
       renderingScene,
       renderProgress = null,
       isPlayingStory,
@@ -159,6 +172,7 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
       footer,
       onSoundEnabledChange,
       onViewModeChange,
+      onToggleSculptureFreeze,
       onSelectCompareBranch,
       onOpenSavedRun,
       onTogglePlayStory,
@@ -322,6 +336,11 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
       managerRef.current.setPixelArtMode(pixelArtMode);
     }, [pixelArtMode]);
 
+    useEffect(() => {
+      if (!managerRef.current) return;
+      managerRef.current.setSculptureFrozen(sculptureFrozen);
+    }, [sculptureFrozen]);
+
     const handleExportPreview = async (triggerAiRender = false) => {
       if (!managerRef.current || exporting || renderingScene) return;
       setExporting(true);
@@ -337,6 +356,15 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
     useImperativeHandle(ref, () => ({
       exportPreview: handleExportPreview,
       syncReplay: handleSyncReplay,
+      setSculptureFrozen: (frozen: boolean) => {
+        managerRef.current?.setSculptureFrozen(frozen);
+      },
+      spawnThrownProp: (propId, entryOrigin, targetGrid) => {
+        managerRef.current?.spawnThrownPropAnimation(propId, entryOrigin, targetGrid);
+      },
+      triggerCameraGrab: () => {
+        managerRef.current?.triggerCameraGrab('lia');
+      },
     }));
 
     // Only treat final clips as this scene's own when they were rendered for (or
@@ -414,16 +442,18 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
       Boolean(beforeUrl) &&
       !(beforeUrl && failedVideoUrls[beforeUrl]);
 
-    // One small state tag per camera: Saved / Live for clips, otherwise the honest preview state
+    // One small state tag per camera: Sculpture / Saved / Live for clips, otherwise preview state
     const stateTag = (showFinal: boolean, degraded: boolean): React.ReactNode =>
-      showFinal ? (
+      sculptureFrozen && !showFinal ? (
+        <span className="cam-state sculpture">Sculpture Frozen</span>
+      ) : showFinal ? (
         <span className={`cam-state ${sceneRenderedLive ? 'live' : ''}`}>
           {sceneRenderedLive ? 'Live' : 'Saved'}
         </span>
       ) : degraded ? (
         <span className="cam-state rose">Degraded · 2.5D preview</span>
       ) : notRenderedYet ? (
-        <span className="cam-state">Not rendered yet</span>
+        <span className="cam-state">2.5D Live Stage</span>
       ) : (
         <span className="cam-state">{pixelArtMode ? 'Pixel preview' : '2.5D preview'}</span>
       );
@@ -455,11 +485,21 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
 
           {!cleanCaptureMode && (
             <div className="stage-transport">
+              {onToggleSculptureFreeze && viewMode === 'preview' && (
+                <button
+                  type="button"
+                  className={`sculpture-pill-btn ${sculptureFrozen ? 'frozen' : ''}`}
+                  onClick={() => onToggleSculptureFreeze(!sculptureFrozen)}
+                  title={sculptureFrozen ? 'Unfreeze sculpture stage (Alt+S)' : 'Freeze as moonlit sculpture (Alt+S)'}
+                >
+                  {sculptureFrozen ? 'Unfreeze' : 'Freeze'}
+                </button>
+              )}
               <button
                 type="button"
                 className={`icon-btn ${isPlayingStory ? 'on' : ''}`}
-                aria-label={isPlayingStory ? 'Stop playing scenes 1 to 4' : 'Play scenes 1 to 4'}
-                title={isPlayingStory ? 'Stop (Space)' : 'Play scenes 1 to 4 (Space)'}
+                aria-label={isPlayingStory ? 'Stop playing scenes' : 'Play scenes'}
+                title={isPlayingStory ? 'Stop (Alt+Space)' : 'Play scenes (Alt+Space)'}
                 onClick={onTogglePlayStory}
               >
                 {isPlayingStory ? <IconStop /> : <IconPlay />}
@@ -470,7 +510,7 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
                   className={`icon-btn ${viewMode === 'preview' ? 'on' : ''}`}
                   aria-label="2.5D stage preview"
                   aria-pressed={viewMode === 'preview'}
-                  title="2.5D stage preview (Tab)"
+                  title="2.5D stage preview (Alt+V)"
                   onClick={() => onViewModeChange('preview')}
                 >
                   <IconStage />
@@ -480,7 +520,7 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
                   className={`icon-btn ${viewMode === 'final' ? 'on' : ''}`}
                   aria-label="Rendered film clips"
                   aria-pressed={viewMode === 'final'}
-                  title="Rendered film clips (Tab)"
+                  title="Rendered film clips (Alt+V)"
                   onClick={() => onViewModeChange('final')}
                 >
                   <IconFilm />

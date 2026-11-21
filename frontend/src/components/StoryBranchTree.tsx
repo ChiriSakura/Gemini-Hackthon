@@ -29,8 +29,13 @@ interface StoryBranchTreeProps {
   activeSceneIndex: number;
   /** `branchId:sceneId` keys of scenes rendered during this browser session. */
   renderedSceneKeys?: Set<string>;
-  /** Branches created by a live rewrite during this browser session. */
+  /** Branches created by a live rewrite/continuation during this browser session. */
   liveBranchIds?: Set<string>;
+  /** Controls whether the full multi-branch save tree is expanded or collapsed into the compact timeline rail. */
+  expanded?: boolean;
+  onToggleExpanded?: () => void;
+  /** When false, hides pre-saved example branches from the expanded tree to keep the canvas clutter-free. */
+  showSavedExamples?: boolean;
   onSelectScene: (branchId: string, sceneIndex: number) => void;
 }
 
@@ -84,29 +89,41 @@ function tiltFor(key: string): number {
   return Number(raw.toFixed(1));
 }
 
-function endingTag(branch: BranchState, lastScene: Scene | undefined): 'BE' | 'HE' | null {
-  const fromLabel = /\b(BE|HE)\b/.exec(branch.branch_label);
-  if (fromLabel) return fromLabel[1] as 'BE' | 'HE';
-  const fromTitle = lastScene ? /\b(BE|HE)\b/.exec(lastScene.title) : null;
-  return fromTitle ? (fromTitle[1] as 'BE' | 'HE') : null;
-}
-
 export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
   branches,
   activeBranchId,
   activeSceneIndex,
   renderedSceneKeys,
   liveBranchIds,
+  expanded = false,
+  onToggleExpanded,
+  showSavedExamples = false,
   onSelectScene,
 }) => {
   const [tip, setTip] = useState<{ key: string; x: number; y: number } | null>(null);
   const [failedThumbs, setFailedThumbs] = useState<Record<string, boolean>>({});
   const nodeRefs = useRef(new Map<string, HTMLButtonElement>());
 
+  const activeBranch = useMemo(
+    () => branches.find((b) => b.branch_id === activeBranchId) ?? branches[0],
+    [branches, activeBranchId],
+  );
+
+  const visibleBranches = useMemo(() => {
+    if (showSavedExamples) return branches;
+    const filtered = branches.filter(
+      (b) =>
+        b.branch_id === activeBranchId ||
+        b.branch_id === 'branch_v1' ||
+        liveBranchIds?.has(b.branch_id),
+    );
+    return filtered.length > 0 ? filtered : branches.slice(0, 1);
+  }, [branches, activeBranchId, liveBranchIds, showSavedExamples]);
+
   const layout = useMemo(() => {
-    const byId = new Map(branches.map((b) => [b.branch_id, b]));
-    const rowOf = new Map(branches.map((b, idx) => [b.branch_id, idx]));
-    const cols = Math.max(1, ...branches.map((b) => b.scenes.length));
+    const byId = new Map(visibleBranches.map((b) => [b.branch_id, b]));
+    const rowOf = new Map(visibleBranches.map((b, idx) => [b.branch_id, idx]));
+    const cols = Math.max(1, ...visibleBranches.map((b) => b.scenes.length));
 
     // First scene number a branch draws itself; earlier scenes are the parent's
     const firstOwnScene = (b: BranchState): number => {
@@ -132,8 +149,6 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
     ): string => {
       const dx = to.x - from.x;
       if (from.y !== to.y) {
-        // A fork leaves the parent at an angle and settles onto its own row,
-        // so sibling branches fan out from the same point like boughs
         const dy = to.y - from.y;
         return `C ${from.x + dx * 0.3} ${from.y + dy * 0.62}, ${to.x - dx * 0.5} ${to.y}, ${to.x} ${to.y}`;
       }
@@ -142,7 +157,6 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
     };
     const startPoint = (b: BranchState, sceneId: number) => {
       if (sceneId <= 1) {
-        // Everything grows out of one trunk at the left edge of Scene 1
         const hasParent = Boolean(b.parent_branch_id && byId.has(b.parent_branch_id));
         const trunkRow = hasParent ? 0 : (rowOf.get(b.branch_id) ?? 0);
         return { x: 0, y: trunkRow * ROW_UNITS + HANG_Y + 6 };
@@ -151,7 +165,7 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
       return hang(sceneId - 1, rowOf.get(owner.branch_id) ?? 0);
     };
 
-    const active = byId.get(activeBranchId) ?? branches[0];
+    const active = byId.get(activeBranchId) ?? visibleBranches[0];
     const litKeys = new Set<string>();
     let sparklePath = '';
     if (active) {
@@ -167,9 +181,8 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
 
     const nodes: TreeNode[] = [];
     const segments: TreeSegment[] = [];
-    branches.forEach((branch, row) => {
+    visibleBranches.forEach((branch, row) => {
       const first = firstOwnScene(branch);
-      const lastScene = branch.scenes[branch.scenes.length - 1];
       let taggedBranch = false;
       branch.scenes.forEach((scene, sceneIndex) => {
         if (scene.scene_id < first) return;
@@ -208,7 +221,8 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
           narration: text.narration,
           tilt: tiltFor(key),
           onPath: litKeys.has(key),
-          endTag: scene === lastScene ? endingTag(branch, lastScene) : null,
+          // W2-V2-01: Remove prominent BE/HE ribbons from main canvas
+          endTag: null,
           branchTag,
         });
         const from = startPoint(branch, scene.scene_id);
@@ -223,8 +237,8 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
       });
     });
 
-    return { cols, rows: branches.length, nodes, segments, sparklePath };
-  }, [branches, activeBranchId, renderedSceneKeys, liveBranchIds]);
+    return { cols, rows: visibleBranches.length, nodes, segments, sparklePath };
+  }, [visibleBranches, branches, activeBranchId, renderedSceneKeys, liveBranchIds]);
 
   const activeKey = (() => {
     const active = branches.find((b) => b.branch_id === activeBranchId) ?? branches[0];
@@ -253,8 +267,64 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
     '--rows': Math.max(1, layout.rows),
   } as React.CSSProperties;
 
+  if (!expanded && activeBranch) {
+    return (
+      <nav className="timeline-rail" aria-label="Scene timeline">
+        <div className="timeline-pills">
+          {activeBranch.scenes.map((sc, idx) => {
+            const isCurrent = idx === activeSceneIndex;
+            const text = getSceneTextEn(activeBranch.branch_id, sc);
+            return (
+              <React.Fragment key={sc.scene_id}>
+                {idx > 0 && <span className="timeline-arrow" aria-hidden="true">→</span>}
+                <button
+                  type="button"
+                  className={`timeline-pill ${isCurrent ? 'active' : ''}`}
+                  aria-current={isCurrent ? 'true' : undefined}
+                  title={`Scene ${sc.scene_id} · ${text.title}`}
+                  onClick={() => onSelectScene(activeBranch.branch_id, idx)}
+                >
+                  <span>S{sc.scene_id}</span>
+                  {isCurrent && <small>{text.title}</small>}
+                </button>
+              </React.Fragment>
+            );
+          })}
+          <span className="timeline-arrow muted" aria-hidden="true">→</span>
+          <span className="timeline-next" title="Prompt below to continue into the next scene">
+            S{activeBranch.scenes.length + 1} …
+          </span>
+        </div>
+        {onToggleExpanded && (
+          <button
+            type="button"
+            className="timeline-toggle-btn"
+            onClick={onToggleExpanded}
+            aria-expanded={false}
+            title="Expand full story save tree to rewind or branch"
+          >
+            History ({visibleBranches.length})
+          </button>
+        )}
+      </nav>
+    );
+  }
+
   return (
     <nav className="tree" aria-label="Story save tree" style={style}>
+      {onToggleExpanded && (
+        <div className="tree-collapse-row">
+          <span className="tree-collapse-label">Story History (click any scene to rewind &amp; branch)</span>
+          <button
+            type="button"
+            className="timeline-toggle-btn"
+            onClick={onToggleExpanded}
+            aria-expanded={true}
+          >
+            Collapse
+          </button>
+        </div>
+      )}
       <div className="tree-inner">
         <div className="tree-head" aria-hidden="true">
           {Array.from({ length: layout.cols }, (_, i) => (

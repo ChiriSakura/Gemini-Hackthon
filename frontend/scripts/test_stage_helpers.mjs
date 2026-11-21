@@ -112,6 +112,9 @@ try {
     name: '   ',
     branchId: 'branch_v1',
     sceneId: 3,
+    placement: 'held',
+    entryMotion: 'throw_arc',
+    detectThrowPeak: true,
     imageBlob: null,
   });
   assert.equal(propRes.simulated, true);
@@ -119,6 +122,69 @@ try {
   const propReq = capturedRequests.find((r) => r.url === '/api/media/create-prop');
   assert.ok(propReq && propReq.init?.body instanceof FormData);
   assert.equal(propReq.init.body.get('scene_id'), '3');
+  assert.equal(propReq.init.body.get('placement'), 'held');
+  assert.equal(propReq.init.body.get('entry_motion'), 'throw_arc');
+  assert.equal(propReq.init.body.get('detect_throw_peak'), 'true');
+
+  // V2: perceive + extend + fast_live_mode + eval summary offline/live edge cases
+  const perceiveOffline = await client.perceiveDirectorInput({
+    targetSceneId: 5,
+    text: 'Lia catches an iced tea tossed by the viewer.',
+  });
+  assert.equal(perceiveOffline.parsed, null);
+  assert.match(perceiveOffline.error, /Simulated offline backend/);
+  const perceiveReq = capturedRequests.find((r) => r.url === '/api/director/perceive');
+  assert.ok(perceiveReq && perceiveReq.init?.body instanceof FormData);
+  assert.equal(perceiveReq.init.body.get('target_scene_id'), '5');
+
+  const extendOffline = await client.extendDirectorStory({
+    branchId: 'branch_v1',
+    fromSceneId: 4,
+    text: 'Scene 5 opens under golden stars.',
+    endFreezeMode: 'sculpture',
+    detectThrowPeak: true,
+  });
+  assert.equal(extendOffline.branch, null);
+  assert.match(extendOffline.error, /Simulated offline backend/);
+  const extendReq = capturedRequests.find((r) => r.url === '/api/director/extend');
+  assert.ok(extendReq && extendReq.init?.body instanceof FormData);
+  assert.equal(extendReq.init.body.get('from_scene_id'), '4');
+  assert.equal(extendReq.init.body.get('end_freeze_mode'), 'sculpture');
+
+  const fastRenderOffline = await client.requestSceneRender({
+    branchId: 'branch_v1',
+    scene: {
+      ...allBranches[0].scenes[0],
+      scene_id: 5,
+      end_freeze_mode: 'sculpture',
+      actors: [
+        {
+          ...allBranches[0].scenes[0].actors[0],
+          action: 'catch_from_camera',
+          height_m: 1.65,
+        },
+      ],
+      stage_props: [
+        {
+          id: 'iced_tea',
+          grid: [1.0, 1.0],
+          on_floor: false,
+          state: 'glowing',
+          entry_motion: 'throw_arc',
+          entry_origin: [1.0, 1.5, 0.8],
+        },
+      ],
+    },
+    fastLiveMode: true,
+  });
+  assert.equal(fastRenderOffline.result, null);
+  const renderReq = capturedRequests.find((r) => r.url === '/api/media/render-scene');
+  assert.ok(renderReq && renderReq.init?.body instanceof FormData);
+  assert.equal(renderReq.init.body.get('fast_live_mode'), 'true');
+  assert.equal(renderReq.init.body.get('scene_id'), '5');
+
+  const evalOffline = await client.fetchEvalSummary();
+  assert.equal(evalOffline, null);
 
   const prog = await client.fetchRenderProgress('branch_v1');
   assert.equal(prog, null);
@@ -148,10 +214,34 @@ try {
     });
   const cannedHealth = await client.fetchHealth();
   assert.deepEqual(cannedHealth, { reachable: true, live: false, demoMode: true });
+
+  // Live perceive returns needs_prop_prompt & unbounded scene_id >= 1
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        target_scene_id: 6,
+        instruction: 'Toss a warm cup of tea for Lia to catch.',
+        vocal_emotion: 'joyful',
+        gesture_intent: 'show_physical_prop',
+        direction_hint: 'front',
+        has_physical_prop: false,
+        needs_prop_prompt: true,
+        prop_prompt_hint: 'Hold or toss a warm mug into frame!',
+        mode: 'extend',
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    );
+  const livePerceive = await client.perceiveDirectorInput({
+    targetSceneId: 6,
+    text: 'Toss a cup of tea!',
+  });
+  assert.equal(livePerceive.error, null);
+  assert.equal(livePerceive.parsed?.target_scene_id, 6);
+  assert.equal(livePerceive.parsed?.needs_prop_prompt, true);
 } finally {
   globalThis.fetch = originalFetch;
 }
 
 console.log(
-  '[test-stage-helpers] PASS: soundCue, 4-branch mock invariants (grids/lighting/0-CJK), and stageClient FormData / fork-error / health edge cases all passed!',
+  '[test-stage-helpers] PASS: soundCue, 4-branch mock invariants (grids/lighting/0-CJK), V2 perceive/extend/throw-arc/fast_live_mode, and stageClient edge cases all passed!',
 );
