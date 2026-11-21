@@ -51,6 +51,7 @@ from backend.media.video_renderer import (
     get_render_progress,
     publish_scene_progress,
     render_branch_scenes,
+    reblock_start_frames,
     render_scene_media,
     subscribe_render_progress,
     unsubscribe_render_progress,
@@ -528,7 +529,7 @@ async def api_director_extend(
         if notes:
             parsed.instruction = (
                 f"{parsed.instruction} (Stage note from the director's 3D view: {'; '.join(notes)}. "
-                "Show them walking to that spot at the start of the scene, keep their grid there, and say so in the narration.)"
+                "The scene starts with them already standing there; keep their grid there unless this direction moves them.)"
             )
 
     updated_registry = dict(parent.props_registry)
@@ -575,6 +576,7 @@ async def api_director_extend(
         end_freeze_mode=end_freeze_mode,
     )
     _keep_actors_clear_of_table(next_scene)
+    _reconcile_inventory(prefix_scenes[-1], next_scene)
     if thrown_prop_id:
         eff_motion = injected_motion or ("throw_arc" if explicit_handoff else "place")
         on_floor = injected_placement == "floor"
@@ -624,6 +626,9 @@ async def api_director_extend(
             if ps.reused_from_branch is None:
                 ps.reused_from_branch = parent.branch_id
         new_branch_id = _next_branch_id()
+        if moved_ids:
+            _USER_MOVED_ACTORS[(new_branch_id, anchor_id)] = set(moved_ids)
+            _save_user_moved()
         out_branch = BranchState(
             branch_id=new_branch_id,
             branch_label=f"Continue from S{anchor_id}: {parsed.instruction[:24]}",
@@ -789,6 +794,48 @@ def _describe_stage_spot(grid: list[float]) -> str:
     return f"{side}, {depth}"
 
 
+def _reconcile_inventory(prev_scene: Scene, next_scene: Scene) -> None:
+    """
+    The item ledger: every object exists exactly once and never appears or vanishes on its own.
+
+    - An object in an actor's hands is not also listed on the stage, and no object is listed twice.
+    - Every object of the previous scene is still somewhere in the new scene. One the director forgot stays
+      where it was; one that was in a hand and is no longer held is put down on the floor beside that actor.
+    """
+    held = {a.holding_prop for a in next_scene.actors if a.holding_prop}
+    unique: list[StagePropState] = []
+    seen: set[str] = set()
+    for prop in next_scene.stage_props:
+        if prop.id in held or prop.id in seen:
+            continue
+        seen.add(prop.id)
+        unique.append(prop)
+    next_scene.stage_props = unique
+
+    present = held | seen
+    for prop in prev_scene.stage_props:
+        if prop.id not in present:
+            carried = prop.model_copy(deep=True)
+            carried.entry_motion = "place"
+            carried.entry_origin = None
+            next_scene.stage_props.append(carried)
+            present.add(prop.id)
+    for actor in prev_scene.actors:
+        pid = actor.holding_prop
+        if not pid or pid in present:
+            continue
+        now = next((a for a in next_scene.actors if a.id == actor.id), actor)
+        next_scene.stage_props.append(
+            StagePropState(
+                id=pid,
+                grid=[round(min(2.0, max(0.0, now.grid[0] - 0.3)), 2), round(now.grid[1], 2)],
+                on_floor=True,
+                state="intact",
+            )
+        )
+        present.add(pid)
+
+
 TABLE_CLEARANCE_M = {"nyx": 0.8}
 DEFAULT_TABLE_CLEARANCE_M = 1.05
 
@@ -887,11 +934,43 @@ async def api_media_render_scene(
             for pid, p in branch.props_registry.items()
         }
         # Both cameras continue from the previous scene's last frames; look them up when the caller did not send them.
-        if not (prev_tail_frame_url and prev_tail_cam_b_url):
-            prev_scene = next((s for s in branch.scenes if s.scene_id == target.scene_id - 1), None)
-            if prev_scene is not None:
-                prev_tail_frame_url = prev_tail_frame_url or prev_scene.media.cam_a_tail_frame_url
-                prev_tail_cam_b_url = prev_tail_cam_b_url or prev_scene.media.cam_b_tail_frame_url
+        prev_scene = next((s for s in branch.scenes if s.scene_id == target.scene_id - 1), None)
+        if prev_scene is not None:
+            prev_tail_frame_url = prev_tail_frame_url or prev_scene.media.cam_a_tail_frame_url
+            prev_tail_cam_b_url = prev_tail_cam_b_url or prev_scene.media.cam_b_tail_frame_url
+
+        # The user dragged characters on the 3D stage after the previous scene was filmed: redraw its two last
+        # frames with the characters at their new spots, so this scene starts from there in both views.
+        moved_key = (branch_id, target.scene_id - 1)
+        moved_now = _USER_MOVED_ACTORS.get(moved_key)
+        if (
+            moved_now
+            and prev_scene is not None
+            and prev_tail_frame_url
+            and prev_tail_cam_b_url
+            and config.GEMINI_API_KEY
+            and not config.DEMO_MODE
+        ):
+            try:
+                hint = "; ".join(
+                    f"{a.name} now stands {_describe_stage_spot(a.grid)}" for a in prev_scene.actors if a.id in moved_now
+                )
+                reblocked = await reblock_start_frames(
+                    prev_scene, prev_tail_frame_url, prev_tail_cam_b_url, f"Seen from this front view: {hint}."
+                )
+                if reblocked:
+                    prev_tail_frame_url, prev_tail_cam_b_url = reblocked
+                    async with _get_branch_lock(branch_id):
+                        latest_branch = get_branch(branch_id) or branch
+                        latest_prev = next((s for s in latest_branch.scenes if s.scene_id == prev_scene.scene_id), None)
+                        if latest_prev is not None:
+                            latest_prev.media.cam_a_tail_frame_url = reblocked[0]
+                            latest_prev.media.cam_b_tail_frame_url = reblocked[1]
+                            save_branch(latest_branch)
+                    _USER_MOVED_ACTORS.pop(moved_key, None)
+                    _save_user_moved()
+            except Exception:  # the scene still renders from the unmoved frames
+                pass
 
         # R-15: Enforce hard per-scene timeout with graceful 2.5D preview fallback + live SSE progress updates
         publish_scene_progress(branch_id, target.scene_id, "rendering", branch_status="running")

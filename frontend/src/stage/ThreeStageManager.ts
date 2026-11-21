@@ -865,7 +865,14 @@ export class ThreeStageManager {
     const activeActorIds = new Set<string>();
     const sumPos = new THREE.Vector3();
 
-    for (const actor of sceneData.actors) {
+    // Lia's default picture has the closed umbrella drawn in her hand. When she is not holding it
+    // (it lies on the floor, or she holds something else), use the umbrella-free picture so it is not shown twice.
+    const displayActors = sceneData.actors.map((raw) =>
+      raw.id === 'lia' && raw.holding_prop !== 'red_umbrella' && raw.asset_url.endsWith('lia.png')
+        ? { ...raw, asset_url: raw.asset_url.replace(/lia\.png$/, 'lia_no_umbrella.png') }
+        : raw,
+    );
+    for (const actor of displayActors) {
       activeActorIds.add(actor.id);
       const { x, z } = gridToWorld(actor.grid);
       const isNyx = actor.id === 'nyx';
@@ -971,6 +978,16 @@ export class ThreeStageManager {
         entity.action = actor.action;
         entity.facing = actor.facing;
         entity.worldYaw = actorYaw;
+        if (entity.assetUrl !== actor.asset_url) {
+          // The picture changed (for example the umbrella was put down): load it, then swap it in.
+          const swapped = entity;
+          swapped.assetUrl = actor.asset_url;
+          swapped.appliedFlipped = undefined;
+          this.loadSpriteTexture(actor.asset_url, undefined, () => {
+            swapped.appliedFlipped = undefined;
+            this.syncActorFacingTexture(swapped);
+          });
+        }
         entity.assetUrl = actor.asset_url;
         entity.heightM = actor.height_m ?? null;
         entity.diffHighlighted = changedFromBaseline;

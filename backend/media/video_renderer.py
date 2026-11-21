@@ -1787,8 +1787,16 @@ def _resolve_ffmpeg_exe() -> str:
     return shutil.which("ffmpeg") or "ffmpeg"
 
 
-def _compose_split_frame_sync(cam_a_frame: Path, cam_b_frame: Path, out_path: Path) -> Path:
-    """Put Camera A (left) and Camera B (right) side by side in one 16:9 frame, with black bars above and below."""
+def _compose_split_frame_sync(
+    cam_a_frame: Path, cam_b_frame: Path, out_path: Path, prop_refs: Optional[list[Path]] = None
+) -> Path:
+    """
+    Put Camera A (left) and Camera B (right) side by side in one 16:9 frame, with black bars above and below.
+
+    `prop_refs` (cut-out pictures of newly added objects) are drawn as small reference cards inside the top black
+    bar. The bar is cropped away afterwards, so the video model sees what the object looks like without a second
+    input image, which it would treat as a last frame and drift away from the start frame.
+    """
     img_a = _read_bgr_safe(cam_a_frame)
     img_b = _read_bgr_safe(cam_b_frame)
     if img_a is None or img_b is None:
@@ -1796,6 +1804,28 @@ def _compose_split_frame_sync(cam_a_frame: Path, cam_b_frame: Path, out_path: Pa
     canvas = np.zeros((720, 1280, 3), np.uint8)
     canvas[180:540, 0:640] = cv2.resize(img_a, (640, 360))
     canvas[180:540, 640:1280] = cv2.resize(img_b, (640, 360))
+    for idx, ref in enumerate((prop_refs or [])[:3]):
+        try:
+            rgba = cv2.imread(str(ref), cv2.IMREAD_UNCHANGED)
+            if rgba is None:
+                continue
+            if rgba.ndim == 2:
+                rgba = cv2.cvtColor(rgba, cv2.COLOR_GRAY2BGRA)
+            elif rgba.shape[2] == 3:
+                rgba = cv2.cvtColor(rgba, cv2.COLOR_BGR2BGRA)
+            scale = 140.0 / max(rgba.shape[0], rgba.shape[1])
+            small = cv2.resize(rgba, (max(1, int(rgba.shape[1] * scale)), max(1, int(rgba.shape[0] * scale))))
+            x0 = 30 + idx * 180
+            card = canvas[14:166, x0 : x0 + 152]
+            card[:] = (52, 44, 40)
+            oy, ox = (152 - small.shape[0]) // 2, (152 - small.shape[1]) // 2
+            alpha = small[..., 3:4].astype(np.float32) / 255.0
+            region = card[oy : oy + small.shape[0], ox : ox + small.shape[1]].astype(np.float32)
+            card[oy : oy + small.shape[0], ox : ox + small.shape[1]] = (
+                small[..., :3].astype(np.float32) * alpha + region * (1.0 - alpha)
+            ).astype(np.uint8)
+        except Exception:
+            continue
     out_path.parent.mkdir(parents=True, exist_ok=True)
     if not _write_png_safe(out_path, canvas):
         raise RuntimeError("could not write the split-screen start frame")
@@ -1819,6 +1849,67 @@ def _crop_split_panel_sync(split_video: Path, right_panel: bool, out_path: Path)
     return out_path
 
 
+_PROP_PLAIN_NAMES = {
+    "crystal_vase": "crystal vase with a blue rose",
+    "red_umbrella": "red umbrella",
+}
+
+
+def _stage_inventory(scene: Scene, prop_descriptions: Optional[dict[str, str]] = None) -> str:
+    """
+    One sentence listing every character and object exactly once, with where it is.
+
+    This is the count ledger the video model has to respect: nothing appears twice and nothing vanishes.
+    """
+    items: list[str] = []
+    for actor in scene.actors:
+        kind = "black cat" if actor.id == "nyx" else "girl"
+        items.append(f"one {kind} ({actor.name})")
+    seen: set[str] = set()
+
+    def _name(pid: str) -> str:
+        if pid in _PROP_PLAIN_NAMES:
+            return _PROP_PLAIN_NAMES[pid]
+        described = ((prop_descriptions or {}).get(pid) or "").strip()
+        return described or re.sub(r"_[0-9a-f]{4,8}$", "", pid).replace("_", " ")
+
+    for actor in scene.actors:
+        pid = actor.holding_prop
+        if not pid or pid in seen:
+            continue
+        seen.add(pid)
+        if pid == "red_umbrella":
+            where = "open above her head" if _umbrella_is_open(scene) else f"closed, in {actor.name}'s hand"
+        else:
+            where = f"in {actor.name}'s hands"
+        items.append(f"one {_name(pid)}, {where}")
+    for prop in scene.stage_props:
+        if prop.id in seen:
+            continue
+        seen.add(prop.id)
+        if prop.state == "broken":
+            where = "lying broken on the floor"
+        elif prop.on_floor:
+            where = "lying on the floor"
+        else:
+            where = "standing on the round table"
+        items.append(f"one {_name(prop.id)}, {where}")
+    return (
+        "Everything in the room, each exactly ONCE in each panel: " + "; ".join(items) + ". "
+        "Never draw a second copy of a character or an object, and never let one disappear: "
+        "an object that is picked up is no longer where it was. "
+    )
+
+
+def _viewpoint_words(text: str) -> str:
+    """Say 'view' instead of 'Camera' in prompt text, so the video model never draws a physical camera in the room."""
+    return (
+        text.replace("dual-camera", "two-view")
+        .replace("Camera A", "the front view")
+        .replace("Camera B", "the side view")
+    )
+
+
 async def _render_split_screen_pair(
     scene: Scene,
     cam_a_start: Path,
@@ -1834,10 +1925,6 @@ async def _render_split_screen_pair(
     """
     tag = uuid.uuid4().hex[:6]
     stem = f"scene_{scene.scene_id}_sync_{tag}"
-    split_frame = await asyncio.to_thread(
-        _compose_split_frame_sync, cam_a_start, cam_b_start, config.TAILS_DIR / f"{stem}_start.png"
-    )
-    uploaded = await _get_or_upload_uri(split_frame, use_cache=False)
 
     # Forward active newly-injected prop reference images (up to 3) so thrown/added props match in both panels.
     active_custom_props: set[str] = set()
@@ -1860,11 +1947,16 @@ async def _render_split_screen_pair(
                     extra_prop_paths.append(p_local)
                     if len(extra_prop_paths) >= 3:
                         break
-    uploaded_extra_props = (
-        list(await asyncio.gather(*(_get_or_upload_uri(p, use_cache=True) for p in extra_prop_paths)))
-        if extra_prop_paths
-        else []
+    # New objects are shown to the model as reference cards in the top black bar of the single start frame.
+    split_frame = await asyncio.to_thread(
+        _compose_split_frame_sync,
+        cam_a_start,
+        cam_b_start,
+        config.TAILS_DIR / f"{stem}_start.png",
+        extra_prop_paths,
     )
+    uploaded = await _get_or_upload_uri(split_frame, use_cache=False)
+    uploaded_extra_props: list[tuple[str, str]] = []
 
     extra_prop_clauses: list[str] = []
     for pid in sorted(active_custom_props):
@@ -1880,7 +1972,13 @@ async def _render_split_screen_pair(
             )
         )
     extra_prop_rule = (
-        f"Active props to show identically in both panels (matching any extra reference images): {'; '.join(extra_prop_clauses)}. "
+        f"New objects to show identically in both panels: {'; '.join(extra_prop_clauses)}. "
+        + (
+            "The small pictures in the top black bar are reference pictures of these objects: they stay there unchanged, "
+            "they are not part of the scene, and the object in the scene looks exactly like its reference picture. "
+            if extra_prop_paths
+            else ""
+        )
         if extra_prop_clauses
         else ""
     )
@@ -1901,7 +1999,8 @@ async def _render_split_screen_pair(
         if epipolar_summary:
             epipolar_summary += " "
         # Attach a 3D-projected paired dual-cam layout guide when actors/props moved or custom props were injected.
-        if scene.needs_rerender or active_custom_props:
+        # A second input image makes the video model drift from the start frame, so the sketch is opt-in.
+        if getattr(config, "SPLIT_ATTACH_LAYOUT_GUIDE", False) and (scene.needs_rerender or active_custom_props):
             candidate_guide = config.TAILS_DIR / f"{stem}_3d_guide.png"
             layout_guide_path = await asyncio.to_thread(render_dual_cam_split_guide, scene, candidate_guide)
             if layout_guide_path and layout_guide_path.is_file():
@@ -1911,7 +2010,7 @@ async def _render_split_screen_pair(
         uploaded_layout_guide = None
 
     layout_guide_rule = (
-        "Image 2 is an exact 3D dual-camera projection layout of the shared stage coordinates (LEFT = Camera A, RIGHT = Camera B): "
+        "Image 2 is a grey 3D layout sketch of the shared stage coordinates (LEFT = front view, RIGHT = 45 degree view), a guide only, never to be drawn itself: "
         "follow its exact spatial positions and table-side placement of every character and prop in both panels, "
         "while keeping Image 1's anime art style, lighting, and conservatory architecture. "
         if uploaded_layout_guide is not None
@@ -1920,22 +2019,23 @@ async def _render_split_screen_pair(
     clean_action = _milden_safety_phrasing(_strip_camera_directives(scene.narration))
     prompt = (
         "Split-screen video. The frame holds two panels side by side with black bars above and below, exactly as in "
-        "Image 1. Both panels show the SAME room and the SAME moment, filmed by two synchronized cameras that never move. "
-        "LEFT panel = Camera A, the front wide shot. RIGHT panel = Camera B, the fixed 45 degree right-side shot of the same scene. "
-        "STRICT 3D VIEWPOINT LAW: ONLY the camera viewpoint differs (+45 degrees clockwise around the central round table). "
+        "Image 1. Both panels show the SAME room and the SAME moment, seen from two fixed viewpoints that never move. "
+        "LEFT panel = the front wide view. RIGHT panel = the fixed 45 degree right-side view of the same scene. "
+        "STRICT 3D VIEWPOINT LAW: ONLY the viewpoint differs (+45 degrees clockwise around the central round table). "
         "Every character, limb, held object, and fallen prop keeps the EXACT SAME 3D world-space floor coordinates relative to "
         "the center table, the same handedness, and the same body/head facing direction relative to the room in both panels — "
         "never mirror positions across the table or swap which hand holds an object between panels. "
-        f"{epipolar_summary}"
+        f"{_viewpoint_words(epipolar_summary)}"
         f"{layout_guide_rule}"
         "Every movement happens at exactly the same instant in both panels: the same characters do the same action "
-        "with the same timing, only seen from the two camera positions. The world is one and the same in both panels: "
+        "with the same timing, only seen from the two viewpoints. The world is one and the same in both panels: "
         "anything opened, closed, picked up, put down, broken or spilled looks identical in both, and every object "
-        "lies in the same place on the floor. Both cameras are locked on tripods: no pan, "
-        "no orbit, no zoom, no cut. Keep the black bars and the vertical split exactly where they are for the whole clip. "
+        "lies in the same place on the floor. Both viewpoints stay fixed for the whole clip: no pan, "
+        "no orbit, no zoom, no cut. No camera, tripod, lighting rig, microphone or film crew is ever visible in the picture. Keep the black bars and the vertical split exactly where they are for the whole clip. "
         f"Action in the scene: {clean_action} "
         f"{extra_prop_rule}"
         f"{umbrella_rule}"
+        f"{_stage_inventory(scene, prop_descriptions)}"
         "Every character and object keeps the size it has in Image 1, in both panels. "
         "All weather stays outside the glass; the room interior and the floor are dry. Anime cel-shaded style. "
         "No text, numbers, labels, arrows, measurement lines, captions or watermarks anywhere in the picture."
@@ -2012,6 +2112,72 @@ async def _split_pair_from_cam_a(scene: Scene, cam_a_final_url: str):
     if same_view >= CAM_B_SAME_VIEW_THRESHOLD:
         return None
     return await _render_split_screen_pair(scene, a_first, b_first)
+
+
+def _reblock_frame_sync(frame: Path, layout: Path, out_path: Path, spot_hint: str) -> Path:
+    """Redraw one view's frame with the characters standing where the stage layout sketch puts them."""
+    client = genai.Client(api_key=config.GEMINI_API_KEY, http_options=types.HttpOptions(timeout=45_000))
+    prompt = (
+        "Image 1 is a frame of an anime stage scene. Image 2 is a plain grey layout sketch from the SAME viewpoint "
+        "that shows where each character stands on the floor now. Redraw Image 1 with each character moved to the "
+        "floor position shown in the sketch, scaled naturally for the new distance. Keep everything else exactly as in "
+        "Image 1: the viewpoint, the room, the furniture, the lighting, every object and where it lies, and each "
+        "character's look, clothes, pose, facing direction and held objects. Exactly one of each character and object; "
+        "add nothing and remove nothing. Ignore the sketch's flat grey look and cut-out figures. "
+        f"{spot_hint} Full 16:9 frame, anime cel-shaded like Image 1, no borders and no text."
+    )
+    parts = [
+        {"type": "image", "data": base64.b64encode(frame.read_bytes()).decode("ascii"), "mime_type": "image/png"},
+        {"type": "image", "data": base64.b64encode(layout.read_bytes()).decode("ascii"), "mime_type": "image/png"},
+        {"type": "text", "text": prompt},
+    ]
+    interaction = client.interactions.create(
+        model=_resolve_image_model(),
+        input=parts,
+        response_format={"type": "image", "aspect_ratio": "16:9"},
+    )
+    output_image = getattr(interaction, "output_image", None)
+    data = getattr(output_image, "data", None) if output_image else None
+    if not data:
+        raise RuntimeError("image model returned no re-blocked frame")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_bytes(data if isinstance(data, bytes) else base64.b64decode(data))
+    return out_path
+
+
+async def reblock_start_frames(
+    scene: Scene, tail_a_url: str, tail_b_url: str, spot_hint: str = ""
+) -> Optional[tuple[str, str]]:
+    """
+    After the user dragged characters on the 3D stage, redraw both views' last frames of `scene` so the
+    characters stand at their new spots. The next scene then starts from these frames in both views.
+    """
+    from backend.media.stage_blueprint import render_scene_blueprint
+
+    tail_a = _resolve_asset_to_local_path(tail_a_url)
+    tail_b = _resolve_asset_to_local_path(tail_b_url)
+    if not tail_a or not tail_b or not tail_a.is_file() or not tail_b.is_file():
+        return None
+    tag = uuid.uuid4().hex[:6]
+    layout_a = await asyncio.to_thread(
+        render_scene_blueprint, scene, "cam_a", config.TAILS_DIR / f"scene_{scene.scene_id}_moved_{tag}_layout_a.png"
+    )
+    layout_b = await asyncio.to_thread(
+        render_scene_blueprint, scene, "cam_b", config.TAILS_DIR / f"scene_{scene.scene_id}_moved_{tag}_layout_b.png"
+    )
+    out_a = config.TAILS_DIR / f"scene_{scene.scene_id}_cam_a_moved_{tag}_tail.png"
+    out_b = config.TAILS_DIR / f"scene_{scene.scene_id}_cam_b_moved_{tag}_tail.png"
+    await asyncio.gather(
+        asyncio.to_thread(_reblock_frame_sync, tail_a, layout_a, out_a, spot_hint),
+        asyncio.to_thread(_reblock_frame_sync, tail_b, layout_b, out_b, ""),
+    )
+    log_genai_call(
+        model=_resolve_image_model(),
+        prompt={"mode": "reblock_start_frames", "scene_id": scene.scene_id},
+        config={},
+        output={"cam_a": out_a.name, "cam_b": out_b.name},
+    )
+    return f"/assets/tails/{out_a.name}", f"/assets/tails/{out_b.name}"
 
 
 @log_function_call

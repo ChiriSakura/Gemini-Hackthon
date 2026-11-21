@@ -81,3 +81,6 @@ MAX_CLIP_UPLOAD_BYTES: int = int(os.getenv("MAX_CLIP_UPLOAD_BYTES", str(15 * 102
 MAX_IMAGE_UPLOAD_BYTES: int = int(os.getenv("MAX_IMAGE_UPLOAD_BYTES", str(5 * 1024 * 1024)))
 MAX_PREVIEW_UPLOAD_BYTES: int = int(os.getenv("MAX_PREVIEW_UPLOAD_BYTES", str(20 * 1024 * 1024)))
 RENDER_SCENE_TIMEOUT_SEC: float = float(os.getenv("RENDER_SCENE_TIMEOUT_SEC", "95.0"))
+
+# Send the grey 3D layout sketch to the video model as a second image. Off: it pulled clips away from the start frame.
+SPLIT_ATTACH_LAYOUT_GUIDE: bool = os.getenv("SPLIT_ATTACH_LAYOUT_GUIDE", "false").lower() == "true"

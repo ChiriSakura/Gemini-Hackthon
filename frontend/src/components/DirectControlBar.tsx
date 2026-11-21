@@ -4,7 +4,7 @@
  * Feature & Use Cases:
  * - Keeps the bottom input dock effortless and uncluttered: a subtle `Next S(N+1)`
  *   indicator, one wide open prompt field, "Direct" (send typed prompt),
- *   "Hold to talk" (press and hold up to 3s of camera + microphone), and a quick
+ *   "Hold to talk" (press and hold up to 30s of camera + microphone), and a quick
  *   "Throw Object" button wired to the persistent bottom-right Self-View camera.
  * - Preserves rock-solid hold-to-record guards (`holdBusyRef`, window release
  *   listeners, `MIN_CLIP_MS = 1000`, never attaching stale text to a voice clip).
@@ -27,7 +27,7 @@ interface DirectControlBarProps {
   }) => Promise<boolean> | void;
 }
 
-const MAX_CLIP_MS = 15000;
+const MAX_CLIP_MS = 30000;
 const MIN_CLIP_MS = 600;
 
 /**
@@ -421,7 +421,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
           style={{ touchAction: 'none' }}
           disabled={submitting}
           aria-pressed={recording}
-          title="Press and hold to speak and gesture for up to 15 seconds"
+          title="Press and hold to speak and gesture for up to 30 seconds"
         >
           <IconMic />
           <span>{recording ? `${(remainingMs / 1000).toFixed(1)}s` : 'Hold to talk'}</span>
