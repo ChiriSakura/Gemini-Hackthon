@@ -1,0 +1,528 @@
+{
+  "branch_id": "branch_v2_sleep_head_cached",
+  "branch_label": "Sleep Fork A · Nyx on Head → Lia Breaks Vase",
+  "parent_branch_id": "branch_v1",
+  "forked_from_scene": 2,
+  "rewrite_summary": "Lia falls asleep -> Nyx jumps onto Lia's head -> Lia wakes startled and breaks the crystal vase.",
+  "contradiction_warning": null,
+  "props_registry": {
+    "red_umbrella": {
+      "name": "Crimson Vintage Umbrella",
+      "image_url": "/assets/actors/lia.png",
+      "state": "held",
+      "origin": "preset",
+      "height_m": null,
+      "appearance_summary": ""
+    },
+    "crystal_vase": {
+      "name": "Blue Rose Crystal Vase",
+      "image_url": "/assets/props/crystal_vase.png",
+      "state": "broken",
+      "origin": "preset",
+      "height_m": null,
+      "appearance_summary": ""
+    }
+  },
+  "scenes": [
+    {
+      "scene_id": 1,
+      "title": "Rainy Night Encounter",
+      "duration_sec": 4.0,
+      "narration": "Under warm dim lantern light, Lia stands on the left side of the glass conservatory holding a closed crimson umbrella at her side while black cat Nyx sits on the right gazing at the blue-rose crystal vase on the center table.",
+      "vocal_emotion": "neutral",
+      "gesture_intent": "none",
+      "direction_hint": "none",
+      "lighting": "warm_dim",
+      "camera_shake": false,
+      "audio_mood": "soft_rain_and_quiet_glasshouse_ambience",
+      "environment_notes": "arched_glass_conservatory night_rain_outside warm_wall_lanterns glowing_blue_rose glass_vase round_wooden_table herringbone_wood_floor polished_floor_reflections potted_palm_plants",
+      "needs_rerender": false,
+      "reused_from_branch": "branch_v1",
+      "end_freeze_mode": "sculpture",
+      "parent_scene_id": null,
+      "actors": [
+        {
+          "id": "lia",
+          "name": "Lia",
+          "asset_url": "/assets/actors/lia.png",
+          "grid": [
+            0.0,
+            1.0
+          ],
+          "facing": "right",
+          "action": "stand",
+          "holding_prop": "red_umbrella",
+          "height_m": null
+        },
+        {
+          "id": "nyx",
+          "name": "Nyx",
+          "asset_url": "/assets/actors/nyx.png",
+          "grid": [
+            2.0,
+            1.0
+          ],
+          "facing": "left",
+          "action": "sit",
+          "holding_prop": null,
+          "height_m": null
+        }
+      ],
+      "stage_props": [
+        {
+          "id": "crystal_vase",
+          "grid": [
+            1.0,
+            1.0
+          ],
+          "on_floor": false,
+          "state": "intact",
+          "entry_motion": "place",
+          "entry_origin": null
+        }
+      ],
+      "qa_questions": [
+        "Is the silver-haired girl standing on the left holding a closed (not open) red umbrella at her side?",
+        "Is the black cat with a golden moon collar sitting on the right?",
+        "Is the crystal vase with a blue rose standing intact on the center round table?",
+        "Do Camera A (front wide) and Camera B (45-degree close-up) match actor positions?",
+        "Are there no extra unintended human characters in the scene?"
+      ],
+      "media": {
+        "cam_a_preview_url": null,
+        "cam_b_preview_url": null,
+        "cam_a_final_url": "/assets/finals/scene_1_cam_a_b23469_sync.mp4",
+        "cam_b_final_url": "/assets/finals/scene_1_cam_b_b23469_sync.mp4",
+        "cam_a_tail_frame_url": "/assets/tails/scene_1_cam_a_b23469_sync_tail.png",
+        "cam_b_tail_frame_url": "/assets/tails/scene_1_cam_b_b23469_sync_tail.png",
+        "qa_result": {
+          "overall_score": 0.772,
+          "all_passed": false,
+          "items": [
+            {
+              "question": "[CAM A] Is the silver-haired girl standing on the left holding a closed (not open) red umbrella at her side?",
+              "passed": true,
+              "confidence": 0.933,
+              "reason": "Decision-1 P(true)=0.93"
+            },
+            {
+              "question": "[CAM A] Is the black cat with a golden moon collar sitting on the right?",
+              "passed": true,
+              "confidence": 0.862,
+              "reason": "Decision-1 P(true)=0.86"
+            },
+            {
+              "question": "[CAM A] Is the crystal vase with a blue rose standing intact on the center round table?",
+              "passed": true,
+              "confidence": 0.912,
+              "reason": "Decision-1 P(true)=0.91"
+            },
+            {
+              "question": "[CAM A] Do Camera A (front wide) and Camera B (45-degree close-up) match actor positions?",
+              "passed": true,
+              "confidence": 0.558,
+              "reason": "Decision-1 P(true)=0.56 [LOW_CONFIDENCE: escalate]"
+            },
+            {
+              "question": "[CAM A] Are there no extra unintended human characters in the scene?",
+              "passed": true,
+              "confidence": 0.911,
+              "reason": "Decision-1 P(true)=0.91"
+            },
+            {
+              "question": "[CAM B] Is the silver-haired girl standing on the left holding a closed (not open) red umbrella at her side?",
+              "passed": true,
+              "confidence": 0.882,
+              "reason": "Decision-1 P(true)=0.88"
+            },
+            {
+              "question": "[CAM B] Is the black cat with a golden moon collar sitting on the right?",
+              "passed": false,
+              "confidence": 0.618,
+              "reason": "Decision-1 P(true)=0.38 [LOW_CONFIDENCE: escalate]"
+            },
+            {
+              "question": "[CAM B] Is the crystal vase with a blue rose standing intact on the center round table?",
+              "passed": true,
+              "confidence": 0.9,
+              "reason": "Decision-1 P(true)=0.90"
+            },
+            {
+              "question": "[CAM B] Do Camera A (front wide) and Camera B (45-degree close-up) match actor positions?",
+              "passed": true,
+              "confidence": 0.604,
+              "reason": "Decision-1 P(true)=0.60 [LOW_CONFIDENCE: escalate]"
+            },
+            {
+              "question": "[CAM B] Are there no extra unintended human characters in the scene?",
+              "passed": true,
+              "confidence": 0.884,
+              "reason": "Decision-1 P(true)=0.88"
+            },
+            {
+              "question": "[Dual-Cam] Camera A & Camera B room, actor, and vase consistency",
+              "passed": false,
+              "confidence": 0.341,
+              "reason": "Cross-Cam Decision-1 (thresh=0.80) P(room=0.66, actors=0.84, vase=0.91)"
+            }
+          ]
+        },
+        "qa_score": 0.782,
+        "qa_retries": 0,
+        "selected_candidate_index": 0,
+        "fallback_to_preview": false
+      }
+    },
+    {
+      "scene_id": 2,
+      "title": "Lia Falls Asleep",
+      "duration_sec": 4.0,
+      "narration": "Grown sleepy under the warm conservatory lanterns, Lia sets her closed red umbrella down beside her, sits down on the herringbone wooden floor right next to the left side of the round wooden table, rests her head comfortably against the tabletop edge on her folded arms, and falls fast asleep with her eyes closed, while black cat Nyx sits quietly on the right watching sleeping Lia; the glowing blue-rose crystal vase remains intact at the center of the table.",
+      "vocal_emotion": "sad_soft",
+      "gesture_intent": "none",
+      "direction_hint": "none",
+      "lighting": "warm_dim",
+      "camera_shake": false,
+      "audio_mood": "gentle_night_rain_and_quiet_breathing",
+      "environment_notes": "arched_glass_conservatory night_rain_outside warm_wall_lanterns glowing_blue_rose glass_vase round_wooden_table herringbone_wood_floor polished_floor_reflections potted_palm_plants",
+      "needs_rerender": false,
+      "reused_from_branch": null,
+      "end_freeze_mode": "sculpture",
+      "parent_scene_id": 1,
+      "actors": [
+        {
+          "id": "lia",
+          "name": "Lia",
+          "asset_url": "/assets/actors/lia.png",
+          "grid": [
+            0.5,
+            1.0
+          ],
+          "facing": "right",
+          "action": "sit",
+          "holding_prop": null,
+          "height_m": null
+        },
+        {
+          "id": "nyx",
+          "name": "Nyx",
+          "asset_url": "/assets/actors/nyx.png",
+          "grid": [
+            1.9,
+            1.0
+          ],
+          "facing": "left",
+          "action": "sit",
+          "holding_prop": null,
+          "height_m": null
+        }
+      ],
+      "stage_props": [
+        {
+          "id": "crystal_vase",
+          "grid": [
+            1.0,
+            1.0
+          ],
+          "on_floor": false,
+          "state": "intact",
+          "entry_motion": "place",
+          "entry_origin": null
+        }
+      ],
+      "qa_questions": [
+        "Is Lia sitting beside the left of the table with her head resting down asleep?",
+        "Is Nyx sitting on the right watching Lia?",
+        "Is the blue-rose crystal vase still intact on the center table?"
+      ],
+      "media": {
+        "cam_a_preview_url": null,
+        "cam_b_preview_url": null,
+        "cam_a_final_url": "/assets/finals/scene_2_cam_a_9a632f_sync.mp4",
+        "cam_b_final_url": "/assets/finals/scene_2_cam_b_9a632f_sync.mp4",
+        "cam_a_tail_frame_url": "/assets/tails/scene_2_cam_a_9a632f_sync_tail.png",
+        "cam_b_tail_frame_url": "/assets/tails/scene_2_cam_b_9a632f_sync_tail.png",
+        "qa_result": {
+          "overall_score": 0.828,
+          "all_passed": true,
+          "items": [
+            {
+              "question": "[CAM A] Is Lia sitting beside the left of the table with her head resting down asleep?",
+              "passed": true,
+              "confidence": 0.799,
+              "reason": "Decision-1 P(true)=0.80"
+            },
+            {
+              "question": "[CAM A] Is Nyx sitting on the right watching Lia?",
+              "passed": true,
+              "confidence": 0.812,
+              "reason": "Decision-1 P(true)=0.81"
+            },
+            {
+              "question": "[CAM A] Is the blue-rose crystal vase still intact on the center table?",
+              "passed": true,
+              "confidence": 0.921,
+              "reason": "Decision-1 P(true)=0.92"
+            },
+            {
+              "question": "[CAM B] Is Lia sitting beside the left of the table with her head resting down asleep?",
+              "passed": true,
+              "confidence": 0.712,
+              "reason": "Decision-1 P(true)=0.71"
+            },
+            {
+              "question": "[CAM B] Is Nyx sitting on the right watching Lia?",
+              "passed": true,
+              "confidence": 0.793,
+              "reason": "Decision-1 P(true)=0.79"
+            },
+            {
+              "question": "[CAM B] Is the blue-rose crystal vase still intact on the center table?",
+              "passed": true,
+              "confidence": 0.929,
+              "reason": "Decision-1 P(true)=0.93"
+            }
+          ]
+        },
+        "qa_score": 0.828,
+        "qa_retries": 0,
+        "selected_candidate_index": 0,
+        "fallback_to_preview": false
+      }
+    },
+    {
+      "scene_id": 3,
+      "title": "Nyx Jumps Onto Lia's Head",
+      "duration_sec": 4.0,
+      "narration": "While Lia stays peacefully fast asleep with her head resting on her folded arms at the left of the table, black cat Nyx crouches on the right, springs lightly through the air across the conservatory, and lands perched playfully right on top of sleeping Lia's silver-haired head, settling its paws and curling its tail there while the glowing blue-rose crystal vase remains intact on the center table.",
+      "vocal_emotion": "joyful",
+      "gesture_intent": "none",
+      "direction_hint": "none",
+      "lighting": "warm_dim",
+      "camera_shake": false,
+      "audio_mood": "soft_cat_leap_and_purr_in_rain",
+      "environment_notes": "arched_glass_conservatory night_rain_outside warm_wall_lanterns glowing_blue_rose glass_vase round_wooden_table herringbone_wood_floor polished_floor_reflections potted_palm_plants",
+      "needs_rerender": false,
+      "reused_from_branch": null,
+      "end_freeze_mode": "sculpture",
+      "parent_scene_id": 2,
+      "actors": [
+        {
+          "id": "lia",
+          "name": "Lia",
+          "asset_url": "/assets/actors/lia.png",
+          "grid": [
+            0.5,
+            1.0
+          ],
+          "facing": "right",
+          "action": "sit",
+          "holding_prop": null,
+          "height_m": null
+        },
+        {
+          "id": "nyx",
+          "name": "Nyx",
+          "asset_url": "/assets/actors/nyx.png",
+          "grid": [
+            0.5,
+            1.0
+          ],
+          "facing": "right",
+          "action": "jump",
+          "holding_prop": null,
+          "height_m": null
+        }
+      ],
+      "stage_props": [
+        {
+          "id": "crystal_vase",
+          "grid": [
+            1.0,
+            1.0
+          ],
+          "on_floor": false,
+          "state": "intact",
+          "entry_motion": "place",
+          "entry_origin": null
+        }
+      ],
+      "qa_questions": [
+        "Does black cat Nyx leap onto and perch atop sleeping Lia's head?",
+        "Is Lia still resting asleep on the left side of the table?",
+        "Is the blue-rose crystal vase still intact on the center table?"
+      ],
+      "media": {
+        "cam_a_preview_url": null,
+        "cam_b_preview_url": null,
+        "cam_a_final_url": "/assets/finals/scene_3_cam_a_451a96_sync.mp4",
+        "cam_b_final_url": "/assets/finals/scene_3_cam_b_451a96_sync.mp4",
+        "cam_a_tail_frame_url": "/assets/tails/scene_3_cam_a_451a96_sync_tail.png",
+        "cam_b_tail_frame_url": "/assets/tails/scene_3_cam_b_451a96_sync_tail.png",
+        "qa_result": {
+          "overall_score": 0.93,
+          "all_passed": true,
+          "items": [
+            {
+              "question": "[CAM A] Does black cat Nyx leap onto and perch atop sleeping Lia's head?",
+              "passed": true,
+              "confidence": 0.918,
+              "reason": "Decision-1 P(true)=0.92"
+            },
+            {
+              "question": "[CAM A] Is Lia still resting asleep on the left side of the table?",
+              "passed": true,
+              "confidence": 0.922,
+              "reason": "Decision-1 P(true)=0.92"
+            },
+            {
+              "question": "[CAM A] Is the blue-rose crystal vase still intact on the center table?",
+              "passed": true,
+              "confidence": 0.948,
+              "reason": "Decision-1 P(true)=0.95"
+            },
+            {
+              "question": "[CAM B] Does black cat Nyx leap onto and perch atop sleeping Lia's head?",
+              "passed": true,
+              "confidence": 0.907,
+              "reason": "Decision-1 P(true)=0.91"
+            },
+            {
+              "question": "[CAM B] Is Lia still resting asleep on the left side of the table?",
+              "passed": true,
+              "confidence": 0.937,
+              "reason": "Decision-1 P(true)=0.94"
+            },
+            {
+              "question": "[CAM B] Is the blue-rose crystal vase still intact on the center table?",
+              "passed": true,
+              "confidence": 0.949,
+              "reason": "Decision-1 P(true)=0.95"
+            }
+          ]
+        },
+        "qa_score": 0.93,
+        "qa_retries": 0,
+        "selected_candidate_index": 0,
+        "fallback_to_preview": false
+      }
+    },
+    {
+      "scene_id": 4,
+      "title": "Lia Wakes & Breaks the Vase",
+      "duration_sec": 4.0,
+      "narration": "Startled awake by black cat Nyx perched on her head, Lia gasps and jolts upright suddenly as Nyx hops off safely to the floor on the right; Lia's startled elbow sweeps across the round wooden center table, knocking the glowing blue-rose crystal vase off the table edge so it crashes down and shatters into sparkling glass shards, spilled water, and scattered blue petals on the wooden floor.",
+      "vocal_emotion": "urgent_emotional",
+      "gesture_intent": "none",
+      "direction_hint": "none",
+      "lighting": "cold_blue",
+      "camera_shake": true,
+      "audio_mood": "startled_gasp_and_shattering_crystal_glass",
+      "environment_notes": "arched_glass_conservatory night_rain_outside warm_wall_lanterns glowing_blue_rose glass_vase round_wooden_table herringbone_wood_floor polished_floor_reflections potted_palm_plants shattered_crystal_shards_on_floor blue_rose_on_floor",
+      "needs_rerender": false,
+      "reused_from_branch": null,
+      "end_freeze_mode": "sculpture",
+      "parent_scene_id": 3,
+      "actors": [
+        {
+          "id": "lia",
+          "name": "Lia",
+          "asset_url": "/assets/actors/lia.png",
+          "grid": [
+            0.55,
+            1.0
+          ],
+          "facing": "right",
+          "action": "stand",
+          "holding_prop": null,
+          "height_m": null
+        },
+        {
+          "id": "nyx",
+          "name": "Nyx",
+          "asset_url": "/assets/actors/nyx.png",
+          "grid": [
+            1.75,
+            1.0
+          ],
+          "facing": "left",
+          "action": "sit",
+          "holding_prop": null,
+          "height_m": null
+        }
+      ],
+      "stage_props": [
+        {
+          "id": "crystal_vase",
+          "grid": [
+            1.1,
+            1.0
+          ],
+          "on_floor": true,
+          "state": "broken",
+          "entry_motion": "place",
+          "entry_origin": null
+        }
+      ],
+      "qa_questions": [
+        "Does Lia jolt awake startled and knock the crystal vase off the table?",
+        "Does the blue-rose crystal vase shatter into broken glass on the floor?",
+        "Does Nyx hop off Lia's head safely to the floor?"
+      ],
+      "media": {
+        "cam_a_preview_url": null,
+        "cam_b_preview_url": null,
+        "cam_a_final_url": "/assets/finals/scene_4_cam_a_ff57ab_sync.mp4",
+        "cam_b_final_url": "/assets/finals/scene_4_cam_b_ff57ab_sync.mp4",
+        "cam_a_tail_frame_url": "/assets/tails/scene_4_cam_a_ff57ab_sync_tail.png",
+        "cam_b_tail_frame_url": "/assets/tails/scene_4_cam_b_ff57ab_sync_tail.png",
+        "qa_result": {
+          "overall_score": 0.935,
+          "all_passed": true,
+          "items": [
+            {
+              "question": "[CAM A] Does Lia jolt awake startled and knock the crystal vase off the table?",
+              "passed": true,
+              "confidence": 0.92,
+              "reason": "Decision-1 P(true)=0.92"
+            },
+            {
+              "question": "[CAM A] Does the blue-rose crystal vase shatter into broken glass on the floor?",
+              "passed": true,
+              "confidence": 0.924,
+              "reason": "Decision-1 P(true)=0.92"
+            },
+            {
+              "question": "[CAM A] Does Nyx hop off Lia's head safely to the floor?",
+              "passed": true,
+              "confidence": 0.926,
+              "reason": "Decision-1 P(true)=0.93"
+            },
+            {
+              "question": "[CAM B] Does Lia jolt awake startled and knock the crystal vase off the table?",
+              "passed": true,
+              "confidence": 0.942,
+              "reason": "Decision-1 P(true)=0.94"
+            },
+            {
+              "question": "[CAM B] Does the blue-rose crystal vase shatter into broken glass on the floor?",
+              "passed": true,
+              "confidence": 0.943,
+              "reason": "Decision-1 P(true)=0.94"
+            },
+            {
+              "question": "[CAM B] Does Nyx hop off Lia's head safely to the floor?",
+              "passed": true,
+              "confidence": 0.957,
+              "reason": "Decision-1 P(true)=0.96"
+            }
+          ]
+        },
+        "qa_score": 0.935,
+        "qa_retries": 0,
+        "selected_candidate_index": 0,
+        "fallback_to_preview": false
+      }
+    }
+  ]
+}
