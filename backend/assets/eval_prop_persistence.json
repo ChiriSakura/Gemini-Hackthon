@@ -3,12 +3,12 @@
     {
       "file": "crystal_vase.png",
       "mode": "RGBA",
-      "width": 293,
-      "height": 664,
-      "aspect_ratio": 0.441,
+      "width": 217,
+      "height": 512,
+      "aspect_ratio": 0.424,
       "bottom_pad_px": 0,
       "opaque_green_spill_pixels": 0,
-      "transparent_ratio": 0.508
+      "transparent_ratio": 0.475
     },
     {
       "file": "crystal_vase_broken.png",
@@ -33,32 +33,62 @@
     {
       "file": "showcase_crystal_shield.png",
       "mode": "RGBA",
-      "width": 447,
-      "height": 512,
+      "width": 445,
+      "height": 510,
       "aspect_ratio": 0.873,
       "bottom_pad_px": 0,
       "opaque_green_spill_pixels": 0,
-      "transparent_ratio": 0.248
+      "transparent_ratio": 0.246
+    },
+    {
+      "file": "showcase_desk_brass_key.png",
+      "mode": "RGBA",
+      "width": 331,
+      "height": 511,
+      "aspect_ratio": 0.648,
+      "bottom_pad_px": 0,
+      "opaque_green_spill_pixels": 0,
+      "transparent_ratio": 0.714
+    },
+    {
+      "file": "showcase_desk_coffee_mug.png",
+      "mode": "RGBA",
+      "width": 509,
+      "height": 477,
+      "aspect_ratio": 1.067,
+      "bottom_pad_px": 0,
+      "opaque_green_spill_pixels": 0,
+      "transparent_ratio": 0.333
+    },
+    {
+      "file": "showcase_desk_paper_heart.png",
+      "mode": "RGBA",
+      "width": 499,
+      "height": 508,
+      "aspect_ratio": 0.982,
+      "bottom_pad_px": 0,
+      "opaque_green_spill_pixels": 0,
+      "transparent_ratio": 0.345
     },
     {
       "file": "showcase_glowing_quill.png",
       "mode": "RGBA",
-      "width": 331,
+      "width": 329,
       "height": 512,
-      "aspect_ratio": 0.646,
+      "aspect_ratio": 0.643,
       "bottom_pad_px": 0,
       "opaque_green_spill_pixels": 0,
-      "transparent_ratio": 0.659
+      "transparent_ratio": 0.66
     },
     {
       "file": "showcase_origami_crane.png",
       "mode": "RGBA",
-      "width": 512,
-      "height": 418,
-      "aspect_ratio": 1.225,
+      "width": 510,
+      "height": 416,
+      "aspect_ratio": 1.226,
       "bottom_pad_px": 0,
       "opaque_green_spill_pixels": 0,
-      "transparent_ratio": 0.641
+      "transparent_ratio": 0.643
     },
     {
       "file": "showcase_star_lantern.png",
@@ -73,12 +103,12 @@
     {
       "file": "star_token.png",
       "mode": "RGBA",
-      "width": 512,
-      "height": 491,
+      "width": 508,
+      "height": 487,
       "aspect_ratio": 1.043,
       "bottom_pad_px": 0,
       "opaque_green_spill_pixels": 0,
-      "transparent_ratio": 0.572
+      "transparent_ratio": 0.566
     }
   ],
   "all_props_rgba": true,

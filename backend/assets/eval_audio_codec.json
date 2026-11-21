@@ -1,16 +1,17 @@
 {
-  "generated_at": "2026-11-21T13:31:12",
+  "generated_at": "2026-11-21T13:39:53",
   "branches_audited": [
     "branch_v1",
     "branch_v2_cached",
-    "branch_v3_starlight_cached"
+    "branch_v3_starlight_cached",
+    "branch_v4_umbrella_shield_cached"
   ],
-  "unique_scene_mp4_count": 20,
+  "unique_scene_mp4_count": 26,
   "all_h264": true,
   "all_640x360": true,
   "all_24fps": true,
   "all_4s_duration": true,
-  "audio_stream_present_count": 20,
+  "audio_stream_present_count": 26,
   "all_have_audio_stream": true,
   "all_scene_specs_passed": true,
   "clips": [
@@ -243,6 +244,120 @@
       ]
     },
     {
+      "file": "branch_v4_scene_2_cam_a.mp4",
+      "bytes": 1790290,
+      "width": 640,
+      "height": 360,
+      "fps": 24.0,
+      "frame_count": 96,
+      "duration_sec": 4.0,
+      "is_browser_h264": true,
+      "has_audio_stream": true,
+      "video_stream": "h264 (High) (avc1 / 0x31637661), yuv420p(tv, smpte170m/bt709/iec61966-2-1, progressive), 640x360, 1401 kb/s, 24 fps, 24 tbr, 90k tbn (default)",
+      "audio_stream": "aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 128 kb/s (default)",
+      "container_duration_sec": 4.03,
+      "scene_spec_passed": true,
+      "url": "/assets/finals/branch_v4_scene_2_cam_a.mp4",
+      "referenced_by": [
+        "branch_v4_umbrella_shield_cached:S2:cam_a"
+      ]
+    },
+    {
+      "file": "branch_v4_scene_2_cam_b.mp4",
+      "bytes": 1612578,
+      "width": 640,
+      "height": 360,
+      "fps": 24.0,
+      "frame_count": 96,
+      "duration_sec": 4.0,
+      "is_browser_h264": true,
+      "has_audio_stream": true,
+      "video_stream": "h264 (High) (avc1 / 0x31637661), yuv420p(tv, smpte170m/bt709/iec61966-2-1, progressive), 640x360, 1045 kb/s, 24 fps, 24 tbr, 90k tbn (default)",
+      "audio_stream": "aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 128 kb/s (default)",
+      "container_duration_sec": 4.03,
+      "scene_spec_passed": true,
+      "url": "/assets/finals/branch_v4_scene_2_cam_b.mp4",
+      "referenced_by": [
+        "branch_v4_umbrella_shield_cached:S2:cam_b"
+      ]
+    },
+    {
+      "file": "branch_v4_scene_3_cam_a.mp4",
+      "bytes": 1645498,
+      "width": 640,
+      "height": 360,
+      "fps": 24.0,
+      "frame_count": 96,
+      "duration_sec": 4.0,
+      "is_browser_h264": true,
+      "has_audio_stream": true,
+      "video_stream": "h264 (High) (avc1 / 0x31637661), yuv420p(tv, smpte170m/bt709/iec61966-2-1, progressive), 640x360, 1111 kb/s, 24 fps, 24 tbr, 90k tbn (default)",
+      "audio_stream": "aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 128 kb/s (default)",
+      "container_duration_sec": 4.03,
+      "scene_spec_passed": true,
+      "url": "/assets/finals/branch_v4_scene_3_cam_a.mp4",
+      "referenced_by": [
+        "branch_v4_umbrella_shield_cached:S3:cam_a"
+      ]
+    },
+    {
+      "file": "branch_v4_scene_3_cam_b.mp4",
+      "bytes": 1690036,
+      "width": 640,
+      "height": 360,
+      "fps": 24.0,
+      "frame_count": 96,
+      "duration_sec": 4.0,
+      "is_browser_h264": true,
+      "has_audio_stream": true,
+      "video_stream": "h264 (High) (avc1 / 0x31637661), yuv420p(tv, smpte170m/bt709/iec61966-2-1, progressive), 640x360, 1200 kb/s, 24 fps, 24 tbr, 90k tbn (default)",
+      "audio_stream": "aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 128 kb/s (default)",
+      "container_duration_sec": 4.03,
+      "scene_spec_passed": true,
+      "url": "/assets/finals/branch_v4_scene_3_cam_b.mp4",
+      "referenced_by": [
+        "branch_v4_umbrella_shield_cached:S3:cam_b"
+      ]
+    },
+    {
+      "file": "branch_v4_scene_4_cam_a.mp4",
+      "bytes": 1788143,
+      "width": 640,
+      "height": 360,
+      "fps": 24.0,
+      "frame_count": 96,
+      "duration_sec": 4.0,
+      "is_browser_h264": true,
+      "has_audio_stream": true,
+      "video_stream": "h264 (High) (avc1 / 0x31637661), yuv420p(tv, smpte170m/bt709/iec61966-2-1, progressive), 640x360, 1396 kb/s, 24 fps, 24 tbr, 90k tbn (default)",
+      "audio_stream": "aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 128 kb/s (default)",
+      "container_duration_sec": 4.03,
+      "scene_spec_passed": true,
+      "url": "/assets/finals/branch_v4_scene_4_cam_a.mp4",
+      "referenced_by": [
+        "branch_v4_umbrella_shield_cached:S4:cam_a"
+      ]
+    },
+    {
+      "file": "branch_v4_scene_4_cam_b.mp4",
+      "bytes": 1567737,
+      "width": 640,
+      "height": 360,
+      "fps": 24.0,
+      "frame_count": 96,
+      "duration_sec": 4.0,
+      "is_browser_h264": true,
+      "has_audio_stream": true,
+      "video_stream": "h264 (High) (avc1 / 0x31637661), yuv420p(tv, smpte170m/bt709/iec61966-2-1, progressive), 640x360, 955 kb/s, 24 fps, 24 tbr, 90k tbn (default)",
+      "audio_stream": "aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 128 kb/s (default)",
+      "container_duration_sec": 4.03,
+      "scene_spec_passed": true,
+      "url": "/assets/finals/branch_v4_scene_4_cam_b.mp4",
+      "referenced_by": [
+        "branch_v4_umbrella_shield_cached:S4:cam_b"
+      ]
+    },
+    {
       "file": "scene_1_cam_a.mp4",
       "bytes": 1567825,
       "width": 640,
@@ -260,7 +375,8 @@
       "referenced_by": [
         "branch_v1:S1:cam_a",
         "branch_v2_cached:S1:cam_a",
-        "branch_v3_starlight_cached:S1:cam_a"
+        "branch_v3_starlight_cached:S1:cam_a",
+        "branch_v4_umbrella_shield_cached:S1:cam_a"
       ]
     },
     {
@@ -281,7 +397,8 @@
       "referenced_by": [
         "branch_v1:S1:cam_b",
         "branch_v2_cached:S1:cam_b",
-        "branch_v3_starlight_cached:S1:cam_b"
+        "branch_v3_starlight_cached:S1:cam_b",
+        "branch_v4_umbrella_shield_cached:S1:cam_b"
       ]
     },
     {
@@ -412,6 +529,21 @@
     "video_stream": "h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 1280x420 [SAR 1:1 DAR 64:21], 1256 kb/s, 24 fps, 24 tbr, 12288 tbn (default)",
     "audio_stream": "aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 132 kb/s (default)",
     "container_duration_sec": 16.0,
+    "scene_spec_passed": false
+  },
+  "pitch_reel": {
+    "file": "pitch_demo_reel_1min.mp4",
+    "bytes": 6457048,
+    "width": 1280,
+    "height": 720,
+    "fps": 24.0,
+    "frame_count": 1200,
+    "duration_sec": 50.0,
+    "is_browser_h264": true,
+    "has_audio_stream": true,
+    "video_stream": "h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 1280x720 [SAR 1:1 DAR 16:9], 932 kb/s, 24 fps, 24 tbr, 12288 tbn (default)",
+    "audio_stream": "aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 94 kb/s (default)",
+    "container_duration_sec": 50.0,
     "scene_spec_passed": false
   }
 }

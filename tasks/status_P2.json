@@ -2,8 +2,8 @@
   "agent": "P2_media",
   "contributor": "ChiriSakura",
   "branch": "feat/w1-media",
-  "current_milestone": "T5",
-  "status": "all_10_cr_t4_t5_tasks_completed_and_verified",
+  "current_milestone": "T6",
+  "status": "all_w1_t6_10_tasks_completed_and_audited",
   "omni_flash_latency_sec": 18.64,
   "omni_flash_total_with_io_sec": 22.65,
   "omni_flash_dual_take_parallel_sec": 25.47,
@@ -103,6 +103,18 @@
     "image": "gemini-nano-banana-2.1",
     "decision": "models/gemini-decision-1"
   },
+  "w1_t6_eval_summary": {
+    "pitch_reel_mp4": "backend/assets/finals/pitch_demo_reel_1min.mp4 (1280x720, 50.0s, 6.46MB, H.264 + AAC stereo)",
+    "desk_props_eval": "backend/assets/eval_live_props_sim.json (3 props, avg 15.75s, wall 16.86s, 0 green spill)",
+    "branch_v4_qa_scores": [0.879, 0.859, 0.887, 0.867],
+    "branch_matrix_accuracy": "7/8 (0.875) across 4 branches via Decision-1 (avg 3.88s)",
+    "audio_mood_accuracy": "4/4 (1.000) native video+audio Decision-1 check",
+    "webm_prop_regression": "PASSED (Windows Unicode path, t=1.5s extraction)",
+    "storyboard_strip": "backend/assets/showcase_storyboard_strip.png (1.50MB)",
+    "cache_savings": "26 vs 32 clips rendered, $0.96 saved across 4 branches (18.8% overall, 66.7% localized Scene-2 savings)",
+    "burst_stress": "create_prop + dual-cam S3 concurrent wall 49.56s, qa=0.902, 0 retries, deadlock_free=true",
+    "pre_freeze_audits": "11/11 props 0 green halo & bottom-flush; 26/26 unique scene MP4s H.264 640x360 24fps w/ AAC audio"
+  },
   "completed_items": [
     "W1-CR1: Model aliases + sha1 collision-safe _slugify() + CAP_PROP_POS_MSEC .webm extraction + border-connected floodfill chroma-key with 2px rim despill",
     "W1-CR2: Uppercase [CAM A]/[CAM B]/[Dual-Cam] QA merge + Unicode-safe _open_video_capture_safe() in is_browser_h264() + clean preview-anchored cache scripts",
@@ -113,8 +125,18 @@
     "W1-T4B: Upgraded build_demo_reel.py to mux native Omni Flash AAC audio into side-by-side H.264 demo_comparison_be_vs_he.mp4",
     "W1-T4C: Audited all 8 prop PNGs (100% RGBA, bottom-flush, 0 chroma-green spill) & branch_v3 multi-scene persistence (100%) -> eval_prop_persistence.json",
     "W1-T5A: Audited all 20 cached branch MP4s + demo reel (100% H.264, 100% native audio stream, 640x360 24fps) -> eval_audio_codec.json",
-    "W1-T5B: Extended test_media_smoke.py (ALL branches HTTP 200 + H.264, 0 CJK, progress check, 0 green spill, audio stream check) — ALL PASSED"
+    "W1-T5B: Extended test_media_smoke.py (ALL branches HTTP 200 + H.264, 0 CJK, progress check, 0 green spill, audio stream check) — ALL PASSED",
+    "W1-T6A: Built 50.0s 16:9 1280x720 full-pitch reel (H.264 + muxed AAC audio) -> backend/assets/finals/pitch_demo_reel_1min.mp4",
+    "W1-T6B: Generated 3 live judge-desk props (coffee mug, paper heart, brass key; avg 15.75s, 0 green spill) -> backend/assets/eval_live_props_sim.json",
+    "W1-T6C: Rendered & cached 4th demo preset branch branch_v4_umbrella_shield_cached (Scenes 2..4 Cam A/B, qa=[0.879, 0.859, 0.887, 0.867])",
+    "W1-T6D: Verified 4-branch continuity matrix via models/gemini-decision-1 (7/8 = 0.875) -> backend/assets/eval_branch_matrix.json",
+    "W1-T6E: Verified native audio mood matching via models/gemini-decision-1 (4/4 = 1.000) -> backend/assets/eval_audio_mood.json",
+    "W1-T6F: Added 3s .webm Unicode-path t=1.5s prop extraction regression test -> backend/media/test_webm_prop.py (PASSED)",
+    "W1-T6G: Built 2x4 BE vs HE storyboard strip PNG -> backend/assets/showcase_storyboard_strip.png",
+    "W1-T6H: Quantified cache reuse & cost savings across 4 branches -> backend/assets/eval_cache_savings.json",
+    "W1-T6I: Passed concurrent create_prop + dual-cam render burst stress test (49.56s, qa=0.902, deadlock_free=true) -> backend/assets/eval_burst_stress.json",
+    "W1-T6J: Completed pre-freeze audit suite: audit_props (11/11 passed, 0 halo) + audit_audio_codec (26/26 unique scene MP4s passed) + test_media_smoke (ALL PASSED)"
   ],
   "blockers": [],
-  "last_updated": "2026-11-21T13:27:30-05:00"
+  "last_updated": "2026-11-21T13:41:00-05:00"
 }

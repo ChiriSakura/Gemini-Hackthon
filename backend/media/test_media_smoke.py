@@ -42,7 +42,12 @@ def run_smoke_tests() -> None:
         "/assets/props/showcase_crystal_shield.png",
         "/assets/props/showcase_glowing_quill.png",
         "/assets/props/showcase_star_lantern.png",
+        "/assets/props/showcase_desk_coffee_mug.png",
+        "/assets/props/showcase_desk_paper_heart.png",
+        "/assets/props/showcase_desk_brass_key.png",
+        "/assets/showcase_storyboard_strip.png",
         "/assets/finals/demo_comparison_be_vs_he.mp4",
+        "/assets/finals/pitch_demo_reel_1min.mp4",
     ):
         resp = client.get(asset_url)
         assert resp.status_code == 200, f"Static asset missing: {asset_url} -> {resp.status_code}"
@@ -51,7 +56,12 @@ def run_smoke_tests() -> None:
     from backend.media.video_renderer import _merge_dual_cam_qa, get_render_progress, is_browser_h264
 
     branch_ids = {b["branch_id"] for b in branches}
-    for req_id in ("branch_v1", "branch_v2_cached", "branch_v3_starlight_cached"):
+    for req_id in (
+        "branch_v1",
+        "branch_v2_cached",
+        "branch_v3_starlight_cached",
+        "branch_v4_umbrella_shield_cached",
+    ):
         assert req_id in branch_ids, f"Expected cached branch {req_id} in GET /api/branches"
 
     for target_branch in branches:
@@ -177,6 +187,20 @@ def run_smoke_tests() -> None:
             assert ac.get("all_h264") is True
             assert ac.get("all_have_audio_stream") is True
             assert (ac.get("demo_reel") or {}).get("has_audio_stream") is True
+            assert (ac.get("pitch_reel") or {}).get("is_browser_h264") is True
+            assert (ac.get("pitch_reel") or {}).get("has_audio_stream") is True
+        pa_path = config.ASSETS_DIR / "eval_props_audit.json"
+        if pa_path.is_file():
+            pa = _json.loads(pa_path.read_text(encoding="utf-8"))
+            assert pa.get("all_passed") is True and pa.get("all_zero_green_halo") is True
+        lp_path = config.ASSETS_DIR / "eval_live_props_sim.json"
+        if lp_path.is_file():
+            lp = _json.loads(lp_path.read_text(encoding="utf-8"))
+            assert lp.get("all_rgba") is True and lp.get("all_zero_green_spill") is True
+        cs_path = config.ASSETS_DIR / "eval_cache_savings.json"
+        if cs_path.is_file():
+            cs = _json.loads(cs_path.read_text(encoding="utf-8"))
+            assert cs.get("branches_measured", 0) >= 4
     finally:
         config.DEMO_MODE = prev_demo
         (config.PROPS_DIR / "smoke_prop.png").unlink(missing_ok=True)
