@@ -1,6 +1,7 @@
 {
   "agent": "P2_media",
-  "branch": "feat/w1-polish",
+  "contributor": "ChiriSakura",
+  "branch": "feat/w1-media",
   "current_milestone": "T5",
   "status": "all_10_cr_t4_t5_tasks_completed_and_verified",
   "omni_flash_latency_sec": 18.64,
