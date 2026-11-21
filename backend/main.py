@@ -39,7 +39,7 @@ from backend.director.state_tree import get_branch, list_branches, save_branch
 from backend.logger import log_function_call
 from backend.media.prop_maker import create_prop
 from backend.media.video_renderer import get_render_progress, render_branch_scenes, render_scene_media
-from backend.schemas import BranchState, Scene, SceneMedia, StagePropState
+from backend.schemas import BranchState, DirectorInputParsed, Scene, SceneMedia, StagePropState
 
 _ALLOWED_PREVIEW_EXTS: set[str] = {".webm", ".mp4", ".png", ".jpg", ".jpeg"}
 _BRANCH_WRITE_LOCKS: dict[str, asyncio.Lock] = {}
@@ -308,6 +308,25 @@ async def api_director_fork(
     )
     save_branch(new_branch)
     return new_branch
+
+
+@app.post("/api/director/perceive", response_model=DirectorInputParsed)
+@log_function_call
+async def api_director_perceive(
+    target_scene_id: int = Form(2),
+    text: Optional[str] = Form(None),
+    clip: Optional[UploadFile] = File(None),
+) -> DirectorInputParsed:
+    """Fast Stage-1 perception (<2.5s): return Heard/Saw cues + prop prompt flag before Neon/Render."""
+    clip_bytes = await clip.read() if clip else None
+    parsed = await parse_director_input(
+        clip_bytes=clip_bytes,
+        clip_mime_type=(clip.content_type if clip else "video/webm") or "video/webm",
+        text_fallback=text,
+        target_scene_id=target_scene_id,
+    )
+    parsed.target_scene_id = target_scene_id
+    return parsed
 
 
 @app.post("/api/director/extend", response_model=BranchState)
