@@ -1,0 +1,248 @@
+{
+  "branch_id": "branch_v1",
+  "parent_branch_id": null,
+  "forked_from_scene": 1,
+  "contradiction_warning": null,
+  "props_registry": {
+    "red_umbrella": {
+      "prop_id": "red_umbrella",
+      "name": "红伞",
+      "image_url": "/assets/props/red_umbrella.png",
+      "state": "intact",
+      "source_type": "text"
+    },
+    "crystal_vase": {
+      "prop_id": "crystal_vase",
+      "name": "水晶花瓶",
+      "image_url": "/assets/props/crystal_vase.png",
+      "state": "intact",
+      "source_type": "text"
+    }
+  },
+  "actors_registry": {
+    "heroine": {
+      "actor_id": "heroine",
+      "name": "少女",
+      "portrait_url": "/assets/actors/heroine.png",
+      "color_hex": "#E91E63"
+    },
+    "detective": {
+      "actor_id": "detective",
+      "name": "侦探",
+      "portrait_url": "/assets/actors/detective.png",
+      "color_hex": "#1E88E5"
+    }
+  },
+  "scenes": [
+    {
+      "scene_id": 1,
+      "narration": "雨夜舞台中央，少女撑着红伞等待侦探，桌旁放着水晶花瓶。",
+      "vocal_emotion": "calm_mystery",
+      "lighting": "warm_gold",
+      "camera_shake": 0.0,
+      "environment_notes": "",
+      "was_regenerated": true,
+      "actors": [
+        {
+          "id": "heroine",
+          "grid": [
+            1,
+            1
+          ],
+          "action": "stand",
+          "holding_prop": "red_umbrella"
+        },
+        {
+          "id": "detective",
+          "grid": [
+            1,
+            0
+          ],
+          "action": "walk_in",
+          "holding_prop": null
+        }
+      ],
+      "stage_props": [
+        {
+          "id": "crystal_vase",
+          "grid": [
+            0,
+            2
+          ],
+          "on_floor": false
+        }
+      ],
+      "qa_questions": [
+        "Is the heroine holding the red umbrella?",
+        "Is the crystal vase intact on the side?"
+      ],
+      "media": {
+        "cam_a_preview_url": null,
+        "cam_b_preview_url": null,
+        "cam_a_final_url": null,
+        "cam_b_final_url": null,
+        "tail_frame_url": null,
+        "qa_results": [],
+        "qa_score": 0.95,
+        "qa_retries": 0
+      }
+    },
+    {
+      "scene_id": 2,
+      "narration": "侦探质问少女的秘密，少女情绪激动但仍紧握红伞。",
+      "vocal_emotion": "tense",
+      "lighting": "warm_gold",
+      "camera_shake": 0.0,
+      "environment_notes": "",
+      "was_regenerated": true,
+      "actors": [
+        {
+          "id": "heroine",
+          "grid": [
+            1,
+            1
+          ],
+          "action": "argue",
+          "holding_prop": "red_umbrella"
+        },
+        {
+          "id": "detective",
+          "grid": [
+            1,
+            2
+          ],
+          "action": "point",
+          "holding_prop": null
+        }
+      ],
+      "stage_props": [
+        {
+          "id": "crystal_vase",
+          "grid": [
+            0,
+            2
+          ],
+          "on_floor": false
+        }
+      ],
+      "qa_questions": [
+        "Are both characters facing each other on stage?",
+        "Is the heroine still holding the red umbrella?"
+      ],
+      "media": {
+        "cam_a_preview_url": null,
+        "cam_b_preview_url": null,
+        "cam_a_final_url": null,
+        "cam_b_final_url": null,
+        "tail_frame_url": null,
+        "qa_results": [],
+        "qa_score": 0.92,
+        "qa_retries": 0
+      }
+    },
+    {
+      "scene_id": 3,
+      "narration": "争执升级，两人各自退开一步，花瓶在桌角微微晃动。",
+      "vocal_emotion": "anxious",
+      "lighting": "cold_blue",
+      "camera_shake": 0.0,
+      "environment_notes": "",
+      "was_regenerated": true,
+      "actors": [
+        {
+          "id": "heroine",
+          "grid": [
+            2,
+            0
+          ],
+          "action": "step_back",
+          "holding_prop": "red_umbrella"
+        },
+        {
+          "id": "detective",
+          "grid": [
+            0,
+            1
+          ],
+          "action": "inspect",
+          "holding_prop": null
+        }
+      ],
+      "stage_props": [
+        {
+          "id": "crystal_vase",
+          "grid": [
+            0,
+            2
+          ],
+          "on_floor": false
+        }
+      ],
+      "qa_questions": [
+        "Are the heroine and detective separated across the stage?"
+      ],
+      "media": {
+        "cam_a_preview_url": null,
+        "cam_b_preview_url": null,
+        "cam_a_final_url": null,
+        "cam_b_final_url": null,
+        "tail_frame_url": null,
+        "qa_results": [],
+        "qa_score": 0.9,
+        "qa_retries": 0
+      }
+    },
+    {
+      "scene_id": 4,
+      "narration": "少女撑着红伞独自走入雨幕，真相被带走。",
+      "vocal_emotion": "melancholy",
+      "lighting": "cold_blue",
+      "camera_shake": 0.0,
+      "environment_notes": "",
+      "was_regenerated": true,
+      "actors": [
+        {
+          "id": "heroine",
+          "grid": [
+            2,
+            2
+          ],
+          "action": "exit",
+          "holding_prop": "red_umbrella"
+        },
+        {
+          "id": "detective",
+          "grid": [
+            1,
+            1
+          ],
+          "action": "watch",
+          "holding_prop": null
+        }
+      ],
+      "stage_props": [
+        {
+          "id": "crystal_vase",
+          "grid": [
+            0,
+            2
+          ],
+          "on_floor": false
+        }
+      ],
+      "qa_questions": [
+        "Is the heroine leaving with the red umbrella?"
+      ],
+      "media": {
+        "cam_a_preview_url": null,
+        "cam_b_preview_url": null,
+        "cam_a_final_url": null,
+        "cam_b_final_url": null,
+        "tail_frame_url": null,
+        "qa_results": [],
+        "qa_score": 0.93,
+        "qa_retries": 0
+      }
+    }
+  ]
+}

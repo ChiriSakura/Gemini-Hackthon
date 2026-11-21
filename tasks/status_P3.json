@@ -1,0 +1,10 @@
+{
+  "agent": "P3_frontend",
+  "branch": "feat/p3-frontend",
+  "current_milestone": "T0",
+  "status": "waiting_for_claim",
+  "capture_stream_mode": "webm",
+  "completed_items": [],
+  "blockers": [],
+  "last_updated": "2026-11-21T12:10:00-05:00"
+}

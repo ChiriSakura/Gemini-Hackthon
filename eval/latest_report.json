@@ -1,0 +1,15 @@
+{
+  "metrics_tracked": [
+    "coherence_rate",
+    "dual_camera_consistency_rate",
+    "rewrite_propagation_rate",
+    "prefix_preservation_rate",
+    "prop_persistence_rate",
+    "affected_scene_skip_savings_pct",
+    "single_vs_dual_take_pass_rate",
+    "judge_human_calibration_accuracy",
+    "avg_rewrite_latency_sec",
+    "avg_rewrite_cost_usd"
+  ],
+  "status": "ready_for_T3_data_collection"
+}
