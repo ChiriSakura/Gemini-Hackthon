@@ -280,6 +280,7 @@ def build_eval_dashboard_12s_video(board_png: Path, output_mp4: Optional[Path] =
     ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
 
     with tempfile.TemporaryDirectory(prefix="stagestate_outro_") as tmp_dir:
+        tmp_raw = Path(tmp_dir) / "eval_dashboard_12s_raw.mp4"
         tmp_out = Path(tmp_dir) / "eval_dashboard_12s.mp4"
         cmd = [
             ffmpeg_exe,
@@ -295,7 +296,7 @@ def build_eval_dashboard_12s_video(board_png: Path, output_mp4: Optional[Path] =
             "-crf", "19",
             "-pix_fmt", "yuv420p",
             "-movflags", "+faststart",
-            str(tmp_out),
+            str(tmp_raw),
         ]
         proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         assert proc.stdin is not None
@@ -324,7 +325,31 @@ def build_eval_dashboard_12s_video(board_png: Path, output_mp4: Optional[Path] =
         err = proc.stderr.read().decode("utf-8", errors="ignore") if proc.stderr else ""
         if proc.wait() != 0:
             raise RuntimeError(f"ffmpeg failed for eval_dashboard_12s: {err[-500:]}")
-        shutil.copy2(tmp_out, out_mp4)
+
+        # W1-T7E: Mux a clean subtle ambient stereo AAC audio bed so 28/28 MP4s share H.264+AAC
+        mux_cmd = [
+            ffmpeg_exe,
+            "-y",
+            "-i", str(tmp_raw),
+            "-f", "lavfi",
+            "-t", "12.0",
+            "-i", "aevalsrc=(0.015*sin(2*PI*220*t)+0.010*sin(2*PI*330*t))*exp(-0.08*mod(t\\,3)):s=48000:c=stereo",
+            "-map", "0:v:0",
+            "-map", "1:a:0",
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-b:a", "128k",
+            "-shortest",
+            "-movflags", "+faststart",
+            str(tmp_out),
+        ]
+        mres = subprocess.run(mux_cmd, capture_output=True, text=True)
+        if mres.returncode == 0 and tmp_out.is_file():
+            shutil.copy2(tmp_out, out_mp4)
+            has_audio = True
+        else:
+            shutil.copy2(tmp_raw, out_mp4)
+            has_audio = False
 
     return {
         "output_mp4": str(out_mp4),
@@ -334,6 +359,7 @@ def build_eval_dashboard_12s_video(board_png: Path, output_mp4: Optional[Path] =
         "duration_sec": 12.0,
         "file_size_mb": round(out_mp4.stat().st_size / (1024 * 1024), 2),
         "is_h264": is_browser_h264(out_mp4),
+        "has_audio": has_audio,
         "elapsed_sec": round(time.perf_counter() - t0, 2),
     }
 
