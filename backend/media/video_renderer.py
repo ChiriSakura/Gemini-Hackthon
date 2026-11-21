@@ -643,13 +643,17 @@ def _build_shot_prompt(
     else:
         parts.append("Match character and prop designs strictly to the provided reference images, with ZERO extra unintended characters.")
 
+    # Only prompt forward camera grab when explicitly requested (catch_from_camera / throw_arc);
+    # default props rest naturally on table/floor.
     if has_catch_action or has_throw_arc_prop:
         parts.append(
-            "Explicit toss/hand-off choreography: ONLY when explicitly handed/tossed to her — Lia leans toward the camera to catch the flying item out of mid-air, then naturally interacts with it."
+            "Explicit toss/hand-off choreography: ONLY when explicitly handed/tossed to her — Lia leans gracefully forward "
+            "toward the camera lens to catch the flying item out of mid-air, then naturally interacts with it."
         )
     elif prop_phrases:
         parts.append(
-            "Default prop placement: keep all newly placed stage props resting naturally on the round center table or conservatory floor without characters reaching toward the camera."
+            "Default prop placement: keep all newly placed stage props resting naturally on the round center table or "
+            "conservatory floor without characters reaching toward the camera."
         )
 
     if getattr(scene, "end_freeze_mode", "none") == "sculpture":

@@ -111,7 +111,7 @@ def test_catch_from_camera_conditional_prompting() -> None:
         ],
     )
     p_catch = _build_shot_prompt(catch_scene, "cam_a", has_first_frame=False, has_preview_video=False)
-    assert "Lia leans toward the camera to catch the flying item out of mid-air" in p_catch
+    assert "leans gracefully forward toward the camera lens to catch the flying item out of mid-air" in p_catch
     assert "incoming throw arc from the front camera" in p_catch
 
 
@@ -128,11 +128,13 @@ def test_fast_live_mode_sculpture_prompt_and_border_trim() -> None:
     tmp_png = config.PREVIEWS_DIR / "tmp_v2_border_test.png"
     cropped_path = None
     try:
-        cv2.imwrite(str(tmp_png), bordered)
+        ok_enc, buf = cv2.imencode(".png", bordered)
+        assert ok_enc
+        tmp_png.write_bytes(buf.tobytes())
         out_p, trimmed = _trim_dark_borders_sync(tmp_png)
         assert trimmed is True
         cropped_path = out_p
-        clean = cv2.imread(str(out_p))
+        clean = cv2.imdecode(np.frombuffer(out_p.read_bytes(), dtype=np.uint8), cv2.IMREAD_COLOR)
         assert clean is not None and float(np.mean(clean[1, :])) > 50.0
     finally:
         tmp_png.unlink(missing_ok=True)
