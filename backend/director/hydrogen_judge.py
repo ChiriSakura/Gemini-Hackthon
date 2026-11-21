@@ -211,7 +211,7 @@ async def parse_director_input(
             )
         return DirectorInputParsed(
             target_scene_id=target_scene_id,
-            instruction=text_fallback or "温柔轻声安抚诺克斯，把星辰信物放在桌上接住花瓶",
+            instruction=text_fallback or "Gently soothe Nyx and place the starlight keepsake on the table before the vase falls",
             vocal_emotion="gentle_whisper" if clip_bytes else "neutral",
             gesture_intent="beckon_soothe" if clip_bytes else "none",
             direction_hint="center" if clip_bytes else "none",
@@ -242,7 +242,7 @@ async def check_contradiction(edit_instruction: str, prior_scenes: list[Scene]) 
     questions = prompts.build_contradiction_questions(prior_summary, edit_instruction)
     res = await judge(questions, context_text=prior_summary)
     if res.items and (not res.items[0].passed) and res.items[0].confidence >= 0.75:
-        return True, res.items[0].reason or f"与前文既定事实存在矛盾：{prior_summary}"
+        return True, res.items[0].reason or f"Contradicts established facts before this scene: {prior_summary}"
     return False, ""
 
 

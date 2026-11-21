@@ -22,6 +22,7 @@ Analyze ALL non-text cues carefully — DO NOT rely only on transcript:
    - "none" otherwise.
 3. If a physical object is held up, set has_physical_prop=true, give a concise prop_name & prop_description, and output prop_frame_timestamp_sec where the object is clearest.
 4. Identify target_scene_id (default 2 if unspecified) and clean rewrite instruction.
+5. Always output `instruction`, `prop_name`, and `prop_description` in natural, idiomatic English even if audio/text input contains accents or mixed languages.
 
 Return strict JSON matching DirectorInputParsed in shared/schema.json.
 """.strip()
@@ -68,6 +69,7 @@ Your job:
    - If a new prop (e.g. star_token) is introduced, register it in props_registry and keep it visible in subsequent scenes.
 3. Map vocal_emotion & gesture_intent to lighting ("warm_dim" | "cold_blue" | "warm_transition" | "warm_gold_snow"), camera_shake (bool), and audio_mood.
 4. For every rewritten scene, generate 4-5 sharp, visually verifiable yes/no qa_questions for judge().
+5. Always write `title` and `narration` in natural, idiomatic English for stage performers and English-speaking judges.
 
 Return strict JSON matching the root schema in shared/schema.json.
 """.strip()

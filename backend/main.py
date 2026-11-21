@@ -14,7 +14,9 @@ Feature & Use Cases:
 """
 
 import base64
+import inspect
 import json
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -35,7 +37,7 @@ from backend.director.state_tree import get_branch, list_branches, save_branch
 from backend.logger import log_function_call
 from backend.media.prop_maker import create_prop
 from backend.media.video_renderer import render_branch_scenes, render_scene_media
-from backend.schemas import BranchState, Scene
+from backend.schemas import BranchState, Scene, StagePropState
 
 app = FastAPI(title="StageState Director API", version="0.2.0")
 
@@ -92,6 +94,35 @@ def api_get_rules() -> dict:
     return {"rules": load_rules()}
 
 
+def _next_branch_id() -> str:
+    """Allocate a collision-free sequential `branch_v<N>` ID across persisted branches."""
+    max_num = 1
+    for b in list_branches():
+        m = re.match(r"^branch_v(\d+)", b.branch_id)
+        if m:
+            max_num = max(max_num, int(m.group(1)))
+    return f"branch_v{max_num + 1}"
+
+
+async def _invoke_create_prop(
+    *,
+    name: str,
+    description: str,
+    camera_frame_bytes: Optional[bytes],
+    frame_timestamp_sec: Optional[float] = None,
+):
+    """Call `create_prop` while safely supporting optional `frame_timestamp_sec` across P2 updates."""
+    sig = inspect.signature(create_prop)
+    kwargs: dict = {
+        "name": name,
+        "description": description,
+        "camera_frame_bytes": camera_frame_bytes,
+    }
+    if "frame_timestamp_sec" in sig.parameters:
+        kwargs["frame_timestamp_sec"] = frame_timestamp_sec
+    return await create_prop(**kwargs)
+
+
 @app.post("/api/director/fork", response_model=BranchState)
 @log_function_call
 async def api_director_fork(
@@ -118,10 +149,11 @@ async def api_director_fork(
 
     updated_registry = dict(parent.props_registry)
     if parsed.has_physical_prop and parsed.prop_name:
-        prop_id, prop_item = await create_prop(
+        prop_id, prop_item = await _invoke_create_prop(
             name=parsed.prop_name,
             description=parsed.prop_description or parsed.prop_name,
             camera_frame_bytes=clip_bytes,
+            frame_timestamp_sec=parsed.prop_frame_timestamp_sec,
         )
         updated_registry[prop_id] = prop_item
 
@@ -131,7 +163,7 @@ async def api_director_fork(
         if has_conflict:
             return BranchState(
                 branch_id=f"{parent_branch_id}_conflict",
-                branch_label=f"冲突提示：{parsed.instruction[:18]}",
+                branch_label=f"Conflict detected: {parsed.instruction[:28]}",
                 parent_branch_id=parent_branch_id,
                 forked_from_scene=parsed.target_scene_id,
                 rewrite_summary=parsed.instruction,
@@ -173,10 +205,10 @@ async def api_director_fork(
             reused.reused_from_branch = parent.branch_id
             final_scenes.append(reused)
 
-    new_branch_id = f"branch_v{len(list_branches()) + 1}"
+    new_branch_id = _next_branch_id()
     new_branch = BranchState(
         branch_id=new_branch_id,
-        branch_label=f"改写第 {parsed.target_scene_id} 幕：{parsed.instruction[:16]}",
+        branch_label=f"Rewrite S{parsed.target_scene_id}: {parsed.instruction[:24]}",
         parent_branch_id=parent.branch_id,
         forked_from_scene=parsed.target_scene_id,
         rewrite_summary=parsed.instruction,
@@ -193,24 +225,45 @@ async def api_media_create_prop(
     name: str = Form(...),
     description: str = Form(""),
     branch_id: str = Form("branch_v1"),
+    scene_id: int = Form(1),
+    frame_timestamp_sec: Optional[float] = Form(None),
     image: Optional[UploadFile] = File(None),
 ) -> dict:
-    """Create a transparent 2D stage prop from text or a camera image snapshot."""
+    """Create a transparent 2D stage prop from text or a camera image snapshot and sync it to `branch.scenes`."""
     img_bytes = await image.read() if image else None
-    prop_id, item = await create_prop(name=name, description=description, camera_frame_bytes=img_bytes)
+    prop_id, item = await _invoke_create_prop(
+        name=name,
+        description=description,
+        camera_frame_bytes=img_bytes,
+        frame_timestamp_sec=frame_timestamp_sec,
+    )
     branch = get_branch(branch_id)
     if branch:
         branch.props_registry[prop_id] = item
+        for s in branch.scenes:
+            if s.scene_id >= scene_id and not any(p.id == prop_id for p in s.stage_props):
+                s.stage_props.append(StagePropState(id=prop_id, grid=[1.15, 1.35], on_floor=False, state="glowing"))
+                s.needs_rerender = True
         save_branch(branch)
     return {"prop_id": prop_id, "image_url": item.image_url, "item": item}
 
 
-def _save_preview_file(branch_id: str, scene_id: int, cam_id: str, upload: Optional[UploadFile], png_b64: Optional[str]) -> Optional[str]:
-    """Persist an uploaded `.webm` preview or PNG data-URI fallback to `config.PREVIEWS_DIR`."""
+async def _save_preview_file(
+    branch_id: str,
+    scene_id: int,
+    cam_id: str,
+    upload: Optional[UploadFile],
+    png_b64: Optional[str],
+    end_png_b64: Optional[str] = None,
+) -> Optional[str]:
+    """Persist an uploaded `.webm` preview or PNG keyframe fallback to `config.PREVIEWS_DIR`."""
+    if end_png_b64:
+        end_path = config.PREVIEWS_DIR / f"{branch_id}_s{scene_id}_{cam_id}_end.png"
+        end_path.write_bytes(base64.b64decode(end_png_b64.split(",")[-1]))
     if upload is not None:
         ext = Path(upload.filename or "").suffix.lower() or ".webm"
         out_path = config.PREVIEWS_DIR / f"{branch_id}_s{scene_id}_{cam_id}{ext}"
-        out_path.write_bytes(upload.file.read())
+        out_path.write_bytes(await upload.read())
         return f"/assets/previews/{out_path.name}"
     if png_b64:
         b64_part = png_b64.split(",")[-1]
@@ -229,7 +282,10 @@ async def api_media_render_scene(
     cam_a_preview: Optional[UploadFile] = File(None),
     cam_b_preview: Optional[UploadFile] = File(None),
     cam_a_start_png: Optional[str] = Form(None),
+    cam_a_end_png: Optional[str] = Form(None),
     cam_b_start_png: Optional[str] = Form(None),
+    cam_b_end_png: Optional[str] = Form(None),
+    prev_tail_frame_url: Optional[str] = Form(None),
 ) -> dict:
     """Render either a specific scene (from `scene_id` or `scene_json` + 2.5D previews) or all `needs_rerender` scenes."""
     branch = get_branch(branch_id)
@@ -247,8 +303,12 @@ async def api_media_render_scene(
         if not target:
             raise HTTPException(status_code=404, detail=f"Scene {resolved_scene_id} not found")
 
-        preview_a_url = _save_preview_file(branch_id, target.scene_id, "cam_a", cam_a_preview, cam_a_start_png)
-        preview_b_url = _save_preview_file(branch_id, target.scene_id, "cam_b", cam_b_preview, cam_b_start_png)
+        preview_a_url = await _save_preview_file(
+            branch_id, target.scene_id, "cam_a", cam_a_preview, cam_a_start_png, cam_a_end_png
+        )
+        preview_b_url = await _save_preview_file(
+            branch_id, target.scene_id, "cam_b", cam_b_preview, cam_b_start_png, cam_b_end_png
+        )
         if preview_a_url:
             target.media.cam_a_preview_url = preview_a_url
         if preview_b_url:
