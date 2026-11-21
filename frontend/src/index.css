@@ -1635,7 +1635,7 @@ body::after {
 /* ---- Zone 2: save tree of photo snapshots on a golden vine ---- */
 .tree {
   flex: 0 0 auto;
-  height: clamp(170px, 25.5vh, 230px);
+  height: clamp(205px, 28vh, 250px);
   min-height: 0;
   overflow: auto;
   scroll-behavior: smooth;
@@ -1656,9 +1656,9 @@ body::after {
 .tree-inner {
   min-width: 760px;
   padding-bottom: 14px;
-  --row-h: 80px;
-  --photo-w: 100px;
-  --photo-h: 61px;
+  --row-h: 72px;
+  --photo-w: 94px;
+  --photo-h: 56px;
 }
 
 .tree-head {
