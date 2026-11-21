@@ -516,6 +516,21 @@ async def api_director_extend(
     parsed.target_scene_id = next_scene_id
     parsed.mode = "extend" if anchor_id == ordered_scenes[-1].scene_id else "fork"
 
+    # The user moved characters on the 3D stage: tell the director where they now stand, so the new scene
+    # (and therefore the video) starts from those spots.
+    moved_ids = _USER_MOVED_ACTORS.get((branch_id, anchor_id), set())
+    if moved_ids:
+        notes = [
+            f"{actor.name} has moved and now stands {_describe_stage_spot(actor.grid)}"
+            for actor in prefix_scenes[-1].actors
+            if actor.id in moved_ids
+        ]
+        if notes:
+            parsed.instruction = (
+                f"{parsed.instruction} (Stage note from the director's 3D view: {'; '.join(notes)}. "
+                "Show them walking to that spot at the start of the scene, keep their grid there, and say so in the narration.)"
+            )
+
     updated_registry = dict(parent.props_registry)
     thrown_prop_id: Optional[str] = None
     injected_placement: str = "table"
@@ -742,6 +757,17 @@ async def _save_preview_file(
     return None
 
 
+# Characters the user dragged on the 3D stage, per (branch, scene), so the next scene is directed from the new spot.
+_USER_MOVED_ACTORS: dict[tuple[str, int], set[str]] = {}
+
+
+def _describe_stage_spot(grid: list[float]) -> str:
+    """Plain words for a stage grid position, as seen from the front camera."""
+    side = "on the left side of the room" if grid[0] < 0.7 else ("on the right side of the room" if grid[0] > 1.3 else "next to the round table")
+    depth = "at the back by the windows" if grid[1] < 0.7 else ("at the front, close to the camera" if grid[1] > 1.3 else "in the middle of the floor")
+    return f"{side}, {depth}"
+
+
 TABLE_CLEARANCE_M = {"nyx": 0.8}
 DEFAULT_TABLE_CLEARANCE_M = 1.05
 
@@ -784,6 +810,7 @@ async def api_director_move_actor(
         actor.grid = [max(0.0, min(2.0, grid_x)), max(0.0, min(2.0, grid_y))]
         _keep_actors_clear_of_table(scene)
         save_branch(branch)
+        _USER_MOVED_ACTORS.setdefault((branch_id, scene_id), set()).add(actor_id)
         return {"branch_id": branch_id, "scene_id": scene_id, "actor_id": actor_id, "grid": actor.grid}
 
 
