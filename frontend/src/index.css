@@ -1655,7 +1655,9 @@ body::after {
 
 .tree-inner {
   min-width: 760px;
+  padding-right: 248px;
   padding-bottom: 14px;
+  box-sizing: border-box;
   --row-h: 72px;
   --photo-w: 94px;
   --photo-h: 56px;
