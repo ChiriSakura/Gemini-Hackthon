@@ -161,6 +161,7 @@ def _update_render_progress(
     elif status in (
         "queued",
         "rendering",
+        "rendering_split_screen",
         "rendering_cam_a",
         "deriving_cam_b_keyframes",
         "rendering_cam_b",
@@ -1734,10 +1735,31 @@ async def _render_cam_b_from_keyframes(
     )
 
 
+def _read_bgr_safe(image_path: Path) -> Optional[np.ndarray]:
+    """Read a BGR image safely even when Windows paths contain Unicode characters."""
+    if not image_path.is_file():
+        return None
+    buf = np.frombuffer(image_path.read_bytes(), dtype=np.uint8)
+    return cv2.imdecode(buf, cv2.IMREAD_COLOR)
+
+
+def _resolve_ffmpeg_exe() -> str:
+    """Resolve a working ffmpeg binary (prefers bundled imageio_ffmpeg on Windows, falls back to PATH)."""
+    try:
+        import imageio_ffmpeg
+
+        exe = imageio_ffmpeg.get_ffmpeg_exe()
+        if exe:
+            return exe
+    except Exception:
+        pass
+    return shutil.which("ffmpeg") or "ffmpeg"
+
+
 def _compose_split_frame_sync(cam_a_frame: Path, cam_b_frame: Path, out_path: Path) -> Path:
     """Put Camera A (left) and Camera B (right) side by side in one 16:9 frame, with black bars above and below."""
-    img_a = cv2.imread(str(cam_a_frame))
-    img_b = cv2.imread(str(cam_b_frame))
+    img_a = _read_bgr_safe(cam_a_frame)
+    img_b = _read_bgr_safe(cam_b_frame)
     if img_a is None or img_b is None:
         raise RuntimeError("missing start frame for the split-screen render")
     canvas = np.zeros((720, 1280, 3), np.uint8)
@@ -1751,10 +1773,11 @@ def _compose_split_frame_sync(cam_a_frame: Path, cam_b_frame: Path, out_path: Pa
 
 def _crop_split_panel_sync(split_video: Path, right_panel: bool, out_path: Path) -> Path:
     """Cut one panel (left = Camera A, right = Camera B) out of the split-screen clip, keeping the sound."""
+    ffmpeg_exe = _resolve_ffmpeg_exe()
     x_expr = "iw/2" if right_panel else "0"
     subprocess.run(
         [
-            "ffmpeg", "-y", "-loglevel", "error", "-i", str(split_video),
+            ffmpeg_exe, "-y", "-loglevel", "error", "-i", str(split_video),
             "-filter:v", f"crop=iw/2:ih/2:{x_expr}:ih/4",
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
             "-c:a", "copy", "-movflags", "+faststart", str(out_path),
@@ -1766,7 +1789,11 @@ def _crop_split_panel_sync(split_video: Path, right_panel: bool, out_path: Path)
 
 
 async def _render_split_screen_pair(
-    scene: Scene, cam_a_start: Path, cam_b_start: Path
+    scene: Scene,
+    cam_a_start: Path,
+    cam_b_start: Path,
+    reference_images: Optional[list[str]] = None,
+    prop_descriptions: Optional[dict[str, str]] = None,
 ) -> tuple[tuple[str, Optional[str], JudgeResult, int, int], tuple[str, Optional[str], JudgeResult, int, int]]:
     """
     Render Camera A and Camera B in ONE video generation, as two panels of a split screen, then cut them apart.
@@ -1780,28 +1807,82 @@ async def _render_split_screen_pair(
         _compose_split_frame_sync, cam_a_start, cam_b_start, config.TAILS_DIR / f"{stem}_start.png"
     )
     uploaded = await _get_or_upload_uri(split_frame, use_cache=False)
+
+    # Forward active newly-injected prop reference images (up to 3) so thrown/added props match in both panels.
+    active_custom_props: set[str] = set()
+    for p in scene.stage_props:
+        if p.id and p.id.lower() not in {"red_umbrella", "crystal_vase"}:
+            active_custom_props.add(p.id.lower())
+    for a in scene.actors:
+        if a.holding_prop and a.holding_prop.lower() not in {"red_umbrella", "crystal_vase"}:
+            active_custom_props.add(a.holding_prop.lower())
+
+    extra_prop_paths: list[Path] = []
+    seen_extra: set[str] = set()
+    if active_custom_props and reference_images:
+        for ref in reference_images:
+            p_local = _resolve_asset_to_local_path(ref)
+            if p_local and p_local.stem.lower() in active_custom_props:
+                key = str(p_local.resolve())
+                if key not in seen_extra:
+                    seen_extra.add(key)
+                    extra_prop_paths.append(p_local)
+                    if len(extra_prop_paths) >= 3:
+                        break
+    uploaded_extra_props = (
+        list(await asyncio.gather(*(_get_or_upload_uri(p, use_cache=True) for p in extra_prop_paths)))
+        if extra_prop_paths
+        else []
+    )
+
+    extra_prop_clauses: list[str] = []
+    for pid in sorted(active_custom_props):
+        held = any((a.holding_prop or "").lower() == pid for a in scene.actors)
+        sp = next((p for p in scene.stage_props if p.id.lower() == pid), None)
+        extra_prop_clauses.append(
+            _describe_prop_with_scale(
+                pid,
+                state="held" if held else (sp.state if sp else "intact"),
+                on_floor=False if held else (sp.on_floor if sp else False),
+                entry_motion=getattr(sp, "entry_motion", "place") if sp else "place",
+                prop_descriptions=prop_descriptions,
+            )
+        )
+    extra_prop_rule = (
+        f"Active props to show identically in both panels (matching any extra reference images): {'; '.join(extra_prop_clauses)}. "
+        if extra_prop_clauses
+        else ""
+    )
+
     umbrella_rule = (
         "" if _umbrella_is_open(scene) else "The red umbrella stays closed and furled for the whole clip. "
     )
     prompt = (
         "Split-screen video. The frame holds two panels side by side with black bars above and below, exactly as in "
         "Image 1. Both panels show the SAME room and the SAME moment, filmed by two synchronized cameras that never move. "
-        "LEFT panel = Camera A, the front wide shot. RIGHT panel = Camera B, the fixed 45 degree side shot of the same scene. "
+        "LEFT panel = Camera A, the front wide shot. RIGHT panel = Camera B, the fixed 45 degree right-side shot of the same scene. "
+        "STRICT 3D VIEWPOINT LAW: ONLY the camera viewpoint differs (+45 degrees clockwise around the central round table). "
+        "Every character, limb, held object, and fallen prop keeps the EXACT SAME 3D world-space floor coordinates relative to "
+        "the center table, the same handedness, and the same body/head facing direction relative to the room in both panels — "
+        "never mirror positions across the table or swap which hand holds an object between panels. "
         "Every movement happens at exactly the same instant in both panels: the same characters do the same action "
         "with the same timing, only seen from the two camera positions. The world is one and the same in both panels: "
         "anything opened, closed, picked up, put down, broken or spilled looks identical in both, and every object "
         "lies in the same place on the floor. Both cameras are locked on tripods: no pan, "
         "no orbit, no zoom, no cut. Keep the black bars and the vertical split exactly where they are for the whole clip. "
         f"Action in the scene: {_milden_safety_phrasing(scene.narration)} "
+        f"{extra_prop_rule}"
         f"{umbrella_rule}"
         "Every character and object keeps the size it has in Image 1, in both panels. "
         "All weather stays outside the glass; the room interior and the floor are dry. Anime cel-shaded style. "
         "No text, numbers, labels, arrows, measurement lines, captions or watermarks anywhere in the picture."
     )
-    input_parts = [
+    input_parts: list[dict] = [
         {"type": "image", "uri": uploaded[0], "mime_type": uploaded[1]},
-        {"type": "text", "text": prompt},
     ]
+    for uri, mime in uploaded_extra_props:
+        input_parts.append({"type": "image", "uri": uri, "mime_type": mime})
+    input_parts.append({"type": "text", "text": prompt})
     duration_int = max(3, min(10, int(round(scene.duration_sec or config.VIDEO_DURATION_SEC))))
     split_video = config.FINALS_DIR / f"{stem}_split.mp4"
     t0 = time.perf_counter()
@@ -1890,27 +1971,36 @@ async def render_scene_media(
     preview_b = cam_b_preview_path or scene.media.cam_b_preview_url
 
     res_b_keyframed = None
-    # Preferred path in every mode: render Camera A and Camera B in ONE generation (split screen, then cut apart),
-    # so the actors do the same action at the same instant and both camera positions stay fixed.
-    # A scene continues from the previous scene's two tail frames; scene 1 starts from one fixed opening pair.
+    live_keyframe_enabled = (
+        config.CAM_B_KEYFRAMES_FROM_A
+        and not config.DEMO_MODE
+        and bool(config.GEMINI_API_KEY)
+    )
+    # Preferred path in EVERY mode (including fast_live_mode): render Camera A and Camera B in ONE
+    # synchronized split-screen generation (~34s for both views together), then crop into Cam A & Cam B.
+    # A scene continues from the previous scene's two tail frames; Scene 1 starts from the fixed opening pair.
     split_pair = None
     opening_a = config.ASSETS_DIR / "stages" / "opening_cam_a.png"
     opening_b = config.ASSETS_DIR / "stages" / "opening_cam_b.png"
     use_opening = (
-        scene.scene_id == 1 and not (prev_tail_a and prev_tail_b) and opening_a.is_file() and opening_b.is_file()
+        scene.scene_id == 1
+        and not (prev_tail_a and prev_tail_b)
+        and opening_a.is_file()
+        and opening_b.is_file()
     )
-    if (
-        config.CAM_B_KEYFRAMES_FROM_A
-        and not config.DEMO_MODE
-        and bool(config.GEMINI_API_KEY)
-        and ((prev_tail_a and prev_tail_b) or use_opening)
-    ):
-        _emit("rendering_cam_a")
+    if live_keyframe_enabled and ((prev_tail_a and prev_tail_b) or use_opening):
+        _emit("rendering_split_screen")
         try:
             start_a = opening_a if use_opening else _resolve_asset_to_local_path(prev_tail_a)
             start_b = opening_b if use_opening else _resolve_asset_to_local_path(prev_tail_b)
             if start_a and start_b and start_a.is_file() and start_b.is_file():
-                split_pair = await _render_split_screen_pair(scene, start_a, start_b)
+                split_pair = await _render_split_screen_pair(
+                    scene,
+                    start_a,
+                    start_b,
+                    reference_images=reference_images,
+                    prop_descriptions=prop_descriptions,
+                )
         except Exception as exc:  # any failure falls back to the per-camera paths below
             log_genai_call(
                 model=_resolve_video_model(),
@@ -1924,15 +2014,17 @@ async def render_scene_media(
         res_a, res_b = split_pair
         res_b_keyframed = res_b
     elif fast_live_mode:
-        # Fast Live Demo Mode (~25-30s total): run Camera A (0deg conservatory_cam_a.png) and Camera B
-        # (level asymmetrical +45deg conservatory_cam_b.png) concurrently in parallel, skipping blocking
-        # post-render tail inspection so live presentation turnaround is ~3x faster.
+        # Fallback Fast Live Demo Mode (~25-30s total): run Camera A (0deg conservatory_cam_a.png) and Camera B
+        # (level asymmetrical +45deg conservatory_cam_b.png) concurrently in parallel when paired start frames
+        # are unavailable or split-screen failed.
         _emit("rendering_cam_a")
+        _emit("rendering_cam_b")
         cam_b_fast_constraint = (
             "LOCKED +45-DEGREE LEVEL RIGHT-SIDE PERSPECTIVE: strictly match the asymmetrical 45-degree diagonal "
-            "conservatory room layout, level floor/tabletop, and vertical window pillars from the Camera B room "
-            "reference image (omit empty wooden chairs around the table unless narration mentions chairs), placing "
-            "Lia on the left facing right and Nyx closer on the right facing left with identical props & action."
+            "conservatory room layout, level floor/tabletop, and vertical window pillars (omit empty wooden chairs "
+            "around the table unless narration mentions chairs), placing Lia on the left in three-quarter front view "
+            "facing right toward the table and Nyx closer in the right foreground seen from a rear-right three-quarter "
+            "angle facing away-left toward the table with identical props & action."
         )
         res_a, res_b = await asyncio.gather(
             render_single_camera_shot(
@@ -1958,7 +2050,9 @@ async def render_scene_media(
             ),
         )
     else:
-        # Step 1: Render Camera A (front establishing shot)
+        # Standard Quality Mode fallback when paired start frames were unavailable:
+        # render Camera A first, then derive a synchronized split-screen pair from Camera A's opening frame,
+        # falling back to +45deg tripod start keyframe -> conditioned Camera B single-shot.
         _emit("rendering_cam_a")
         res_a = await render_single_camera_shot(
             scene,
@@ -1971,16 +2065,12 @@ async def render_scene_media(
             prop_descriptions=prop_descriptions,
         )
 
-        # Step 2: Derive Camera B (+45-degree right-side orbit) from Camera A.
-        if (
-            config.CAM_B_KEYFRAMES_FROM_A
-            and not config.DEMO_MODE
-            and bool(config.GEMINI_API_KEY)
-            and res_a[0]
-        ):
+        if live_keyframe_enabled and res_a[0]:
             _emit("deriving_cam_b_keyframes")
             try:
-                res_b_keyframed = await _render_cam_b_from_keyframes(scene, res_a[0], res_a[1])
+                first_pair = await _split_pair_from_cam_a(scene, res_a[0])
+                if first_pair:
+                    res_a, res_b_keyframed = first_pair
             except Exception as exc:
                 log_genai_call(
                     model=_resolve_video_model(),
