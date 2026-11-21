@@ -1,10 +1,16 @@
 {
   "agent": "P3_frontend",
-  "branch": "feat/p3-frontend",
-  "current_milestone": "T0",
-  "status": "waiting_for_claim",
-  "capture_stream_mode": "webm",
-  "completed_items": [],
+  "branch": "feat/w2-frontend",
+  "current_milestone": "T1",
+  "status": "completed",
+  "capture_stream_mode": "webm_with_png_fallback",
+  "completed_items": [
+    "T0: npm install & Vite build verified against shared mock contracts",
+    "T1.1: Three.js 3x3 2.5D stage with Camera A (front wide) & Camera B (45-deg close-up)",
+    "T1.2: cold_blue rain & warm_gold_snow particles + broken glass shards + camera shake",
+    "T1.3: 4s .webm captureStream() export with automatic start+end PNG keyframe fallback",
+    "T1.4: Unified 3s Hold to Direct (Cam+Mic) .webm button + text fallback + Clapperboard QA strip + 4-scene Branch Tree + side-by-side comparison"
+  ],
   "blockers": [],
-  "last_updated": "2026-11-21T12:10:00-05:00"
+  "last_updated": "2026-11-21T12:31:30-05:00"
 }
