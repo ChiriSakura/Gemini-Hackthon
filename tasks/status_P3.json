@@ -1,30 +1,30 @@
 {
   "agent": "P3_frontend",
   "branch": "feat/w2-frontend",
-  "current_milestone": "T9_PITCH_LOCKED",
-  "status": "all_8_t9_hardening_tasks_passed_ready_for_final_pitch",
+  "current_milestone": "T10_PRE_PITCH_LOCKED",
+  "status": "all_6_t10_stability_and_regression_gates_passed_100pct",
   "capture_stream_mode": "webm_with_png_fallback",
   "auto_poll_enabled": true,
   "bundle_metrics": {
-    "build_time_ms": 603,
-    "app_js_kb": 98.32,
-    "app_js_gzip_kb": 28.29,
+    "build_time_ms": 585,
+    "app_js_kb": 99.42,
+    "app_js_gzip_kb": 28.64,
     "app_css_kb": 13.37,
     "react_vendor_kb": 140.87,
     "three_vendor_kb": 486.78,
     "cjk_ui_hits": 0,
-    "referenced_assets_verified": 13
+    "cached_branches_verified": 4,
+    "referenced_assets_verified": 13,
+    "submission_and_desk_assets_verified": 9
   },
   "completed_items": [
-    "W2-T9A: Upgraded frontend/src/data/mockBranches.ts to 100% native English with full 4-branch offline previews (branch_v1 BE, branch_v2 HE Star, branch_v3_starlight_cached Twist V3, branch_v4_umbrella_shield_cached Shield V4)",
-    "W2-T9B: Added webglcontextlost & webglcontextrestored recovery handlers on both ThreeStageManager canvases + remount recoveryKey in StageErrorBoundary.tsx",
-    "W2-T9C: Created zero-dependency frontend/scripts/verify_frontend.mjs automated sanity script (0-CJK audit, disk check of all 13 referenced actor/prop assets, dist chunk verification)",
-    "W2-T9D: Wired evalModalOpen into DualCameraStage.tsx to pause and mute all background stage <video> elements while EvalModal is open and cleanly resume on close",
-    "W2-T9E: Standardized displayLocale.ts exported dictionaries to match exact official English terminology (Lia, Nyx, Crimson Vintage Umbrella, Blue Rose Crystal Vase, Starlight Keepsake, + v3/v4 variants)",
-    "W2-T9F: Added 4-bullet Live Booth Checklist (Mic Ready, Cam Ready, API Live/Mock, N Branches Loaded) inside EvalModal.tsx with live enumerateDevices() probe",
-    "W2-T9G: Verified zero TypeScript unused locals/warnings (`tsc --noEmit`) and clean chunk splitting (app 98.32 kB, react-vendor 140.87 kB, three-vendor 486.78 kB)",
-    "W2-T9H: Executed `npx tsc --noEmit && npm run build && node scripts/verify_frontend.mjs` (100% PASS) and locked P3 ready for final pitch rehearsal"
+    "W2-T10A: Extended frontend/scripts/verify-locale.mjs to verify all 4 cached backend branches (branch_v1..branch_v4_umbrella_shield_cached) for 0 CJK leaks and [1,2,3,4] scene continuity",
+    "W2-T10B: Extended frontend/scripts/verify_frontend.mjs to assert all 9 EvalModal submission reels, storyboard strip, charts board, and showcase_desk_*.png files exist on disk",
+    "W2-T10C: Hardened ThreeStageManager.ts dispose() to traverse and release all scene geometries, materials, backdrop/particle/fallback/mirrored textures, shadow & halo rings, preventing WebGL leak warnings on ErrorBoundary recovery",
+    "W2-T10D: Added frontend/scripts/test_stage_helpers.mjs pure-Node regression test suite covering soundCue safety, 4-branch mockBranches grid/lighting/0-CJK invariants, and stageClient FormData offline edge cases",
+    "W2-T10E: Added ?clean=1 URL query toggle in App.tsx for zero-clutter frame-0 demo recording alongside the 'C' shortcut",
+    "W2-T10F: Executed complete 5-gate pre-pitch verification (`tsc --noEmit`, `npm run build`, `verify-locale.mjs`, `verify_frontend.mjs`, `test_stage_helpers.mjs`) — 100% PASS and locked P3 ready for final pitch"
   ],
   "blockers": [],
-  "last_updated": "2026-11-21T13:51:40-05:00"
+  "last_updated": "2026-11-21T13:56:25-05:00"
 }

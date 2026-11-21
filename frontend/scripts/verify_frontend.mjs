@@ -84,6 +84,28 @@ if (missingAssets.length > 0) {
   console.log(`[PASS] All ${referencedAssets.size} referenced actor/prop assets verified on disk`);
 }
 
+// 2b. Verify all EvalModal submission reels, storyboard, and desk showcase props exist on disk (W2-T10B)
+const requiredSubmissionAssets = [
+  'backend/assets/finals/demo_comparison_be_vs_he.mp4',
+  'backend/assets/finals/pitch_demo_reel_1min.mp4',
+  'backend/assets/submission/hook_10s_dualcam_twist.mp4',
+  'backend/assets/submission/eval_dashboard_12s.mp4',
+  'backend/assets/submission/eval_charts_board.png',
+  'backend/assets/showcase_storyboard_strip.png',
+  'backend/assets/props/showcase_desk_brass_key.png',
+  'backend/assets/props/showcase_desk_coffee_mug.png',
+  'backend/assets/props/showcase_desk_paper_heart.png',
+];
+const missingSubmission = requiredSubmissionAssets.filter(
+  (rel) => !fs.existsSync(path.join(REPO_ROOT, rel)),
+);
+if (missingSubmission.length > 0) {
+  console.error('[FAIL] Missing EvalModal submission/desk assets:', missingSubmission);
+  failed = true;
+} else {
+  console.log(`[PASS] All ${requiredSubmissionAssets.length} EvalModal submission & desk assets verified on disk`);
+}
+
 // 3. Verify dist/index.html & vendor chunks exist cleanly after npm run build
 const distDir = path.join(FRONTEND_DIR, 'dist');
 const distIndex = path.join(distDir, 'index.html');

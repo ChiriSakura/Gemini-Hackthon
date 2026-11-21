@@ -1163,15 +1163,62 @@ export class ThreeStageManager {
       cancelAnimationFrame(this.animFrameId);
       this.animFrameId = null;
     }
-    this.rendererA.dispose();
-    this.rendererB.dispose();
+
+    // W2-T10C: Dispose all scene geometries, materials, and attached procedural textures cleanly
+    const disposedTextures = new Set<THREE.Texture>();
+    const disposeMaterial = (mat: THREE.Material) => {
+      const m = mat as THREE.Material & { map?: THREE.Texture | null };
+      if (m.map && !disposedTextures.has(m.map)) {
+        disposedTextures.add(m.map);
+        m.map.dispose();
+      }
+      mat.dispose();
+    };
+
+    this.scene.traverse((obj) => {
+      const renderable = obj as THREE.Object3D & {
+        geometry?: THREE.BufferGeometry;
+        material?: THREE.Material | THREE.Material[];
+      };
+      if (renderable.geometry) {
+        renderable.geometry.dispose();
+      }
+      if (renderable.material) {
+        if (Array.isArray(renderable.material)) {
+          renderable.material.forEach(disposeMaterial);
+        } else {
+          disposeMaterial(renderable.material);
+        }
+      }
+    });
+
     for (const tex of this.textureCache.values()) {
-      tex.dispose();
+      if (!disposedTextures.has(tex)) {
+        disposedTextures.add(tex);
+        tex.dispose();
+      }
     }
     this.textureCache.clear();
+
     for (const tex of this.flippedTextureCache.values()) {
-      tex.dispose();
+      if (!disposedTextures.has(tex)) {
+        disposedTextures.add(tex);
+        tex.dispose();
+      }
     }
     this.flippedTextureCache.clear();
+
+    if (this.fallbackStarTexture && !disposedTextures.has(this.fallbackStarTexture)) {
+      disposedTextures.add(this.fallbackStarTexture);
+      this.fallbackStarTexture.dispose();
+    }
+    this.fallbackStarTexture = null;
+
+    this.actorEntities.clear();
+    this.propEntities.clear();
+    this.scene.clear();
+
+    this.rendererA.dispose();
+    this.rendererB.dispose();
   }
 }

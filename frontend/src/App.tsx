@@ -53,7 +53,10 @@ export default function App(): React.ReactElement {
   const [viewMode, setViewMode] = useState<'preview' | 'final'>('preview');
   const [compareEnabled, setCompareEnabled] = useState<boolean>(true);
   const [pixelArtMode, setPixelArtMode] = useState<boolean>(false);
-  const [cleanCaptureMode, setCleanCaptureMode] = useState<boolean>(false);
+  const [cleanCaptureMode, setCleanCaptureMode] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return new URLSearchParams(window.location.search).get('clean') === '1';
+  });
   const [evalModalOpen, setEvalModalOpen] = useState<boolean>(false);
   const [shortcutsOpen, setShortcutsOpen] = useState<boolean>(false);
   const [isPlayingStory, setIsPlayingStory] = useState<boolean>(false);

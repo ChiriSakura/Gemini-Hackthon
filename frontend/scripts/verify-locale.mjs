@@ -64,12 +64,13 @@ const cachedBranchFiles = [
   'backend/assets/branches/branch_v1.json',
   'backend/assets/branches/branch_v2_cached.json',
   'backend/assets/branches/branch_v3_starlight_cached.json',
+  'backend/assets/branches/branch_v4_umbrella_shield_cached.json',
 ];
 
 let checkedBranches = 0;
 for (const relPath of cachedBranchFiles) {
   const absPath = path.join(repoRoot, relPath);
-  if (!fs.existsSync(absPath)) continue;
+  assert.equal(fs.existsSync(absPath), true, `Missing expected cached branch file: ${relPath}`);
   const raw = JSON.parse(fs.readFileSync(absPath, 'utf8'));
   const sanitized = localeMod.sanitizeBranchToEn(raw);
   const serialized = JSON.stringify(sanitized);
@@ -82,6 +83,12 @@ for (const relPath of cachedBranchFiles) {
     sanitized.scenes.length,
     raw.scenes.length,
     `Scene count mismatch for ${relPath}`,
+  );
+  const sceneIds = sanitized.scenes.map((s) => s.scene_id);
+  assert.deepEqual(
+    sceneIds,
+    [1, 2, 3, 4],
+    `Scene continuity mismatch for ${relPath}: got ${JSON.stringify(sceneIds)}`,
   );
   checkedBranches += 1;
 }
