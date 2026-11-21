@@ -1,16 +1,16 @@
 {
   "agent": "P3_frontend",
   "branch": "feat/w2-frontend",
-  "current_milestone": "V3_LIVE_REHEARSAL_OPTIMISTIC_PREVIEW_AND_V2_BENCHMARKS_COMPLETE",
-  "status": "v3_04_to_06_complete_6_of_6_gates_green_ready_for_master_merge",
+  "current_milestone": "V4_ULTRA_MINIMAL_4_ZONE_UI_COMPLETE",
+  "status": "v4_complete_6_of_6_gates_green_ready_for_master_merge",
   "feature_freeze_verified": false,
   "capture_stream_mode": "webm_with_png_fallback",
   "auto_poll_enabled": true,
   "bundle_metrics": {
-    "build_time_ms": 611,
-    "app_js_kb": 147.62,
-    "app_js_gzip_kb": 44.06,
-    "app_css_kb": 39.52,
+    "build_time_ms": 617,
+    "app_js_kb": 127.12,
+    "app_js_gzip_kb": 38.30,
+    "app_css_kb": 39.76,
     "react_vendor_kb": 140.87,
     "three_vendor_kb": 486.78,
     "cjk_ui_hits": 0,
@@ -21,12 +21,10 @@
     "smoke_preview_http_200_endpoints": 13
   },
   "completed_items": [
-    "W2-V2-01..06: Completed Living Sculpture V2 layout, persistent bottom-right Self-View Camera, conditional catch_from_camera + 3D throw-arc + sculpture freeze, perceive/extend/fast_live_mode wiring, standalone umbrella/chair PNGs, foot-bottom anchoring, Alt-guarded hotkeys, and EvalModal /api/eval/summary hydration",
-    "W2-V3-01..03: Locked default `placement='table'` (`entry_motion='place'`), gated `catch_from_camera` strictly on `entryMotion === 'throw_arc'`, added `appearance_summary` 0-CJK sanitization & `environment_notes` propagation",
-    "W2-V3-04: Implemented <100ms instant optimistic captured-object preview (`URL.createObjectURL`) on the 2.5D stage while `/api/media/create-prop` stylizes (using quick PNG frame capture from CameraSelfView even during video throw), cleanly swapping to the transparent PNG and revoking temporary object URLs on completion/unmount",
-    "W2-V3-05: Added 1-click `Retry Render` inside `errorNote` banner on transient extend/render/content_blocked errors (retrying active scene cleanly without disturbing other scenes/props) and `<1.5s` `Fast matched: <appearance_summary or name>` confirmation note",
-    "W2-V3-06: Hydrated `dual_cam_fixed_room` (5/5 @ 0.80, mean P 0.875, QA 0.917) and `fast_live_latency` (Scene 5 QA 0.895, 28.2s, 4.6s parallel upload 2.9x) in EvalModal.tsx from `GET /api/eval/summary`, extended test_stage_helpers.mjs, and passed full `npm run verify` (6/6 gates green, 611ms build, 0 CJK leaks, 13/13 HTTP 200)"
+    "W2-V4-01: Stripped ALL extra buttons to strictly 4 UI zones: (1) Clean side-by-side Camera A + Camera B (`DualCameraStage.tsx`, zero transport/render/overlay buttons, minimal A/B captions); (2) Always-visible branching vine `StoryBranchTree.tsx` with zero BE/HE ribbons and zero toggle chrome; (3) Bottom multimodal `DirectControlBar.tsx` with ONLY text input + `Direct` + `Hold to talk`; (4) Persistent bottom-right `CameraSelfView.tsx` where clicking the camera frame directly captures/places/tosses objects with zero extra header chrome; removed topbar `More` menu completely (keeping only `StageState` title + `MOCK MODE` badge when mocked, with Alt+ shortcuts silent under the hood)",
+    "W2-V3-04: Kept <100ms instant optimistic captured-object preview (`URL.createObjectURL` -> clean swap to transparent PNG + `revokeObjectURL`) and seamless automatic `/perceive` -> `/extend` -> `fast_live_mode=true` render pipeline",
+    "W2-V4-02: Verified full `npm run verify` (6/6 gates green: `tsc`, `vite build` 617ms / 127.12kB JS, 0 CJK across 19 files, 13+9 disk assets, `test_stage_helpers.mjs`, and 13/13 HTTP 200 `smoke_preview.mjs`) and updated `tasks/status_P3.json`"
   ],
   "blockers": [],
-  "last_updated": "2026-11-21T15:33:40-05:00"
+  "last_updated": "2026-11-21T15:38:20-05:00"
 }
