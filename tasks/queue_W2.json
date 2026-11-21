@@ -2,33 +2,51 @@
   "worker": "worker-2 (P3)",
   "branch": "feat/w2-frontend",
   "pull_main_first": true,
-  "batch_deadline": "15:25",
+  "batch_deadline": "15:30",
   "owned_paths": ["frontend/**", "tasks/status_P3.json"],
-  "note": "W2-T2E..T3C merged cleanly into main! Pull main (also gets eval tables & latest backend), then knock out this T3.5/T4 demo-hardening batch.",
+  "note": "Master merged W1+W2 + added crystal_vase_broken.png to frontend/public/assets/props/. Pull main first, then execute these 7 detailed demo-polish tasks.",
   "parallel_tasks": [
     {
       "task_id": "W2-T3D",
       "priority": "P0",
       "title": "Multimodal Cue Pills (Vocal Emotion, Gesture Intent & Tail-Frame Environment Notes)",
-      "details": "In DualCameraStage or ClapperboardQA, render compact subtle pills for the active scene's `vocal_emotion`, `gesture_intent`, and `environment_notes` (e.g. '🎙️ gentle_whisper · 🤲 beckon_soothe · 👁️ glass_conservatory_clean_floor') so judges immediately see raw audio/video signals driving the stage."
+      "details": "In `DualCameraStage.tsx` or `ClapperboardQA.tsx`, render compact subtle pills for the active scene's `vocal_emotion`, `gesture_intent`, and `environment_notes` (e.g., '🎙️ gentle_whisper · 🤲 beckon_soothe · 👁️ shattered_glass_shards') so judges visually see raw audio/video signals driving the stage."
     },
     {
       "task_id": "W2-T3E",
       "priority": "P0",
-      "title": "'Play Full 1->4 Story' auto-sequence playback button",
-      "details": "Add a '▶ Play 1→4' button in DualCameraStage / StoryBranchTree that auto-advances scenes 1→4 every 4s (works seamlessly in both 2.5D Preview and AI Render + Auto-Cut A/B modes) for effortless live demo & 1-min video recording."
+      "title": "'▶ Play 1→4' Full-Story Auto-Sequence Playback Button",
+      "details": "Add a one-click '▶ Play 1→4' button in `DualCameraStage.tsx` / `StoryBranchTree.tsx` that automatically plays scenes 1→4 in sequence (4s per scene), working seamlessly across 2.5D Preview, AI Render, Auto-Cut A/B, and Side-by-Side Comparison modes."
     },
     {
       "task_id": "W2-T3F",
+      "priority": "P0",
+      "title": "Lightweight Collapsible '📊 Eval' Modal (Non-Dashboard Evidence)",
+      "details": "Keep the main screen 100% stage-focused, and add a tiny top-bar button '📊 Eval' that opens a clean modal showcasing real empirical results: Stateless Baseline (0.564, 29.16s) vs StageState (0.951, 8.19s), 1->4 actor & 2->8 scene curves, 66.7% localized rewrite savings, Decisions API 0.66s-1.54s, and Omni Flash 18.64s."
+    },
+    {
+      "task_id": "W2-T3G",
       "priority": "P1",
-      "title": "Lightweight collapsible 'Eval & Failure Curve' modal (non-dashboard)",
-      "details": "Keep the main screen 100% stage-focused, and add a tiny top-bar button '📊 Eval' that opens a clean modal showing our real benchmark results: Stateless Baseline (0.564, 29.16s) vs StageState (0.951, 8.19s), 1->4 actor & 2->8 scene curves, and 66.7% rerender savings."
+      "title": "Interactive Prop Tray Thumbnails & Broken Vase Visual Verification",
+      "details": "Enhance the Prop Tray in `ClapperboardQA.tsx` to display crisp thumbnails from `props_registry` (including `crystal_vase_broken.png` and newly generated `star_token.png`) with active state pills (`intact` / `broken` / `held`)."
+    },
+    {
+      "task_id": "W2-T3H",
+      "priority": "P1",
+      "title": "Step-by-Step Pipeline Progress Feedback During Live Rewrite & Render",
+      "details": "Show a crisp live status indicator while a rewrite/render is running ('1. Hydrogen 解析音画 → 2. Neon 重演因果 → 3. 录制 2.5D 预览 → 4. Omni Flash 并发双拍 + Decision-1 质检...') so the 20-25s live render window feels transparent and responsive."
     },
     {
       "task_id": "W2-T4A",
       "priority": "P1",
-      "title": "End-to-end browser verification against live FastAPI + zero console errors",
-      "details": "Run `npm run build` and test against `uvicorn backend.main:app` (Play Branch 1 cached MP4s, trigger rewrite, test Play 1->4, test Clean Capture mode), logging pass status in tasks/status_P3.json."
+      "title": "Keyboard Shortcuts & Clean Recording Mode Polish",
+      "details": "Add safe keyboard shortcuts (when not typing in an input): `Space` play/pause 1->4 sequence, `1-4` jump scene, `Tab` toggle 2.5D/AI Render, `C` toggle Clean Capture Mode for smooth 16:00 demo recording."
+    },
+    {
+      "task_id": "W2-T4B",
+      "priority": "P1",
+      "title": "Full Browser Integration Check & `npm run build` Verification",
+      "details": "Pull main, run `npm run build`, and verify all 8 cached Branch 1 MP4s, `crystal_vase_broken.png`, rewrite flow, webcam prop capture, Play 1->4, and Eval modal with zero TypeScript or runtime errors; record results in `tasks/status_P3.json`."
     }
   ]
 }

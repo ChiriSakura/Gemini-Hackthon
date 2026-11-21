@@ -172,10 +172,36 @@ async def _get_or_upload_uri(path: Path, use_cache: bool = True) -> tuple[str, s
         return uri, mime
 
 
+def _write_png_safe(path: Path, frame: np.ndarray) -> bool:
+    """Write an OpenCV BGR frame as PNG safely even when path contains non-ASCII characters (Windows)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    ok, encoded = cv2.imencode(".png", frame)
+    if not ok:
+        return False
+    path.write_bytes(encoded.tobytes())
+    return True
+
+
+def _open_video_capture_safe(video_path: Path) -> tuple[cv2.VideoCapture, Optional[Path]]:
+    """Open cv2.VideoCapture safely, falling back to an ASCII temp copy if path has Unicode chars."""
+    cap = cv2.VideoCapture(str(video_path))
+    if cap.isOpened():
+        return cap, None
+    cap.release()
+    import tempfile
+    tmp = tempfile.NamedTemporaryFile(suffix=video_path.suffix or ".mp4", delete=False)
+    tmp_path = Path(tmp.name)
+    tmp.close()
+    shutil.copy2(video_path, tmp_path)
+    return cv2.VideoCapture(str(tmp_path)), tmp_path
+
+
 def _extract_tail_frame_sync(video_path: Path, tail_path: Path) -> Optional[Path]:
     """Extract the final readable video frame as a PNG image using OpenCV."""
-    cap = cv2.VideoCapture(str(video_path))
+    cap, tmp_path = _open_video_capture_safe(video_path)
     if not cap.isOpened():
+        if tmp_path:
+            tmp_path.unlink(missing_ok=True)
         return None
     try:
         total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -194,11 +220,11 @@ def _extract_tail_frame_sync(video_path: Path, tail_path: Path) -> Optional[Path
                 last_frame = frame
         if last_frame is None:
             return None
-        tail_path.parent.mkdir(parents=True, exist_ok=True)
-        cv2.imwrite(str(tail_path), last_frame)
-        return tail_path
+        return tail_path if _write_png_safe(tail_path, last_frame) else None
     finally:
         cap.release()
+        if tmp_path:
+            tmp_path.unlink(missing_ok=True)
 
 
 def _prepare_preview_media_sync(
@@ -213,8 +239,10 @@ def _prepare_preview_media_sync(
     Omni Flash 400 `Edited video duration does not match config duration`. Extracting the
     start frame safely anchors spatial layout without risking a 400 failure.
     """
-    cap = cv2.VideoCapture(str(preview_video))
+    cap, tmp_path = _open_video_capture_safe(preview_video)
     if not cap.isOpened():
+        if tmp_path:
+            tmp_path.unlink(missing_ok=True)
         return None, None
     try:
         fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
@@ -228,10 +256,9 @@ def _prepare_preview_media_sync(
                 break
             if float(np.mean(frame)) > 4.0 or start_img_path is None:
                 candidate = config.PREVIEWS_DIR / f"{preview_video.stem}_extracted_start.png"
-                candidate.parent.mkdir(parents=True, exist_ok=True)
-                cv2.imwrite(str(candidate), frame)
-                start_img_path = candidate
-                if float(np.mean(frame)) > 4.0:
+                if _write_png_safe(candidate, frame):
+                    start_img_path = candidate
+                if float(np.mean(frame)) > 4.0 and start_img_path is not None:
                     break
 
         use_raw_video = False
@@ -243,6 +270,8 @@ def _prepare_preview_media_sync(
         return start_img_path, (preview_video if use_raw_video else None)
     finally:
         cap.release()
+        if tmp_path:
+            tmp_path.unlink(missing_ok=True)
 
 
 def _build_shot_prompt(

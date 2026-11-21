@@ -2,33 +2,51 @@
   "worker": "worker-1 (P2)",
   "branch": "feat/w1-media",
   "pull_main_first": true,
-  "batch_deadline": "15:25",
+  "batch_deadline": "15:30",
   "owned_paths": ["backend/media/**", "backend/assets/**", "tasks/status_P2.json"],
-  "note": "ALL 6 prior tasks (W1-T2A..T3B + SI-metric physics) merged cleanly into main! Pull main and execute this T3.5/T4 eval & hardening batch.",
+  "note": "Master merged 79dfc4b + fixed Windows Unicode cv2 path handling (test_media_smoke now passes 100%). Pull main first, then execute these 7 detailed tasks in parallel/batches.",
   "parallel_tasks": [
     {
       "task_id": "W1-T3C",
       "priority": "P0",
       "title": "Measure Cross-Camera Consistency Rate (cam_a vs cam_b) via Decisions API",
-      "details": "Write a helper script in backend/media/ to feed each scene's cam_a + cam_b MP4 (or tail PNGs) from branch_v1 and branch_v2_cached into models/gemini-decision-1, verifying actor presence, left/right grid layout, umbrella/vase states across both angles. Save summary to backend/assets/eval_dual_cam_stats.json."
+      "details": "Create `backend/media/eval_dual_cam.py`. Feed all 7 paired (cam_a + cam_b) MP4 shots from `branch_v1` (scenes 1..4) and `branch_v2_cached` (scenes 2..4) into `models/gemini-decision-1` (`noul`) asking 4 consistency questions (same cast, left/right spatial order, vase state intact/broken, held prop consistency). Save aggregate dual-camera consistency rate and per-scene scores to `backend/assets/eval_dual_cam_stats.json`."
     },
     {
       "task_id": "W1-T3D",
       "priority": "P0",
-      "title": "Multi-prop simultaneous stress test (star_token + red_umbrella + crystal_vase)",
-      "details": "Test one live Omni Flash 360p 4s scene with 3 simultaneous props (Lia holding star_token, red_umbrella on floor, crystal_vase intact on table) and record judge() pass score & latency in tasks/status_P2.json."
+      "title": "3-Prop Simultaneous Stress Test (star_token + red_umbrella + crystal_vase)",
+      "details": "Create `backend/media/stress_multiprop.py` and render 1 live Omni Flash 360p 4s clip where Lia holds `star_token`, `red_umbrella` lies on floor, and `crystal_vase` sits intact on the round table. Evaluate with `judge()` and record pass score + latency in `tasks/status_P2.json`."
     },
     {
       "task_id": "W1-T3E",
+      "priority": "P0",
+      "title": "20-Clip Decisions API Calibration & Confusion Matrix (14 positive + 6 negative)",
+      "details": "Create `backend/media/build_calibration_set.py` using the 14 cached MP4 clips + 6 intentional mismatch/negative queries (e.g., asking if vase is intact on broken-vase Scene 2 clip, or asking if warm snow appears on cold-rain clip). Run `models/gemini-decision-1`, export `backend/assets/calibration_20_clips.json` with `expected_ground_truth`, `decision_prob`, `predicted`, and compute exact calibration accuracy."
+    },
+    {
+      "task_id": "W1-T3F",
       "priority": "P1",
-      "title": "Prepare 20-clip Decisions API calibration dataset (14 real + 6 negative/edge checks)",
-      "details": "Export `backend/assets/calibration_20_clips.json` listing 20 clip+question pairs (including mismatched-prompt negative checks against existing MP4s so judge() sees both true positives and true negatives) with predicted P(true) + confidence and a `human_label` field for quick accuracy calculation."
+      "title": "5-Prop Diversity Showcase via create_prop() (Chroma-Key Quality Benchmark)",
+      "details": "Run `create_prop()` on 5 diverse stage props (e.g., origami crane, pocket watch, crystal shield, glowing quill, star lantern), save under `backend/assets/props/showcase_*.png`, and verify 0 green spill + clean RGBA alpha + average latency in `status_P2.json`."
+    },
+    {
+      "task_id": "W1-T3G",
+      "priority": "P1",
+      "title": "Pre-cache 3rd Fallback Branch (`branch_v3_starlight_cached.json` with `star_token`)",
+      "details": "Render Scenes 2..4 of a twist branch that introduces `star_token` in Scene 2 and carries it through Scene 4, saving MP4s + `backend/assets/branches/branch_v3_starlight_cached.json` so live demo also has an instant fallback for physical-prop persistence."
+    },
+    {
+      "task_id": "W1-T3H",
+      "priority": "P2",
+      "title": "720p vs 360p Omni Flash Latency & Cost Tradeoff Benchmark",
+      "details": "Render 1 single 4s clip of Scene 4 at `720p` and compare wall-clock latency & cost ($0.07/s vs $0.02/s) against `360p`. Record comparison in `tasks/status_P2.json` for pitch defense."
     },
     {
       "task_id": "W1-T4A",
       "priority": "P1",
-      "title": "Post-merge full media smoke suite verification",
-      "details": "After merging origin/main, run `python -m backend.media.test_media_smoke` and verify `branch_v1` (8 MP4s) and `branch_v2_cached` (6 MP4s) all return 200 OK and pass judge()."
+      "title": "Full post-merge smoke & codec verification",
+      "details": "After pulling main, verify `python -m backend.media.test_media_smoke` passes cleanly and all cached MP4s remain H.264 playable."
     }
   ]
 }
