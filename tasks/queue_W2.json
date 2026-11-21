@@ -2,44 +2,33 @@
   "worker": "worker-2 (P3)",
   "branch": "feat/w2-frontend",
   "pull_main_first": true,
-  "batch_deadline": "14:45",
+  "batch_deadline": "15:15",
   "owned_paths": ["frontend/**", "tasks/status_P3.json"],
+  "note": "W2-T2A..T2D merged cleanly! Pull main to get all 8 cached Branch 1 MP4 videos + Rule Memory API.",
   "parallel_tasks": [
     {
-      "task_id": "W2-T2A",
+      "task_id": "W2-T2E",
       "priority": "P0",
-      "title": "Live FastAPI end-to-end integration test & preview upload wiring",
-      "details": "Pull main first (includes Vite /assets proxy + Nyx/prop scale fix in ThreeStageManager.ts). Verify live flow: fetch /api/branches -> Hold 3s Cam+Mic or text fork -> instant <1s 3D stage update -> upload 2.5D preview to /api/media/render-scene -> play AI render + Clapperboard QA."
-    },
-    {
-      "task_id": "W2-T2B",
-      "priority": "P0",
-      "title": "Contradiction confirmation bar, fallback badge & Pixel-Art filter toggle",
-      "details": "1) Show inline confirmation prompt with 'Force Rewrite' (confirm_contradiction=true) when BranchState.contradiction_warning is returned. 2) Show '已降级 (2.5D Preview)' badge when media.fallback_to_preview is true. 3) Add a 1-click low-res Pixel-Art upscaled preview toggle in ThreeStageManager."
-    },
-    {
-      "task_id": "W2-T2C",
-      "priority": "P0",
-      "title": "Live Webcam Snapshot Prop button (create-prop UI integration)",
-      "details": "Add a dedicated '📷 举实物造道具' button in DirectControlBar that grabs 1 webcam frame + prop name and posts to POST /api/media/create-prop, then immediately places the new transparent prop onto the Three.js stage and shows it in a Prop Tray."
-    },
-    {
-      "task_id": "W2-T2D",
-      "priority": "P1",
-      "title": "Dual-Camera Sync & Smart Cut toggle + Single-viewport layout polish",
-      "details": "Ensure dual cameras + Clapperboard QA strip + 4-scene Branch Tree + Old/New comparison fit cleanly in one 1280x720 / 1440x900 viewport, and add an optional 'Auto-Cut Cam A/B' playback toggle for the demo."
+      "title": "Live Webcam Snapshot Prop button (create-prop UI + stage prop tray)",
+      "details": "Add a dedicated '📷 举实物造道具' button in DirectControlBar that grabs 1 webcam frame + prop name and posts FormData to POST /api/media/create-prop, then immediately updates props_registry & places the normalized transparent prop on the 3D stage."
     },
     {
       "task_id": "W2-T3A",
-      "priority": "P1",
-      "title": "Affected-scene savings pill & Rule Memory badge (non-dashboard)",
-      "details": "On the Branch Tree nodes, show a clean 'Reused (0s)' vs 'Re-rendered' chip so judges visually see prefix preservation & dependency savings without turning the UI into a dashboard."
+      "priority": "P0",
+      "title": "Reused (0s) vs Re-rendered badge + Rule Memory pill on Branch Tree",
+      "details": "Show a crisp 'Reused (0s)' vs 'Re-rendered' pill on each scene node in StoryBranchTree.tsx, and fetch GET /api/director/rules to display a tiny subtle Rule Memory count chip ('3 rules active') next to the QA bar."
     },
     {
       "task_id": "W2-T3B",
+      "priority": "P0",
+      "title": "Dual-Camera Auto-Cut ('智能剪辑') toggle & crystal_vase_broken visual swap",
+      "details": "1) Add an 'Auto-Cut A/B' playback toggle in DualCameraStage that smoothly highlights/switches focus between Cam A wide and Cam B close-up every 2s. 2) When prop.id === 'crystal_vase' && prop.state === 'broken', prefer `/assets/props/crystal_vase_broken.png` (fallback to tilted faded crystal_vase.png if not present yet)."
+    },
+    {
+      "task_id": "W2-T3C",
       "priority": "P1",
-      "title": "Demo preset quick-fill chips & 1-min video storyboard prep",
-      "details": "Add subtle one-click backup rewrite chips (e.g. '温柔安抚诺克斯保住花瓶') and clean fullscreen stage mode for 16:00 fallback recording."
+      "title": "Verify cached Branch 1 8-MP4 playback & side-by-side BE vs HE sync",
+      "details": "Pull main and verify all 8 pre-cached MP4s in branch_v1 play smoothly in AI Render mode and side-by-side comparison mode with zero CORS or 404 errors."
     }
   ]
 }
