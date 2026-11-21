@@ -2,8 +2,8 @@
   "agent": "P2_media",
   "contributor": "ChiriSakura",
   "branch": "feat/w1-physics-opt",
-  "current_milestone": "T6",
-  "status": "engine_hardening_and_t6_polish_verified",
+  "current_milestone": "T7",
+  "status": "all_t6_and_t7_tasks_completed_and_verified",
   "omni_flash_latency_sec": 18.64,
   "omni_flash_total_with_io_sec": 22.65,
   "omni_flash_dual_take_parallel_sec": 25.47,
@@ -15,7 +15,9 @@
     "mp4_direct_accepted": true,
     "mp4_direct_latency_sec": 1.54,
     "png_tail_accepted": true,
-    "png_tail_latency_sec": 0.93
+    "png_tail_latency_sec": 0.93,
+    "choice_routing_accuracy_15_en_zh": 1.0,
+    "score_clip_alignment_pairwise_auc": 1.0
   },
   "photo_create_prop_benchmark": {
     "model": "gemini-nano-banana-2.1",
@@ -44,18 +46,24 @@
     "cost_ratio_720p_vs_360p": 3.5,
     "takeaway": "360p is 1.78x faster (18.6s vs 33.2s), 1.9x smaller, and 3.5x cheaper ($0.08 vs $0.28 per 4s clip), ideal for live demo with optional 720p export."
   },
-  "w1_t5a_audio_codec_audit": {
+  "w1_t5a_and_t7e_audio_codec_audit": {
     "report_file": "backend/assets/eval_audio_codec.json",
-    "total_unique_branch_clips": 20,
+    "preflight_report": "backend/assets/preflight_report.json",
+    "cached_branches_count": 4,
+    "total_unique_branch_clips": 26,
+    "preflight_total_mp4s": 28,
+    "preflight_all_h264": true,
+    "preflight_with_aac_audio": 28,
     "all_h264": true,
     "all_have_audio_stream": true,
     "all_640x360_24fps": true,
     "demo_reel": "backend/assets/finals/demo_comparison_be_vs_he.mp4",
     "demo_reel_has_audio": true,
     "pitch_reel": "backend/assets/finals/pitch_demo_reel_1min.mp4",
-    "pitch_reel_duration_sec": 49.0,
+    "pitch_reel_duration_sec": 54.0,
     "pitch_reel_resolution": "1280x720",
-    "pitch_reel_h264_and_audio": true
+    "pitch_reel_h264_and_audio": true,
+    "eval_dashboard_12s_has_ambient_aac": true
   },
   "w1_t6_zero_halo_and_desk_props": {
     "audit_report": "backend/assets/eval_props_audit.json",
@@ -87,32 +95,38 @@
   },
   "w1_t6_cache_savings": {
     "report_file": "backend/assets/eval_cache_savings.json",
-    "cached_branches_count": 3,
-    "unique_mp4_files_stored": 20,
-    "prefix_reuse_savings_pct": 16.7,
+    "cached_branches_count": 4,
+    "unique_mp4_files_stored": 26,
+    "prefix_reuse_savings_pct": 18.8,
     "fork_s2_to_s4_compute_savings_range_pct": "25.0%..75.0%",
-    "combined_360p_plus_reuse_savings_vs_naive_720p_pct": 76.2,
+    "combined_360p_plus_reuse_savings_vs_naive_720p_pct": 76.8,
     "parallel_wall_clock_speedup_x": 5.85
   },
-  "w1_t6_burst_and_engine_hardening": {
-    "report_file": "backend/assets/eval_burst_stress.json",
-    "all_passed": true,
-    "scene_ref_pruning_verified": true,
-    "retry_regression_guard_verified": true,
-    "concurrent_jobs_verified": 6,
-    "upload_cache_mtime_invalidation_ok": true,
-    "zero_deadlocks_or_collisions": true,
+  "w1_t7_submission_and_hardening": {
+    "w1_t7a_blueprints_total": 26,
+    "w1_t7a_branches_covered": [
+      "branch_v1",
+      "branch_v2_cached",
+      "branch_v3_starlight_cached",
+      "branch_v4_umbrella_shield_cached"
+    ],
+    "w1_t7a_si_scales": {
+      "lia_m": 1.62,
+      "nyx_m": 0.3,
+      "table_m": 0.75,
+      "crystal_vase_m": 0.32,
+      "star_token_m": 0.1
+    },
+    "w1_t7b_failover_report": "backend/assets/eval_failover_rehearsal.json",
+    "w1_t7b_failover_passed": true,
+    "w1_t7c_smoke_extended_4_branches_and_submission_200": true,
+    "w1_t7d_english_enforced_passed": true,
+    "w1_t7e_eval_dashboard_12s_ambient_audio": true,
+    "w1_t7f_submission_metrics": "backend/assets/metrics_summary_for_submission.json",
+    "burst_concurrency_report": "backend/assets/eval_burst_stress.json",
+    "burst_concurrency_passed": true,
     "webm_unicode_sharpness_regression_passed": true,
     "storyboard_strip": "backend/assets/showcase_storyboard_strip.png"
-  },
-  "w1_t4c_prop_persistence_and_halo": {
-    "report_file": "backend/assets/eval_prop_persistence.json",
-    "total_props_audited": 11,
-    "all_props_rgba": true,
-    "all_props_bottom_flush": true,
-    "all_props_zero_green_spill": true,
-    "branch_v3_star_token_persistence_rate": 1.0,
-    "branch_v3_crystal_vase_intact_persistence_rate": 1.0
   },
   "w1_t3c_dual_cam_consistency": {
     "report_file": "backend/assets/eval_dual_cam_stats.json",
@@ -122,14 +136,6 @@
     "all_consistent_scene_rate": 0.714,
     "avg_latency_sec": 2.65
   },
-  "w1_t3d_multi_prop_stress": {
-    "props_tested": ["star_token", "red_umbrella", "crystal_vase"],
-    "elapsed_sec": 31.26,
-    "qa_score": 0.787,
-    "alignment_score": 0.884,
-    "all_three_props_detected": true,
-    "retries": 0
-  },
   "w1_t3e_calibration_20_clips": {
     "report_file": "backend/assets/calibration_20_clips.json",
     "total_clips": 20,
@@ -138,37 +144,23 @@
     "true_negative_rate": 1.0,
     "avg_latency_sec": 1.37
   },
-  "eval_media_stats_summary": {
-    "log_file": "backend/assets/eval_media_stats.jsonl",
-    "total_shots": 33,
-    "threshold": 0.75,
-    "take_1_avg_score": 0.684,
-    "take_2_best_avg_score": 0.835,
-    "take_1_pass_rate": 0.727,
-    "take_2_pass_rate": 0.97,
-    "take_1_won_over_take_0_count": 12,
-    "retried_shots": 6,
-    "retried_passed": 5
-  },
   "verified_model_ids": {
     "video": "gemini-omni-flash-preview",
     "image": "gemini-nano-banana-2.1",
     "decision": "models/gemini-decision-1"
   },
   "completed_items": [
-    "Engine-Opt-1: Per-job UUID temp file isolation + try/finally cleanup in video_renderer.py (zero concurrent file collisions)",
-    "Engine-Opt-2: Scene-aware _select_scene_ref_images() prioritizing active actors & live custom props while pruning unused registry props (prevents 5-ref overflow & prop hallucinations)",
-    "Engine-Opt-3: Best-across-attempts retry regression guard + companion-camera tail conditioning during cross-camera consistency retry",
-    "Engine-Opt-4: Upload cache mtime+size+12h TTL keying + automatic 403/404 stale-URI eviction",
-    "Engine-Opt-5: Relative SI scale ratios in _describe_prop_with_scale(), Laplacian sharpness-aware .webm frame extraction, filigree chroma-cutout keying & post-thumbnail 0px bottom-flush sanitization",
-    "W1-T6A: Built 49.0s 1280x720 16:9 H.264 + muxed AAC audio full-pitch showcase reel (pitch_demo_reel_1min.mp4)",
-    "W1-T6B + Zero-Halo: Regenerated antique ivory-dial brass pocket watch, benchmarked 3 live judge-desk props (coffee mug, red paper heart, brass key; avg 16.68s) -> 11/11 props pass audit_props with 0 green halo & 0px bottom gap",
-    "W1-T6E: Verified native MP4 video+audio mood alignment via models/gemini-decision-1 (v1beta) — 6/6 (100% accuracy, 100% negative rejection, 3.22s avg)",
-    "W1-T6F: Added automated 3s .webm physical-prop frame extraction regression test (test_webm_prop.py) under Windows Unicode paths (测试_Gemini路) — PASSED",
-    "W1-T6G: Built high-res 2x4 BE vs HE dual-camera contact sheet (showcase_storyboard_strip.png) with Cam B PiP & QA badges",
-    "W1-T6H: Quantified localized prefix reuse + 360p cost/latency savings (eval_cache_savings.json: up to 76.2% cost reduction vs naive 720p, 5.85x parallel speedup)",
-    "W1-T6I + T6J: Verified 6-way concurrent burst stress, scene-ref pruning, retry regression guard, audit_props (11/11), audit_audio_codec (20 clips + 2 reels), and extended test_media_smoke — ALL PASSED"
+    "Engine-Opt-1..5: Per-job UUID temp isolation, scene-aware _select_scene_ref_images() pruning, retry regression guard + cross-cam tail conditioning, mtime+TTL upload cache eviction, longest-keyword-first SI prop heights, filigree chroma-cutout keying & Laplacian sharpness .webm extraction",
+    "W1-T6A: Built 54.0s 1280x720 16:9 H.264 + AAC submission composite (pitch_demo_reel_1min.mp4) splicing hook_10s + BE/HE/V3/V4 dual-cam PiP highlights + eval_dashboard_12s",
+    "W1-T6B + Zero-Halo: 11/11 props pass audit_props with 0 chroma-green halo & 0px bottom gap (incl. ivory-dial brass pocket watch & 3 live judge-desk props)",
+    "W1-T6E/T6F/T6G/T6H/T6I: Native MP4 audio-mood 100% (6/6), 3s Unicode .webm regression PASSED, 2x4 storyboard strip, 4-branch cache savings (76.8% vs naive 720p), 6-way concurrent burst & engine unit suite PASSED",
+    "W1-T7A: Fixed SI scale (0.30m Nyx, 0.32m vase, 0.10m star) & border-floodfill Lia cutout in stage_blueprint.py; generated all 26 dual-cam blueprints across all 4 cached branches",
+    "W1-T7B: Added test_failover_rehearsal.py verifying empty/corrupt .webm resilience & PNG start-frame fallback -> eval_failover_rehearsal.json (ALL PASSED)",
+    "W1-T7C: Extended test_media_smoke.py covering all 4 branches, all 26 blueprints, submission reels, storyboard strip, desk props & metrics_summary_for_submission.json",
+    "W1-T7D: Added test_english_enforced.py verifying ASCII slugification, bilingual SI scale parity (longest-keyword-first fix), director English prompts & 0 CJK across 4 branches",
+    "W1-T7E: Muxed subtle warm stereo ambient AAC audio into eval_dashboard_12s.mp4 -> 28/28 project MP4s carry uniform H.264 + AAC audio streams",
+    "W1-T7F + W1-T6J: Exported consolidated metrics_summary_for_submission.json & passed all 9 verification scripts (audit_props, audit_audio_codec, preflight_check, test_media_smoke, failover, english, burst, webm)"
   ],
   "blockers": [],
-  "last_updated": "2026-11-21T13:45:30-05:00"
+  "last_updated": "2026-11-21T14:22:00-05:00"
 }

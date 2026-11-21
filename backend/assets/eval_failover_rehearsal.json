@@ -1,0 +1,16 @@
+{
+  "generated_at": "2026-11-21T14:21:22",
+  "all_passed": true,
+  "elapsed_sec": 1.631,
+  "checks": {
+    "empty_and_corrupt_webm_extract_safe": true,
+    "corrupt_unicode_webm_preview_guard_safe": true,
+    "render_scene_media_corrupt_webm_no_crash": true,
+    "render_scene_media_png_start_frame_fallback_anchored": true,
+    "anchored_start_frames": [
+      "blueprint_branch_v1_s2_cam_a.png",
+      "blueprint_branch_v1_s2_cam_b.png"
+    ],
+    "create_prop_corrupt_bytes_resilient": true
+  }
+}

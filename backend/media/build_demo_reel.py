@@ -251,70 +251,62 @@ def _compose_pip_frame(
 @log_function_call
 def build_pitch_demo_reel_1min() -> Path:
     """
-    W1-T6A: Build a ~49s 16:9 1280x720 H.264 + AAC audio full-pitch showcase reel
-    (`backend/assets/finals/pitch_demo_reel_1min.mp4`):
-      Title Card (4s)
-      -> Branch 1 Baseline BE (Scenes 1..4, 16s, native audio)
-      -> Branch 2 Time-Travel Rewrite HE (Scenes 2..4, 12s, native audio)
-      -> Branch 3 Starlight Keepsake Twist (Scenes 2..4, 12s, native audio)
-      -> Verified Benchmarks Ending Card (5s)
+    W1-T6A (Full Submission Composite): Build a crisp ~54.0s 16:9 1280x720 H.264 + AAC
+    showcase MP4 (`backend/assets/finals/pitch_demo_reel_1min.mp4`) stitching:
+      1. `hook_10s_dualcam_twist.mp4` (10s opening dual-cam hook + quad-split twist)
+      2. Branch 1 BE (Scenes 2, 4) vs Branch 2 HE (Scenes 2, 4) (16s with Cam B PiP & native audio)
+      3. Branch 3 Starlight Keepsake (Scenes 2, 4) + Branch 4 Umbrella Shield (Scenes 2, 4) (16s with Cam B PiP & native audio)
+      4. `eval_dashboard_12s.mp4` (12s empirical evaluation charts outro with ambient AAC audio)
     """
     b1 = get_branch("branch_v1")
     b2 = get_branch("branch_v2_cached")
     b3 = get_branch("branch_v3_starlight_cached")
-    assert b1 and b2 and b3, "All 3 cached branches (branch_v1, branch_v2_cached, branch_v3_starlight_cached) required."
+    b4 = get_branch("branch_v4_umbrella_shield_cached")
+    assert b1 and b2 and b3, "Cached branches branch_v1, branch_v2_cached, branch_v3_starlight_cached required."
 
     b1_map = {s.scene_id: s for s in b1.scenes}
     b2_map = {s.scene_id: s for s in b2.scenes}
     b3_map = {s.scene_id: s for s in b3.scenes}
+    b4_map = {s.scene_id: s for s in b4.scenes} if b4 else None
 
     out_w, out_h, fps = 1280, 720, 24.0
-    title_sec, end_sec = 4, 5
+    hook_mp4 = config.ASSETS_DIR / "submission" / "hook_10s_dualcam_twist.mp4"
+    outro_mp4 = config.ASSETS_DIR / "submission" / "eval_dashboard_12s.mp4"
 
     segments = [
-        ("BRANCH 1 (BASELINE BE)", (80, 80, 245), b1_map[1]),
         ("BRANCH 1 (BASELINE BE)", (80, 80, 245), b1_map[2]),
-        ("BRANCH 1 (BASELINE BE)", (80, 80, 245), b1_map[3]),
         ("BRANCH 1 (BASELINE BE)", (80, 80, 245), b1_map[4]),
         ("BRANCH 2 (TIME-TRAVEL REWRITE -> HE)", (153, 211, 52), b2_map[2]),
-        ("BRANCH 2 (TIME-TRAVEL REWRITE -> HE)", (153, 211, 52), b2_map[3]),
         ("BRANCH 2 (TIME-TRAVEL REWRITE -> HE)", (153, 211, 52), b2_map[4]),
         ("BRANCH 3 (STARLIGHT KEEPSAKE TWIST)", (21, 204, 250), b3_map[2]),
-        ("BRANCH 3 (STARLIGHT KEEPSAKE TWIST)", (21, 204, 250), b3_map[3]),
         ("BRANCH 3 (STARLIGHT KEEPSAKE TWIST)", (21, 204, 250), b3_map[4]),
     ]
+    if b4_map:
+        segments.extend(
+            [
+                ("BRANCH 4 (UMBRELLA SHIELD GUARD)", (240, 170, 80), b4_map[2]),
+                ("BRANCH 4 (UMBRELLA SHIELD GUARD)", (240, 170, 80), b4_map[4]),
+            ]
+        )
 
-    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp_raw:
-        raw_mp4 = Path(tmp_raw.name)
-    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp_h264:
-        h264_mp4 = Path(tmp_h264.name)
+    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp_mid_raw:
+        mid_raw_mp4 = Path(tmp_mid_raw.name)
+    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp_mid_h264:
+        mid_h264_mp4 = Path(tmp_mid_h264.name)
+    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp_final:
+        final_h264_mp4 = Path(tmp_final.name)
 
     out_path = config.FINALS_DIR / "pitch_demo_reel_1min.mp4"
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    audio_tmp_copies: list[Path] = []
+    tmp_copies: list[Path] = []
 
     try:
-        writer = cv2.VideoWriter(str(raw_mp4), cv2.VideoWriter_fourcc(*"mp4v"), fps, (out_w, out_h))
+        # Step 1: Compose the middle 32s (8 x 4s dual-cam PiP highlights) with native Omni Flash audio
+        writer = cv2.VideoWriter(str(mid_raw_mp4), cv2.VideoWriter_fourcc(*"mp4v"), fps, (out_w, out_h))
         if not writer.isOpened():
             raise RuntimeError("Failed to open OpenCV VideoWriter for 1-minute pitch reel")
 
-        # 1. Opening Title Card (4s)
-        title_card = _render_card_frame(
-            out_w,
-            out_h,
-            kicker="GEMINI 4 NYC HACKATHON  |  MULTIMODAL VIDEO TRACK",
-            headline="StageState: Dual-Camera Causal Video Director",
-            bullets=[
-                "3x3 2.5D Three.js Stage (Cam A Wide + Cam B 45-Deg) -> Gemini Omni Flash",
-                "Zero-Hallucination SI Physical Scale: 1.62m Lia, 0.30m Nyx, 0.75m Table, 0.32m Vase",
-                "Multimodal 3s Gesture + Voice + Physical Prop Forking -> Localized Scene Rewrite",
-                "Calibrated Decisions API (gemini-decision-1) Dual-Take + Cross-Camera QA",
-            ],
-        )
-        for _ in range(int(title_sec * fps)):
-            writer.write(title_card)
-
-        # 2. Stitched 10 Scene Clips (40s total, 4s each) with Cam B PiP & native audio
+        mid_audio_copies: list[Path] = []
         for branch_tag, accent, scene in segments:
             p_a = config.ASSETS_DIR / (scene.media.cam_a_final_url or "").removeprefix("/assets/")
             p_b = config.ASSETS_DIR / (scene.media.cam_b_final_url or "").removeprefix("/assets/")
@@ -326,8 +318,7 @@ def build_pitch_demo_reel_1min() -> Path:
 
             qa_txt = f"QA {scene.media.qa_score:.2f}" if scene.media.qa_score else "QA PASS"
             banner_t = f"{branch_tag}  |  Scene {scene.scene_id}: {scene.title}"
-            banner_s = f"Lighting: {scene.lighting}  |  Audio: {(scene.audio_mood or scene.vocal_emotion)[:56]}  |  {qa_txt}"
-
+            banner_s = f"Lighting: {scene.lighting}  |  Audio: {(scene.audio_mood or scene.vocal_emotion).replace('_', ' ')[:54]}  |  {qa_txt}"
             for i in range(n_frames):
                 fa = frames_a[min(i, len(frames_a) - 1)]
                 fb = frames_b[min(i, len(frames_b) - 1)]
@@ -337,100 +328,83 @@ def build_pitch_demo_reel_1min() -> Path:
                 with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tf:
                     cp = Path(tf.name)
                 shutil.copy2(p_a, cp)
-                audio_tmp_copies.append(cp)
-
-        # 3. Closing Verified Benchmarks Card (5s)
-        end_card = _render_card_frame(
-            out_w,
-            out_h,
-            kicker="VERIFIED LIVE BENCHMARKS  |  END-TO-END MULTIMODAL EVALUATION",
-            headline="Measurable Reliability, Physics & Speed",
-            bullets=[
-                "Dual-Camera Consistency: 92.9% (26/28)  |  2-Take + Repair Pass Rate: 97.0%",
-                "Decisions API Calibration: 95.0% Accuracy (19/20), 100% True Negative Rate",
-                "Zero-Halo Live Props: 11/11 Props RGBA, 0px Bottom Gap, 0 Chroma-Green Halo",
-                "Localized Prefix Reuse + 360p Strategy: 1.78x Faster & Up to 79% Cost Savings",
-            ],
-            accent_bgr=(153, 211, 52),
-        )
-        for _ in range(int(end_sec * fps)):
-            writer.write(end_card)
-
+                mid_audio_copies.append(cp)
+                tmp_copies.append(cp)
         writer.release()
 
-        # Transcode to H.264 + mux silence(4s) + 10 native Omni Flash AAC clips + silence(5s)
         import imageio_ffmpeg
 
         ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
-        cmd = [
-            ffmpeg_exe,
-            "-y",
-            "-i",
-            str(raw_mp4),
-            "-f",
-            "lavfi",
-            "-t",
-            str(title_sec),
-            "-i",
-            "anullsrc=r=44100:cl=stereo",
-        ]
-        for cp in audio_tmp_copies:
-            cmd.extend(["-i", str(cp)])
-        cmd.extend(
-            [
-                "-f",
-                "lavfi",
-                "-t",
-                str(end_sec),
-                "-i",
-                "anullsrc=r=44100:cl=stereo",
-            ]
-        )
 
-        # Build filter_complex normalizing all audio inputs to 44.1kHz stereo before concat
-        n_audio_inputs = 1 + len(audio_tmp_copies) + 1
-        norm_parts = [f"[{idx}:a]aresample=44100,aformat=channel_layouts=stereo[a{idx}]" for idx in range(1, n_audio_inputs + 1)]
-        concat_inputs = "".join(f"[a{idx}]" for idx in range(1, n_audio_inputs + 1))
-        filter_complex = ";".join(norm_parts) + f";{concat_inputs}concat=n={n_audio_inputs}:v=0:a=1[aout]"
-
-        cmd.extend(
+        # Transcode middle segment with concatenated native Omni Flash AAC audio
+        cmd_mid = [ffmpeg_exe, "-y", "-i", str(mid_raw_mp4)]
+        for cp in mid_audio_copies:
+            cmd_mid.extend(["-i", str(cp)])
+        n_aud = len(mid_audio_copies)
+        norm_a = [f"[{i}:a]aresample=44100,aformat=channel_layouts=stereo[ma{i}]" for i in range(1, n_aud + 1)]
+        cat_a = "".join(f"[ma{i}]" for i in range(1, n_aud + 1))
+        cmd_mid.extend(
             [
                 "-filter_complex",
-                filter_complex,
-                "-map",
-                "0:v:0",
-                "-map",
-                "[aout]",
-                "-c:v",
-                "libx264",
-                "-preset",
-                "fast",
-                "-crf",
-                "22",
-                "-pix_fmt",
-                "yuv420p",
-                "-c:a",
-                "aac",
-                "-b:a",
-                "128k",
+                ";".join(norm_a) + f";{cat_a}concat=n={n_aud}:v=0:a=1[aout]",
+                "-map", "0:v:0",
+                "-map", "[aout]",
+                "-c:v", "libx264", "-preset", "fast", "-crf", "21", "-pix_fmt", "yuv420p",
+                "-r", "24",
+                "-c:a", "aac", "-b:a", "128k",
                 "-shortest",
-                "-movflags",
-                "+faststart",
-                str(h264_mp4),
+                str(mid_h264_mp4),
             ]
         )
+        subprocess.run(cmd_mid, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
 
-        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-        if h264_mp4.is_file() and h264_mp4.stat().st_size > 0:
-            shutil.copy2(h264_mp4, out_path)
-        else:
-            shutil.copy2(raw_mp4, out_path)
+        # Step 2: Splice [hook_10s] + [middle_32s] + [eval_dashboard_12s] = 54.0s uniform 1280x720 24fps H.264+AAC
+        splice_parts: list[Path] = []
+        for src in (hook_mp4, mid_h264_mp4, outro_mp4):
+            if src == mid_h264_mp4:
+                splice_parts.append(mid_h264_mp4)
+            elif src.is_file():
+                with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tf:
+                    cp = Path(tf.name)
+                shutil.copy2(src, cp)
+                tmp_copies.append(cp)
+                splice_parts.append(cp)
+
+        cmd_cat = [ffmpeg_exe, "-y"]
+        for p in splice_parts:
+            cmd_cat.extend(["-i", str(p)])
+        n_parts = len(splice_parts)
+        vf_norm = [
+            f"[{i}:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,fps=24,setsar=1[v{i}]"
+            for i in range(n_parts)
+        ]
+        af_norm = [
+            f"[{i}:a]aresample=44100,aformat=channel_layouts=stereo[a{i}]"
+            for i in range(n_parts)
+        ]
+        pair_inputs = "".join(f"[v{i}][a{i}]" for i in range(n_parts))
+        filter_all = ";".join(vf_norm + af_norm) + f";{pair_inputs}concat=n={n_parts}:v=1:a=1[vout][aout]"
+
+        cmd_cat.extend(
+            [
+                "-filter_complex", filter_all,
+                "-map", "[vout]",
+                "-map", "[aout]",
+                "-c:v", "libx264", "-preset", "fast", "-crf", "21", "-pix_fmt", "yuv420p",
+                "-c:a", "aac", "-b:a", "128k",
+                "-movflags", "+faststart",
+                str(final_h264_mp4),
+            ]
+        )
+        subprocess.run(cmd_cat, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        shutil.copy2(final_h264_mp4, out_path)
         return out_path
     finally:
-        for cp in audio_tmp_copies:
+        for cp in tmp_copies:
             cp.unlink(missing_ok=True)
-        raw_mp4.unlink(missing_ok=True)
-        h264_mp4.unlink(missing_ok=True)
+        mid_raw_mp4.unlink(missing_ok=True)
+        mid_h264_mp4.unlink(missing_ok=True)
+        final_h264_mp4.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

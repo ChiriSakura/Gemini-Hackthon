@@ -1,0 +1,1105 @@
+{
+  "project": "StageState — Dual-Camera Causal Interactive Video Director",
+  "generated_at": "2026-11-21T14:21:55",
+  "verified_models": {
+    "video_renderer": "gemini-omni-flash-preview",
+    "prop_generator": "gemini-nano-banana-2.1",
+    "calibrated_judge": "models/gemini-decision-1 (v1beta)",
+    "causal_director": "gemini-4-neon",
+    "multimodal_parser": "gemini-4-hydrogen"
+  },
+  "headline_kpis": {
+    "preflight_passed": true,
+    "cached_branches_count": 4,
+    "total_mp4s_verified_h264": 28,
+    "total_mp4s_with_aac_audio": 28,
+    "zero_cjk_all_branches": true,
+    "dual_camera_consistency_rate": 0.929,
+    "decisions_20clip_calibration_accuracy": 0.95,
+    "decisions_20clip_true_negative_rate": 1.0,
+    "decisions_choice_routing_accuracy": 1.0,
+    "decisions_score_ranking_auc": 1.0,
+    "native_mp4_audio_mood_accuracy": 1.0,
+    "props_total_audited": 11,
+    "props_all_zero_green_halo": true,
+    "props_total_green_halo_pixels": 0,
+    "props_max_bottom_gap_px": 0,
+    "blueprints_total_4_branches": 26,
+    "360p_vs_720p_cost_reduction_pct": 71.4,
+    "combined_360p_plus_reuse_savings_vs_naive_720p_pct": 76.8,
+    "parallel_wall_clock_speedup_x": 5.85,
+    "burst_concurrency_and_engine_hardening_passed": true,
+    "failover_rehearsal_passed": true
+  },
+  "submission_media_assets": {
+    "pitch_demo_reel_1min": {
+      "url": "/assets/finals/pitch_demo_reel_1min.mp4",
+      "file": "pitch_demo_reel_1min.mp4",
+      "bytes": 11733405,
+      "width": 1280,
+      "height": 720,
+      "fps": 23.96,
+      "frame_count": 1293,
+      "duration_sec": 53.965,
+      "is_browser_h264": true,
+      "has_audio_stream": true,
+      "video_stream": "h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 1280x720 [SAR 1:1 DAR 16:9], 1609 kb/s, 23.96 fps, 24 tbr, 12288 tbn (default)",
+      "audio_stream": "aac (LC) (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 123 kb/s (default)",
+      "container_duration_sec": 54.01,
+      "scene_spec_passed": false
+    },
+    "demo_comparison_be_vs_he": {
+      "url": "/assets/finals/demo_comparison_be_vs_he.mp4",
+      "file": "demo_comparison_be_vs_he.mp4",
+      "bytes": 2791366,
+      "width": 1280,
+      "height": 420,
+      "fps": 24.0,
+      "frame_count": 384,
+      "duration_sec": 16.0,
+      "is_browser_h264": true,
+      "has_audio_stream": true,
+      "video_stream": "h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 1280x420 [SAR 1:1 DAR 64:21], 1256 kb/s, 24 fps, 24 tbr, 12288 tbn (default)",
+      "audio_stream": "aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 132 kb/s (default)",
+      "container_duration_sec": 16.0,
+      "scene_spec_passed": false
+    },
+    "hook_10s_dualcam_twist": "/assets/submission/hook_10s_dualcam_twist.mp4",
+    "eval_dashboard_12s": "/assets/submission/eval_dashboard_12s.mp4",
+    "eval_charts_board_png": "/assets/submission/eval_charts_board.png",
+    "showcase_storyboard_strip_png": "/assets/showcase_storyboard_strip.png"
+  },
+  "detailed_sections": {
+    "dual_camera_consistency": {
+      "model": "models/gemini-decision-1",
+      "total_scene_pairs": 7,
+      "total_checks": 28,
+      "passed_checks": 26,
+      "cross_camera_consistency_rate": 0.929,
+      "all_consistent_scene_rate": 0.714,
+      "avg_latency_sec": 2.65,
+      "scenes": [
+        {
+          "branch_id": "branch_v1",
+          "scene_id": 1,
+          "title": "雨夜初遇",
+          "cam_a_tail": "/assets/tails/scene_1_cam_a_tail.png",
+          "cam_b_tail": "/assets/tails/scene_1_cam_b_tail.png",
+          "elapsed_sec": 4.41,
+          "checks": {
+            "actor_presence": {
+              "p_true": 0.891,
+              "confidence": 0.891,
+              "passed": true
+            },
+            "spatial_layout": {
+              "p_true": 0.806,
+              "confidence": 0.806,
+              "passed": true
+            },
+            "prop_state": {
+              "p_true": 0.88,
+              "confidence": 0.88,
+              "passed": true
+            },
+            "lighting_weather": {
+              "p_true": 0.851,
+              "confidence": 0.851,
+              "passed": true
+            }
+          },
+          "scene_consistency_rate": 1.0,
+          "all_consistent": true
+        },
+        {
+          "branch_id": "branch_v1",
+          "scene_id": 2,
+          "title": "受惊碎瓶",
+          "cam_a_tail": "/assets/tails/scene_2_cam_a_tail.png",
+          "cam_b_tail": "/assets/tails/scene_2_cam_b_tail.png",
+          "elapsed_sec": 3.91,
+          "checks": {
+            "actor_presence": {
+              "p_true": 0.838,
+              "confidence": 0.838,
+              "passed": true
+            },
+            "spatial_layout": {
+              "p_true": 0.524,
+              "confidence": 0.524,
+              "passed": true
+            },
+            "prop_state": {
+              "p_true": 0.087,
+              "confidence": 0.913,
+              "passed": false
+            },
+            "lighting_weather": {
+              "p_true": 0.843,
+              "confidence": 0.843,
+              "passed": true
+            }
+          },
+          "scene_consistency_rate": 0.75,
+          "all_consistent": false
+        },
+        {
+          "branch_id": "branch_v1",
+          "scene_id": 3,
+          "title": "警惕躲避",
+          "cam_a_tail": "/assets/tails/scene_3_cam_a_tail.png",
+          "cam_b_tail": "/assets/tails/scene_3_cam_b_tail.png",
+          "elapsed_sec": 3.82,
+          "checks": {
+            "actor_presence": {
+              "p_true": 0.854,
+              "confidence": 0.854,
+              "passed": true
+            },
+            "spatial_layout": {
+              "p_true": 0.589,
+              "confidence": 0.589,
+              "passed": true
+            },
+            "prop_state": {
+              "p_true": 0.355,
+              "confidence": 0.645,
+              "passed": false
+            },
+            "lighting_weather": {
+              "p_true": 0.869,
+              "confidence": 0.869,
+              "passed": true
+            }
+          },
+          "scene_consistency_rate": 0.75,
+          "all_consistent": false
+        },
+        {
+          "branch_id": "branch_v1",
+          "scene_id": 4,
+          "title": "BE · 雨夜独留",
+          "cam_a_tail": "/assets/tails/scene_4_cam_a_tail.png",
+          "cam_b_tail": "/assets/tails/scene_4_cam_b_tail.png",
+          "elapsed_sec": 3.92,
+          "checks": {
+            "actor_presence": {
+              "p_true": 0.854,
+              "confidence": 0.854,
+              "passed": true
+            },
+            "spatial_layout": {
+              "p_true": 0.693,
+              "confidence": 0.693,
+              "passed": true
+            },
+            "prop_state": {
+              "p_true": 0.804,
+              "confidence": 0.804,
+              "passed": true
+            },
+            "lighting_weather": {
+              "p_true": 0.865,
+              "confidence": 0.865,
+              "passed": true
+            }
+          },
+          "scene_consistency_rate": 1.0,
+          "all_consistent": true
+        },
+        {
+          "branch_id": "branch_v2_cached",
+          "scene_id": 2,
+          "title": "抛伞递星光礼",
+          "cam_a_tail": "/assets/tails/branch_v2_scene_2_cam_a_tail.png",
+          "cam_b_tail": "/assets/tails/branch_v2_scene_2_cam_b_tail.png",
+          "elapsed_sec": 0.61,
+          "checks": {
+            "actor_presence": {
+              "p_true": 0.896,
+              "confidence": 0.896,
+              "passed": true
+            },
+            "spatial_layout": {
+              "p_true": 0.775,
+              "confidence": 0.775,
+              "passed": true
+            },
+            "prop_state": {
+              "p_true": 0.89,
+              "confidence": 0.89,
+              "passed": true
+            },
+            "lighting_weather": {
+              "p_true": 0.748,
+              "confidence": 0.748,
+              "passed": true
+            }
+          },
+          "scene_consistency_rate": 1.0,
+          "all_consistent": true
+        },
+        {
+          "branch_id": "branch_v2_cached",
+          "scene_id": 3,
+          "title": "因果反转 · 守护信物",
+          "cam_a_tail": "/assets/tails/branch_v2_scene_3_cam_a_tail.png",
+          "cam_b_tail": "/assets/tails/branch_v2_scene_3_cam_b_tail.png",
+          "elapsed_sec": 1.03,
+          "checks": {
+            "actor_presence": {
+              "p_true": 0.878,
+              "confidence": 0.878,
+              "passed": true
+            },
+            "spatial_layout": {
+              "p_true": 0.615,
+              "confidence": 0.615,
+              "passed": true
+            },
+            "prop_state": {
+              "p_true": 0.768,
+              "confidence": 0.768,
+              "passed": true
+            },
+            "lighting_weather": {
+              "p_true": 0.665,
+              "confidence": 0.665,
+              "passed": true
+            }
+          },
+          "scene_consistency_rate": 1.0,
+          "all_consistent": true
+        },
+        {
+          "branch_id": "branch_v2_cached",
+          "scene_id": 4,
+          "title": "HE · 星雪共伞",
+          "cam_a_tail": "/assets/tails/branch_v2_scene_4_cam_a_tail.png",
+          "cam_b_tail": "/assets/tails/branch_v2_scene_4_cam_b_tail.png",
+          "elapsed_sec": 0.84,
+          "checks": {
+            "actor_presence": {
+              "p_true": 0.914,
+              "confidence": 0.914,
+              "passed": true
+            },
+            "spatial_layout": {
+              "p_true": 0.605,
+              "confidence": 0.605,
+              "passed": true
+            },
+            "prop_state": {
+              "p_true": 0.888,
+              "confidence": 0.888,
+              "passed": true
+            },
+            "lighting_weather": {
+              "p_true": 0.633,
+              "confidence": 0.633,
+              "passed": true
+            }
+          },
+          "scene_consistency_rate": 1.0,
+          "all_consistent": true
+        }
+      ]
+    },
+    "calibration_20_clips": {
+      "model": "models/gemini-decision-1",
+      "total_clips": 20,
+      "positive_count": 14,
+      "negative_count": 6,
+      "accuracy": 0.95,
+      "true_positive_rate": 0.929,
+      "true_negative_rate": 1.0,
+      "avg_latency_sec": 1.37,
+      "items": [
+        {
+          "id": 1,
+          "branch_id": "branch_v1",
+          "scene_id": 1,
+          "cam_id": "cam_a",
+          "clip_url": "/assets/finals/scene_1_cam_a.mp4",
+          "check_type": "positive",
+          "question": "Is the silver-haired girl standing on the left holding a red umbrella in a glass conservatory?",
+          "p_true": 0.872,
+          "confidence": 0.872,
+          "predicted_label": true,
+          "human_label": true,
+          "correct": true,
+          "elapsed_sec": 3.71
+        },
+        {
+          "id": 2,
+          "branch_id": "branch_v1",
+          "scene_id": 1,
+          "cam_id": "cam_b",
+          "clip_url": "/assets/finals/scene_1_cam_b.mp4",
+          "check_type": "positive",
+          "question": "Is a crystal vase with a blue rose standing intact on the round table?",
+          "p_true": 0.852,
+          "confidence": 0.852,
+          "predicted_label": true,
+          "human_label": true,
+          "correct": true,
+          "elapsed_sec": 3.56
+        },
+        {
+          "id": 3,
+          "branch_id": "branch_v1",
+          "scene_id": 2,
+          "cam_id": "cam_a",
+          "clip_url": "/assets/finals/scene_2_cam_a.mp4",
+          "check_type": "positive",
+          "question": "Is the crystal vase broken on the floor under cold rainy blue night lighting?",
+          "p_true": 0.864,
+          "confidence": 0.864,
+          "predicted_label": true,
+          "human_label": true,
+          "correct": true,
+          "elapsed_sec": 3.76
+        },
+        {
+          "id": 4,
+          "branch_id": "branch_v1",
+          "scene_id": 2,
+          "cam_id": "cam_b",
+          "clip_url": "/assets/finals/scene_2_cam_b.mp4",
+          "check_type": "positive",
+          "question": "Is the silver-haired girl holding her red umbrella while the black cat reacts near the table?",
+          "p_true": 0.78,
+          "confidence": 0.78,
+          "predicted_label": true,
+          "human_label": true,
+          "correct": true,
+          "elapsed_sec": 3.59
+        },
+        {
+          "id": 5,
+          "branch_id": "branch_v1",
+          "scene_id": 3,
+          "cam_id": "cam_a",
+          "clip_url": "/assets/finals/scene_3_cam_a.mp4",
+          "check_type": "positive",
+          "question": "Are shattered crystal glass shards or blue petals visible on the rainy conservatory floor?",
+          "p_true": 0.817,
+          "confidence": 0.817,
+          "predicted_label": true,
+          "human_label": true,
+          "correct": true,
+          "elapsed_sec": 3.28
+        },
+        {
+          "id": 6,
+          "branch_id": "branch_v1",
+          "scene_id": 3,
+          "cam_id": "cam_b",
+          "clip_url": "/assets/finals/scene_3_cam_b.mp4",
+          "check_type": "positive",
+          "question": "Is the lighting cold stormy blue rain at night?",
+          "p_true": 0.884,
+          "confidence": 0.884,
+          "predicted_label": true,
+          "human_label": true,
+          "correct": true,
+          "elapsed_sec": 0.55
+        },
+        {
+          "id": 7,
+          "branch_id": "branch_v1",
+          "scene_id": 4,
+          "cam_id": "cam_a",
+          "clip_url": "/assets/finals/scene_4_cam_a.mp4",
+          "check_type": "positive",
+          "question": "Is the silver-haired girl standing under a red umbrella with broken vase remains on the floor?",
+          "p_true": 0.831,
+          "confidence": 0.831,
+          "predicted_label": true,
+          "human_label": true,
+          "correct": true,
+          "elapsed_sec": 0.59
+        },
+        {
+          "id": 8,
+          "branch_id": "branch_v1",
+          "scene_id": 4,
+          "cam_id": "cam_b",
+          "clip_url": "/assets/finals/scene_4_cam_b.mp4",
+          "check_type": "positive",
+          "question": "Is the mood melancholic cold blue rain rather than warm sunny daylight?",
+          "p_true": 0.867,
+          "confidence": 0.867,
+          "predicted_label": true,
+          "human_label": true,
+          "correct": true,
+          "elapsed_sec": 0.69
+        },
+        {
+          "id": 9,
+          "branch_id": "branch_v2_cached",
+          "scene_id": 2,
+          "cam_id": "cam_a",
+          "clip_url": "/assets/finals/branch_v2_scene_2_cam_a.mp4",
+          "check_type": "positive",
+          "question": "Is the crystal vase with blue rose intact on the round table (not broken)?",
+          "p_true": 0.875,
+          "confidence": 0.875,
+          "predicted_label": true,
+          "human_label": true,
+          "correct": true,
+          "elapsed_sec": 0.75
+        },
+        {
+          "id": 10,
+          "branch_id": "branch_v2_cached",
+          "scene_id": 2,
+          "cam_id": "cam_b",
+          "clip_url": "/assets/finals/branch_v2_scene_2_cam_b.mp4",
+          "check_type": "positive",
+          "question": "Is the silver-haired girl interacting gently with the black cat near a glowing golden star?",
+          "p_true": 0.891,
+          "confidence": 0.891,
+          "predicted_label": true,
+          "human_label": true,
+          "correct": true,
+          "elapsed_sec": 0.55
+        },
+        {
+          "id": 11,
+          "branch_id": "branch_v2_cached",
+          "scene_id": 3,
+          "cam_id": "cam_a",
+          "clip_url": "/assets/finals/branch_v2_scene_3_cam_a.mp4",
+          "check_type": "positive",
+          "question": "Is the conservatory floor clean without shattered crystal vase shards?",
+          "p_true": 0.635,
+          "confidence": 0.635,
+          "predicted_label": true,
+          "human_label": true,
+          "correct": true,
+          "elapsed_sec": 0.71
+        },
+        {
+          "id": 12,
+          "branch_id": "branch_v2_cached",
+          "scene_id": 3,
+          "cam_id": "cam_b",
+          "clip_url": "/assets/finals/branch_v2_scene_3_cam_b.mp4",
+          "check_type": "positive",
+          "question": "Is the glowing star token visible with the girl and the small black cat?",
+          "p_true": 0.87,
+          "confidence": 0.87,
+          "predicted_label": true,
+          "human_label": true,
+          "correct": true,
+          "elapsed_sec": 0.52
+        },
+        {
+          "id": 13,
+          "branch_id": "branch_v2_cached",
+          "scene_id": 4,
+          "cam_id": "cam_a",
+          "clip_url": "/assets/finals/branch_v2_scene_4_cam_a.mp4",
+          "check_type": "positive",
+          "question": "Is the atmosphere warm golden starlight with gentle falling snow?",
+          "p_true": 0.134,
+          "confidence": 0.866,
+          "predicted_label": false,
+          "human_label": true,
+          "correct": false,
+          "elapsed_sec": 0.5
+        },
+        {
+          "id": 14,
+          "branch_id": "branch_v2_cached",
+          "scene_id": 4,
+          "cam_id": "cam_b",
+          "clip_url": "/assets/finals/branch_v2_scene_4_cam_b.mp4",
+          "check_type": "positive",
+          "question": "Are the silver-haired girl and small black cat warmly together under the open red umbrella with an intact blue-rose vase on the table?",
+          "p_true": 0.821,
+          "confidence": 0.821,
+          "predicted_label": true,
+          "human_label": true,
+          "correct": true,
+          "elapsed_sec": 0.59
+        },
+        {
+          "id": 15,
+          "branch_id": "branch_v1",
+          "scene_id": 4,
+          "cam_id": "cam_a",
+          "clip_url": "/assets/finals/scene_4_cam_a.mp4",
+          "check_type": "negative_mismatch",
+          "question": "Is the atmosphere warm golden starlight with gently falling snow and a joyful smile?",
+          "p_true": 0.144,
+          "confidence": 0.856,
+          "predicted_label": false,
+          "human_label": false,
+          "correct": true,
+          "elapsed_sec": 1.25
+        },
+        {
+          "id": 16,
+          "branch_id": "branch_v1",
+          "scene_id": 3,
+          "cam_id": "cam_a",
+          "clip_url": "/assets/finals/scene_3_cam_a.mp4",
+          "check_type": "negative_mismatch",
+          "question": "Is the crystal vase standing completely intact and unbroken on top of the round table?",
+          "p_true": 0.157,
+          "confidence": 0.843,
+          "predicted_label": false,
+          "human_label": false,
+          "correct": true,
+          "elapsed_sec": 0.57
+        },
+        {
+          "id": 17,
+          "branch_id": "branch_v2_cached",
+          "scene_id": 4,
+          "cam_id": "cam_b",
+          "clip_url": "/assets/finals/branch_v2_scene_4_cam_b.mp4",
+          "check_type": "negative_mismatch",
+          "question": "Is the crystal vase shattered into broken shards across a cold stormy blue rainy floor?",
+          "p_true": 0.157,
+          "confidence": 0.843,
+          "predicted_label": false,
+          "human_label": false,
+          "correct": true,
+          "elapsed_sec": 0.57
+        },
+        {
+          "id": 18,
+          "branch_id": "branch_v1",
+          "scene_id": 1,
+          "cam_id": "cam_a",
+          "clip_url": "/assets/finals/scene_1_cam_a.mp4",
+          "check_type": "negative_mismatch",
+          "question": "Are there three or more human characters standing together on a sunny sandy beach?",
+          "p_true": 0.139,
+          "confidence": 0.861,
+          "predicted_label": false,
+          "human_label": false,
+          "correct": true,
+          "elapsed_sec": 0.48
+        },
+        {
+          "id": 19,
+          "branch_id": "branch_v2_cached",
+          "scene_id": 2,
+          "cam_id": "cam_a",
+          "clip_url": "/assets/finals/branch_v2_scene_2_cam_a.mp4",
+          "check_type": "negative_mismatch",
+          "question": "Is a large red fire truck driving across a busy city highway?",
+          "p_true": 0.127,
+          "confidence": 0.873,
+          "predicted_label": false,
+          "human_label": false,
+          "correct": true,
+          "elapsed_sec": 0.67
+        },
+        {
+          "id": 20,
+          "branch_id": "branch_v1",
+          "scene_id": 2,
+          "cam_id": "cam_b",
+          "clip_url": "/assets/finals/scene_2_cam_b.mp4",
+          "check_type": "negative_mismatch",
+          "question": "Is the silver-haired girl holding a glowing yellow surfboard in bright noon sunlight?",
+          "p_true": 0.127,
+          "confidence": 0.873,
+          "predicted_label": false,
+          "human_label": false,
+          "correct": true,
+          "elapsed_sec": 0.54
+        }
+      ]
+    },
+    "prop_persistence": {
+      "prop_png_audits": [
+        {
+          "file": "crystal_vase.png",
+          "mode": "RGBA",
+          "width": 217,
+          "height": 512,
+          "aspect_ratio": 0.424,
+          "bottom_pad_px": 0,
+          "opaque_green_spill_pixels": 0,
+          "transparent_ratio": 0.475
+        },
+        {
+          "file": "crystal_vase_broken.png",
+          "mode": "RGBA",
+          "width": 512,
+          "height": 324,
+          "aspect_ratio": 1.58,
+          "bottom_pad_px": 0,
+          "opaque_green_spill_pixels": 0,
+          "transparent_ratio": 0.674
+        },
+        {
+          "file": "showcase_brass_pocket_watch.png",
+          "mode": "RGBA",
+          "width": 373,
+          "height": 512,
+          "aspect_ratio": 0.729,
+          "bottom_pad_px": 0,
+          "opaque_green_spill_pixels": 0,
+          "transparent_ratio": 0.368
+        },
+        {
+          "file": "showcase_crystal_shield.png",
+          "mode": "RGBA",
+          "width": 445,
+          "height": 510,
+          "aspect_ratio": 0.873,
+          "bottom_pad_px": 0,
+          "opaque_green_spill_pixels": 0,
+          "transparent_ratio": 0.246
+        },
+        {
+          "file": "showcase_desk_brass_key.png",
+          "mode": "RGBA",
+          "width": 331,
+          "height": 511,
+          "aspect_ratio": 0.648,
+          "bottom_pad_px": 0,
+          "opaque_green_spill_pixels": 0,
+          "transparent_ratio": 0.714
+        },
+        {
+          "file": "showcase_desk_coffee_mug.png",
+          "mode": "RGBA",
+          "width": 509,
+          "height": 477,
+          "aspect_ratio": 1.067,
+          "bottom_pad_px": 0,
+          "opaque_green_spill_pixels": 0,
+          "transparent_ratio": 0.333
+        },
+        {
+          "file": "showcase_desk_paper_heart.png",
+          "mode": "RGBA",
+          "width": 499,
+          "height": 508,
+          "aspect_ratio": 0.982,
+          "bottom_pad_px": 0,
+          "opaque_green_spill_pixels": 0,
+          "transparent_ratio": 0.345
+        },
+        {
+          "file": "showcase_glowing_quill.png",
+          "mode": "RGBA",
+          "width": 329,
+          "height": 512,
+          "aspect_ratio": 0.643,
+          "bottom_pad_px": 0,
+          "opaque_green_spill_pixels": 0,
+          "transparent_ratio": 0.66
+        },
+        {
+          "file": "showcase_origami_crane.png",
+          "mode": "RGBA",
+          "width": 510,
+          "height": 416,
+          "aspect_ratio": 1.226,
+          "bottom_pad_px": 0,
+          "opaque_green_spill_pixels": 0,
+          "transparent_ratio": 0.643
+        },
+        {
+          "file": "showcase_star_lantern.png",
+          "mode": "RGBA",
+          "width": 407,
+          "height": 512,
+          "aspect_ratio": 0.795,
+          "bottom_pad_px": 0,
+          "opaque_green_spill_pixels": 0,
+          "transparent_ratio": 0.605
+        },
+        {
+          "file": "star_token.png",
+          "mode": "RGBA",
+          "width": 508,
+          "height": 487,
+          "aspect_ratio": 1.043,
+          "bottom_pad_px": 0,
+          "opaque_green_spill_pixels": 0,
+          "transparent_ratio": 0.566
+        }
+      ],
+      "all_props_rgba": true,
+      "all_props_zero_green_spill": true,
+      "all_props_bottom_flush": true,
+      "branch_v3_prop_persistence": {
+        "branch_id": "branch_v3_starlight_cached",
+        "clips_audited": 6,
+        "star_token_persistence_rate": 1.0,
+        "crystal_vase_intact_persistence_rate": 1.0,
+        "details": [
+          {
+            "scene_id": 2,
+            "cam_id": "cam_a",
+            "star_token_persists": true,
+            "star_p_true": 0.871,
+            "crystal_vase_intact": true,
+            "vase_p_true": 0.844
+          },
+          {
+            "scene_id": 2,
+            "cam_id": "cam_b",
+            "star_token_persists": true,
+            "star_p_true": 0.87,
+            "crystal_vase_intact": true,
+            "vase_p_true": 0.824
+          },
+          {
+            "scene_id": 3,
+            "cam_id": "cam_a",
+            "star_token_persists": true,
+            "star_p_true": 0.752,
+            "crystal_vase_intact": true,
+            "vase_p_true": 0.884
+          },
+          {
+            "scene_id": 3,
+            "cam_id": "cam_b",
+            "star_token_persists": true,
+            "star_p_true": 0.881,
+            "crystal_vase_intact": true,
+            "vase_p_true": 0.865
+          },
+          {
+            "scene_id": 4,
+            "cam_id": "cam_a",
+            "star_token_persists": true,
+            "star_p_true": 0.865,
+            "crystal_vase_intact": true,
+            "vase_p_true": 0.806
+          },
+          {
+            "scene_id": 4,
+            "cam_id": "cam_b",
+            "star_token_persists": true,
+            "star_p_true": 0.725,
+            "crystal_vase_intact": true,
+            "vase_p_true": 0.86
+          }
+        ]
+      }
+    },
+    "props_zero_halo_audit": {
+      "props_dir": "C:\\Users\\11345\\.gemini\\antigravity\\scratch\\StageState-w1-opt\\backend\\assets\\props",
+      "total_props": 11,
+      "all_rgba": true,
+      "all_bottom_flush_ok": true,
+      "all_zero_opaque_green_spill": true,
+      "all_zero_green_halo": true,
+      "all_passed": true,
+      "max_bottom_opaque_gap_px": 0,
+      "total_green_halo_pixels": 0
+    },
+    "audio_codec_audit": {
+      "generated_at": "2026-11-21T14:21:43",
+      "branches_audited": [
+        "branch_v1",
+        "branch_v2_cached",
+        "branch_v3_starlight_cached",
+        "branch_v4_umbrella_shield_cached"
+      ],
+      "unique_scene_mp4_count": 26,
+      "all_h264": true,
+      "all_640x360": true,
+      "all_24fps": true,
+      "all_4s_duration": true,
+      "audio_stream_present_count": 26,
+      "all_have_audio_stream": true,
+      "all_scene_specs_passed": true,
+      "demo_reel": {
+        "file": "demo_comparison_be_vs_he.mp4",
+        "bytes": 2791366,
+        "width": 1280,
+        "height": 420,
+        "fps": 24.0,
+        "frame_count": 384,
+        "duration_sec": 16.0,
+        "is_browser_h264": true,
+        "has_audio_stream": true,
+        "video_stream": "h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 1280x420 [SAR 1:1 DAR 64:21], 1256 kb/s, 24 fps, 24 tbr, 12288 tbn (default)",
+        "audio_stream": "aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 132 kb/s (default)",
+        "container_duration_sec": 16.0,
+        "scene_spec_passed": false
+      },
+      "pitch_reel": {
+        "file": "pitch_demo_reel_1min.mp4",
+        "bytes": 11733405,
+        "width": 1280,
+        "height": 720,
+        "fps": 23.96,
+        "frame_count": 1293,
+        "duration_sec": 53.965,
+        "is_browser_h264": true,
+        "has_audio_stream": true,
+        "video_stream": "h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 1280x720 [SAR 1:1 DAR 16:9], 1609 kb/s, 23.96 fps, 24 tbr, 12288 tbn (default)",
+        "audio_stream": "aac (LC) (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 123 kb/s (default)",
+        "container_duration_sec": 54.01,
+        "scene_spec_passed": false
+      }
+    },
+    "audio_mood_multimodal": {
+      "generated_at": "2026-11-21T13:41:54",
+      "model": "models/gemini-decision-1",
+      "api_version": "v1beta",
+      "input_modality": "native_mp4_video_plus_audio",
+      "total_cases": 6,
+      "correct_count": 6,
+      "accuracy": 1.0,
+      "positive_match_rate": 1.0,
+      "negative_rejection_rate": 1.0,
+      "avg_latency_sec": 3.22,
+      "cases": [
+        {
+          "case_id": "be_s2_storm_positive",
+          "clip_url": "/assets/finals/scene_2_cam_a.mp4",
+          "branch": "branch_v1",
+          "scene_id": 2,
+          "expected": true,
+          "predicted": true,
+          "p_true": 0.8091,
+          "correct": true,
+          "latency_sec": 3.96
+        },
+        {
+          "case_id": "be_s2_warm_negative",
+          "clip_url": "/assets/finals/scene_2_cam_a.mp4",
+          "branch": "branch_v1",
+          "scene_id": 2,
+          "expected": false,
+          "predicted": false,
+          "p_true": 0.1586,
+          "correct": true,
+          "latency_sec": 3.22
+        },
+        {
+          "case_id": "he_s4_warm_positive",
+          "clip_url": "/assets/finals/branch_v2_scene_4_cam_a.mp4",
+          "branch": "branch_v2_cached",
+          "scene_id": 4,
+          "expected": true,
+          "predicted": true,
+          "p_true": 0.7361,
+          "correct": true,
+          "latency_sec": 3.07
+        },
+        {
+          "case_id": "he_s4_storm_negative",
+          "clip_url": "/assets/finals/branch_v2_scene_4_cam_a.mp4",
+          "branch": "branch_v2_cached",
+          "scene_id": 4,
+          "expected": false,
+          "predicted": false,
+          "p_true": 0.1566,
+          "correct": true,
+          "latency_sec": 3.05
+        },
+        {
+          "case_id": "be_s4_cold_regret_positive",
+          "clip_url": "/assets/finals/scene_4_cam_a.mp4",
+          "branch": "branch_v1",
+          "scene_id": 4,
+          "expected": true,
+          "predicted": true,
+          "p_true": 0.788,
+          "correct": true,
+          "latency_sec": 3.21
+        },
+        {
+          "case_id": "v3_s4_starlight_positive",
+          "clip_url": "/assets/finals/branch_v3_scene_4_cam_a.mp4",
+          "branch": "branch_v3_starlight_cached",
+          "scene_id": 4,
+          "expected": true,
+          "predicted": true,
+          "p_true": 0.7074,
+          "correct": true,
+          "latency_sec": 2.78
+        }
+      ]
+    },
+    "benchmark_720p_vs_360p": {
+      "task_id": "W1-T3H",
+      "model": "gemini-omni-flash-preview",
+      "scene_tested": "branch_v1 Scene 4 (cam_a, 4s)",
+      "clip_360p": {
+        "resolution_requested": "360p",
+        "interaction_id": "v1_Chd5ZUFCYS1iYUZJZU15dE1QdGRIaG1BOBIXeWVBQmEtYmFGSWVNeXRNUHRkSGhtQTg",
+        "generation_latency_sec": 16.84,
+        "download_latency_sec": 0.26,
+        "total_wall_clock_sec": 17.1,
+        "width": 640,
+        "height": 360,
+        "resolution": "640x360",
+        "fps": 24.0,
+        "frame_count": 96,
+        "duration_sec": 4.0,
+        "file_size_bytes": 1607451,
+        "file_size_mb": 1.533,
+        "is_h264": true,
+        "cost_per_sec_usd": 0.02,
+        "clip_4s_cost_usd": 0.08,
+        "branch_6_clips_cost_usd": 0.48
+      },
+      "clip_720p": {
+        "resolution_requested": "720p",
+        "interaction_id": "v1_ChYwZUFCYThhSEVkckF5dE1QMWJLeVNREhYwZUFCYThhSEVkckF5dE1QMWJLeVNR",
+        "generation_latency_sec": 25.39,
+        "download_latency_sec": 0.44,
+        "total_wall_clock_sec": 25.84,
+        "width": 1280,
+        "height": 720,
+        "resolution": "1280x720",
+        "fps": 24.0,
+        "frame_count": 96,
+        "duration_sec": 4.0,
+        "file_size_bytes": 3194946,
+        "file_size_mb": 3.047,
+        "is_h264": true,
+        "cost_per_sec_usd": 0.07,
+        "clip_4s_cost_usd": 0.28,
+        "branch_6_clips_cost_usd": 1.68
+      },
+      "cached_scene_4_360p_reference": {
+        "width": 640,
+        "height": 360,
+        "resolution": "640x360",
+        "fps": 24.0,
+        "frame_count": 96,
+        "duration_sec": 4.0,
+        "file_size_bytes": 1592972,
+        "file_size_mb": 1.519,
+        "is_h264": true
+      },
+      "comparison": {
+        "latency_ratio_720p_over_360p": 1.51,
+        "latency_saved_sec_per_clip": 8.74,
+        "file_size_ratio_720p_over_360p": 1.99,
+        "cost_ratio_720p_over_360p": 3.5,
+        "cost_savings_pct_using_360p": 71.4,
+        "pitch_takeaway": "360p cuts API cost by 71.4% ($0.02/s vs $0.07/s; $0.48 vs $1.68 per 3-scene dual-cam branch), reduces clip payload by 1.99x, and delivers 17.1s vs 25.84s live turnaround for interactive hackathon directing."
+      }
+    },
+    "cache_reuse_cost_savings": {
+      "cached_branches_count": 4,
+      "total_scene_slots": 16,
+      "reused_scene_slots": 3,
+      "unique_rendered_scenes": 13,
+      "unique_mp4_files_stored": 26,
+      "prefix_reuse_savings_pct": 18.8,
+      "naive_total_omni_calls_2take": 64,
+      "actual_total_omni_calls_2take": 52,
+      "saved_omni_calls_2take": 12,
+      "naive_total_cost_360p_usd": 5.12,
+      "actual_total_cost_360p_usd": 4.16,
+      "saved_cost_360p_usd": 0.96,
+      "naive_total_cost_720p_usd": 17.92,
+      "combined_360p_plus_reuse_savings_vs_naive_720p_pct": 76.8
+    },
+    "cross_branch_matrix": {
+      "generated_at": "2026-11-21T13:38:50",
+      "model": "models/gemini-decision-1",
+      "branches_evaluated": [
+        "branch_v1",
+        "branch_v2_cached",
+        "branch_v3_starlight_cached",
+        "branch_v4_umbrella_shield_cached"
+      ],
+      "checks_total": 8,
+      "checks_matched": 7,
+      "matrix_accuracy": 0.875,
+      "avg_latency_sec": 3.88
+    },
+    "live_desk_props_benchmark": {
+      "avg_create_prop_latency_sec": 16.68,
+      "all_desk_props_passed": true,
+      "all_desk_props_zero_green_halo": true
+    },
+    "blueprints_manifest": {
+      "updated_at": "2026-11-21T14:17:19",
+      "total_blueprints": 26,
+      "branches_covered": [
+        "branch_v1",
+        "branch_v2_cached",
+        "branch_v3_starlight_cached",
+        "branch_v4_umbrella_shield_cached"
+      ],
+      "si_metric_scales": {
+        "lia_m": 1.62,
+        "nyx_m": 0.3,
+        "table_m": 0.75,
+        "crystal_vase_m": 0.32,
+        "star_token_m": 0.1
+      },
+      "resolution": "640x360"
+    },
+    "burst_concurrency_and_hardening": {
+      "generated_at": "2026-11-21T14:21:30",
+      "all_passed": true,
+      "scene_ref_pruning": {
+        "passed": true,
+        "selected_refs": [
+          "lia_clean_ref.png",
+          "nyx.png",
+          "crystal_vase.png",
+          "star_token.png",
+          "showcase_desk_coffee_mug.png"
+        ],
+        "pruned_unused_count": 3
+      },
+      "retry_regression_guard": {
+        "passed": true,
+        "attempt_0_score": 0.72,
+        "attempt_1_score": 0.45,
+        "preserved_score": 0.72,
+        "retries": 2
+      },
+      "concurrent_burst_stress": {
+        "passed": true,
+        "concurrent_jobs": 6,
+        "elapsed_sec": 0.089,
+        "unique_prop_ids": 3,
+        "unique_cam_a_outputs": 3,
+        "unique_cam_b_outputs": 3,
+        "upload_cache_mtime_invalidation_ok": true,
+        "zero_deadlocks_or_collisions": true
+      }
+    },
+    "failover_rehearsal": {
+      "generated_at": "2026-11-21T14:21:22",
+      "all_passed": true,
+      "elapsed_sec": 1.631,
+      "checks": {
+        "empty_and_corrupt_webm_extract_safe": true,
+        "corrupt_unicode_webm_preview_guard_safe": true,
+        "render_scene_media_corrupt_webm_no_crash": true,
+        "render_scene_media_png_start_frame_fallback_anchored": true,
+        "anchored_start_frames": [
+          "blueprint_branch_v1_s2_cam_a.png",
+          "blueprint_branch_v1_s2_cam_b.png"
+        ],
+        "create_prop_corrupt_bytes_resilient": true
+      }
+    },
+    "e2e_stateless_vs_stagestate": {
+      "stateless_baseline": {
+        "system": "Stateless Text Chaining Baseline",
+        "scenes": 4,
+        "judge_score": 0.564,
+        "all_passed": false,
+        "latency_sec": 29.16
+      },
+      "scene_scaling_count": 4
+    }
+  }
+}

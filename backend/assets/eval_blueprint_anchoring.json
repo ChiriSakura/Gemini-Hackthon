@@ -54,5 +54,23 @@
     }
   },
   "delta_avg_p_true": -0.149,
-  "delta_pass_rate": -0.5
+  "delta_pass_rate": -0.5,
+  "blueprints_manifest": {
+    "updated_at": "2026-11-21T14:17:19",
+    "total_blueprints": 26,
+    "branches_covered": [
+      "branch_v1",
+      "branch_v2_cached",
+      "branch_v3_starlight_cached",
+      "branch_v4_umbrella_shield_cached"
+    ],
+    "si_metric_scales": {
+      "lia_m": 1.62,
+      "nyx_m": 0.3,
+      "table_m": 0.75,
+      "crystal_vase_m": 0.32,
+      "star_token_m": 0.1
+    },
+    "resolution": "640x360"
+  }
 }

@@ -66,11 +66,17 @@ _PROP_HEIGHT_KEYWORDS: list[tuple[tuple[str, ...], float]] = [
 
 
 def estimate_prop_height_m(name: str, description: str = "") -> float:
-    """Estimate realistic SI metric height in meters (clamped to 0.08m..1.20m) for a prop."""
+    """Estimate realistic SI metric height in meters (longest-keyword-first match, 0.08m..1.20m)."""
     blob = f"{name} {description}".lower()
+    # Match longest/most-specific keyword first so '花瓶' (0.32m) beats generic '瓶' (0.22m).
+    ranked: list[tuple[int, float]] = []
     for keywords, height_m in _PROP_HEIGHT_KEYWORDS:
-        if any(k in blob for k in keywords):
-            return height_m
+        for k in keywords:
+            if k in blob:
+                ranked.append((len(k), height_m))
+    if ranked:
+        ranked.sort(key=lambda item: item[0], reverse=True)
+        return ranked[0][1]
     return 0.22
 
 

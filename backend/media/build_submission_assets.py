@@ -281,6 +281,12 @@ def build_eval_dashboard_12s_video(board_png: Path, output_mp4: Optional[Path] =
 
     with tempfile.TemporaryDirectory(prefix="stagestate_outro_") as tmp_dir:
         tmp_out = Path(tmp_dir) / "eval_dashboard_12s.mp4"
+        # W1-T7E: Mux subtle warm ambient stereo AAC pad (A-major chord @ low volume with fade in/out)
+        # so 100% of StageState MP4s carry uniform H.264 + AAC streams ready for timeline splicing.
+        ambient_expr = (
+            "0.022*sin(2*PI*220*t)+0.016*sin(2*PI*277.18*t)+0.014*sin(2*PI*329.63*t)"
+            "|0.022*sin(2*PI*220.4*t)+0.016*sin(2*PI*277.18*t)+0.014*sin(2*PI*329.2*t)"
+        )
         cmd = [
             ffmpeg_exe,
             "-y",
@@ -290,10 +296,19 @@ def build_eval_dashboard_12s_video(board_png: Path, output_mp4: Optional[Path] =
             "-s", "1280x720",
             "-r", str(FPS),
             "-i", "-",
+            "-f", "lavfi",
+            "-t", "12",
+            "-i", f"aevalsrc={ambient_expr}:s=44100:d=12",
+            "-af", "afade=t=in:st=0:d=0.8,afade=t=out:st=11.0:d=1.0",
+            "-map", "0:v:0",
+            "-map", "1:a:0",
             "-c:v", "libx264",
             "-preset", "medium",
             "-crf", "19",
             "-pix_fmt", "yuv420p",
+            "-c:a", "aac",
+            "-b:a", "128k",
+            "-shortest",
             "-movflags", "+faststart",
             str(tmp_out),
         ]

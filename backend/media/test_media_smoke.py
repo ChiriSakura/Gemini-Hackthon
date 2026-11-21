@@ -31,7 +31,7 @@ def run_smoke_tests() -> None:
     branches = r_branches.json()
     assert any(b["branch_id"] == "branch_v1" for b in branches), "branch_v1 missing"
 
-    # 2. Verify shared actor, showcase/desk props, storyboard & showcase MP4s serve 200 OK
+    # 2. Verify shared actor, showcase/desk props, storyboard, submission & showcase MP4s serve 200 OK (W1-T7C)
     for asset_url in (
         "/assets/actors/lia.png",
         "/assets/actors/nyx.png",
@@ -48,15 +48,30 @@ def run_smoke_tests() -> None:
         "/assets/showcase_storyboard_strip.png",
         "/assets/finals/demo_comparison_be_vs_he.mp4",
         "/assets/finals/pitch_demo_reel_1min.mp4",
+        "/assets/submission/hook_10s_dualcam_twist.mp4",
+        "/assets/submission/eval_dashboard_12s.mp4",
+        "/assets/submission/eval_charts_board.png",
+        "/assets/metrics_summary_for_submission.json",
     ):
         resp = client.get(asset_url)
         assert resp.status_code == 200, f"Static asset missing: {asset_url} -> {resp.status_code}"
 
-    # 3. Verify ALL branches in GET /api/branches pass HTTP 200 on cached media URLs & use H.264
+    # Verify all 26 4-branch 2.5D blueprint anchors serve 200 OK (W1-T7A)
+    bp_files = sorted(config.PREVIEWS_DIR.glob("blueprint_*.png"))
+    assert len(bp_files) >= 26, f"Expected >= 26 4-branch blueprints, found {len(bp_files)}"
+    for bp in bp_files:
+        assert client.get(f"/assets/previews/{bp.name}").status_code == 200, f"Blueprint missing: {bp.name}"
+
+    # 3. Verify ALL 4 cached branches in GET /api/branches pass HTTP 200 on cached media URLs & use H.264
     from backend.media.video_renderer import _merge_dual_cam_qa, get_render_progress, is_browser_h264
 
     branch_ids = {b["branch_id"] for b in branches}
-    for req_id in ("branch_v1", "branch_v2_cached", "branch_v3_starlight_cached"):
+    for req_id in (
+        "branch_v1",
+        "branch_v2_cached",
+        "branch_v3_starlight_cached",
+        "branch_v4_umbrella_shield_cached",
+    ):
         assert req_id in branch_ids, f"Expected cached branch {req_id} in GET /api/branches"
 
     for target_branch in branches:

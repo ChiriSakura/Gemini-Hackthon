@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-21T13:44:37",
+  "generated_at": "2026-11-21T14:18:21",
   "cost_model": {
     "clip_duration_sec": 4,
     "360p_usd_per_clip": 0.08,
@@ -9,20 +9,20 @@
     "cams_per_scene": 2
   },
   "portfolio_summary": {
-    "cached_branches_count": 3,
-    "total_scene_slots": 12,
-    "reused_scene_slots": 2,
-    "unique_rendered_scenes": 10,
-    "unique_mp4_files_stored": 20,
-    "prefix_reuse_savings_pct": 16.7,
-    "naive_total_omni_calls_2take": 48,
-    "actual_total_omni_calls_2take": 40,
-    "saved_omni_calls_2take": 8,
-    "naive_total_cost_360p_usd": 3.84,
-    "actual_total_cost_360p_usd": 3.2,
-    "saved_cost_360p_usd": 0.64,
-    "naive_total_cost_720p_usd": 13.44,
-    "combined_360p_plus_reuse_savings_vs_naive_720p_pct": 76.2
+    "cached_branches_count": 4,
+    "total_scene_slots": 16,
+    "reused_scene_slots": 3,
+    "unique_rendered_scenes": 13,
+    "unique_mp4_files_stored": 26,
+    "prefix_reuse_savings_pct": 18.8,
+    "naive_total_omni_calls_2take": 64,
+    "actual_total_omni_calls_2take": 52,
+    "saved_omni_calls_2take": 12,
+    "naive_total_cost_360p_usd": 5.12,
+    "actual_total_cost_360p_usd": 4.16,
+    "saved_cost_360p_usd": 0.96,
+    "naive_total_cost_720p_usd": 17.92,
+    "combined_360p_plus_reuse_savings_vs_naive_720p_pct": 76.8
   },
   "per_branch": [
     {
@@ -62,6 +62,23 @@
     {
       "branch_id": "branch_v3_starlight_cached",
       "branch_label": "HE · Starlight Vigil & Shared Shelter (3rd Cached Variant)",
+      "parent_branch_id": "branch_v1",
+      "forked_from_scene": 2,
+      "total_scenes": 4,
+      "reused_scenes": 1,
+      "rendered_scenes": 3,
+      "scene_reuse_rate": 0.25,
+      "naive_omni_calls_2take": 16,
+      "actual_omni_calls_2take": 12,
+      "saved_omni_calls_2take": 4,
+      "naive_cost_360p_usd": 1.28,
+      "actual_cost_360p_usd": 0.96,
+      "saved_cost_360p_usd": 0.32,
+      "instant_cached_replay_sec": 0.0
+    },
+    {
+      "branch_id": "branch_v4_umbrella_shield_cached",
+      "branch_label": "Shield · Umbrella Guard (Intact Vase Preset)",
       "parent_branch_id": "branch_v1",
       "forked_from_scene": 2,
       "total_scenes": 4,

@@ -42,8 +42,9 @@ CJK_PATTERN = re.compile(r"[\u4e00-\u9fff]")
 
 
 def _inspect_mp4_unicode_safe(mp4_path: Path, ffmpeg_exe: str) -> dict:
-    """Inspect codec, resolution, fps, frame count, and audio stream safely on any path."""
+    """Inspect codec, resolution, fps, frame count, and audio stream safely on any path (Unicode-safe)."""
     cap, tmp_path = _open_video_capture_safe(mp4_path)
+    probe_target = tmp_path if tmp_path is not None else mp4_path
     try:
         opened = cap.isOpened()
         fourcc_int = int(cap.get(cv2.CAP_PROP_FOURCC)) if opened else 0
@@ -52,13 +53,19 @@ def _inspect_mp4_unicode_safe(mp4_path: Path, ffmpeg_exe: str) -> dict:
         h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
         fps = round(float(cap.get(cv2.CAP_PROP_FPS) or 0.0), 2)
         frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        probe = subprocess.run(
+            [ffmpeg_exe, "-hide_banner", "-i", str(probe_target)],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="ignore",
+        )
+        has_audio = "Audio:" in (probe.stderr or "")
     finally:
         cap.release()
         if tmp_path:
             tmp_path.unlink(missing_ok=True)
 
-    probe = subprocess.run([ffmpeg_exe, "-i", str(mp4_path)], capture_output=True, text=True)
-    has_audio = "Audio:" in probe.stderr
     return {
         "file": str(mp4_path.relative_to(config.ASSETS_DIR)).replace("\\", "/"),
         "bytes": mp4_path.stat().st_size,

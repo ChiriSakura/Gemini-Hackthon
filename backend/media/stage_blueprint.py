@@ -35,6 +35,7 @@ from dotenv import load_dotenv
 
 load_dotenv(_REPO_ROOT / ".env", override=False)
 
+import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
@@ -42,6 +43,7 @@ from backend import config
 from backend.director.genai_client import build_decision_input, create_decision
 from backend.director.state_tree import get_branch
 from backend.logger import log_function_call
+from backend.media.prop_maker import estimate_prop_height_m
 from backend.media.video_renderer import render_scene_media
 from backend.schemas import Scene
 
@@ -135,7 +137,7 @@ def _load_rgba_sprite(path: Path) -> Optional[Image.Image]:
 
 
 def _resolve_actor_sprite(actor_id: str, holding_prop: Optional[str]) -> Optional[Image.Image]:
-    """Pick clean umbrella-free Lia ref when Lia is NOT holding the red umbrella."""
+    """Pick clean umbrella-free Lia ref when Lia is NOT holding the red umbrella (border-floodfill white removal)."""
     if actor_id == "lia":
         if holding_prop != "red_umbrella":
             for candidate in (
@@ -143,11 +145,22 @@ def _resolve_actor_sprite(actor_id: str, holding_prop: Optional[str]) -> Optiona
                 config.BASE_DIR.parent / "StageState" / "backend" / "assets" / "actors" / "lia_clean_ref.png",
             ):
                 if candidate.is_file():
-                    # Remove near-white background from clean ref cleanly for 2.5D compositing
                     with Image.open(candidate) as im:
                         rgba = np.array(im.convert("RGBA"), dtype=np.uint8)
-                    white_bg = (rgba[:, :, 0] > 235) & (rgba[:, :, 1] > 235) & (rgba[:, :, 2] > 235)
-                    rgba[white_bg, 3] = 0
+                    # Border-connected floodfill only so Lia's silver hair & white eye highlights stay opaque.
+                    is_white = (
+                        (rgba[:, :, 0] > 232) & (rgba[:, :, 1] > 232) & (rgba[:, :, 2] > 232)
+                    ).astype(np.uint8)
+                    _, labels = cv2.connectedComponents(is_white, connectivity=4)
+                    border_lbls = (
+                        set(np.unique(labels[0, :]))
+                        | set(np.unique(labels[-1, :]))
+                        | set(np.unique(labels[:, 0]))
+                        | set(np.unique(labels[:, -1]))
+                    )
+                    border_lbls.discard(0)
+                    bg_mask = np.isin(labels, list(border_lbls))
+                    rgba[bg_mask, 3] = 0
                     out = Image.fromarray(rgba, mode="RGBA")
                     bbox = out.getbbox()
                     return out.crop(bbox) if bbox else out
@@ -373,10 +386,11 @@ def render_scene_blueprint(scene: Scene, cam_id: str, output_path: Path) -> Path
         if sprite is None:
             continue
         if actor.id == "lia":
-            h_m = 1.18 if actor.action == "kneel" else 1.62
+            h_m = 1.15 if actor.action == "kneel" else 1.62
             flip = actor.facing == "left"
         else:
-            h_m = 0.42
+            # Strict SI scale: realistic seated black cat = 0.30m (below Lia's knee).
+            h_m = 0.30
             flip = actor.facing == "right"
         proj = cam.project((wx, 0.0, wz))
         if proj is not None:
@@ -400,13 +414,13 @@ def render_scene_blueprint(scene: Scene, cam_id: str, output_path: Path) -> Path
             continue
         wy = 0.02 if prop.on_floor else 0.75
         if prop.id == "crystal_vase":
-            hm = 0.24 if prop.state == "broken" or prop.on_floor else 0.38
+            hm = 0.16 if prop.state == "broken" or prop.on_floor else 0.32
             glow = (96, 175, 255) if prop.state != "broken" else None
         elif prop.id == "star_token":
-            hm = 0.24
+            hm = 0.10
             glow = (255, 215, 70)
         else:
-            hm = 0.30
+            hm = estimate_prop_height_m(prop.id)
             glow = None
         proj = cam.project((wx, wy, wz))
         if proj is not None:
@@ -430,36 +444,66 @@ def render_scene_blueprint(scene: Scene, cam_id: str, output_path: Path) -> Path
 
 @log_function_call
 def render_all_cached_blueprints() -> dict:
-    """Pre-render all 14 dual-camera 2.5D blueprint frames for `branch_v1` and `branch_v2_cached`."""
+    """Pre-render all 26 dual-camera 2.5D blueprint frames across all 4 cached branches (W1-T7A)."""
     t0 = time.perf_counter()
-    b1 = get_branch("branch_v1")
-    b2 = get_branch("branch_v2_cached")
-    assert b1 is not None and b2 is not None
+    branch_specs = [
+        ("branch_v1", "branch_v1", 1),
+        ("branch_v2_cached", "branch_v2", 2),
+        ("branch_v3_starlight_cached", "branch_v3", 2),
+        ("branch_v4_umbrella_shield_cached", "branch_v4", 2),
+    ]
 
     generated: list[dict] = []
-    targets: list[tuple[str, Scene]] = [("branch_v1", s) for s in b1.scenes] + [
-        ("branch_v2", s) for s in b2.scenes if s.scene_id >= 2
-    ]
-    for prefix, scene in targets:
-        for cam_id in ("cam_a", "cam_b"):
-            out = config.PREVIEWS_DIR / f"blueprint_{prefix}_s{scene.scene_id}_{cam_id}.png"
-            render_scene_blueprint(scene, cam_id, out)
-            generated.append(
-                {
-                    "branch": prefix,
-                    "scene_id": scene.scene_id,
-                    "cam_id": cam_id,
-                    "file": out.name,
-                    "asset_url": f"/assets/previews/{out.name}",
-                    "bytes": out.stat().st_size,
-                }
-            )
-    return {
+    branches_covered: list[str] = []
+    for branch_id, prefix, min_scene_id in branch_specs:
+        branch = get_branch(branch_id)
+        if branch is None:
+            continue
+        branches_covered.append(branch_id)
+        for scene in branch.scenes:
+            if scene.scene_id < min_scene_id:
+                continue
+            for cam_id in ("cam_a", "cam_b"):
+                out = config.PREVIEWS_DIR / f"blueprint_{prefix}_s{scene.scene_id}_{cam_id}.png"
+                render_scene_blueprint(scene, cam_id, out)
+                generated.append(
+                    {
+                        "branch_id": branch_id,
+                        "branch": prefix,
+                        "scene_id": scene.scene_id,
+                        "cam_id": cam_id,
+                        "file": out.name,
+                        "asset_url": f"/assets/previews/{out.name}",
+                        "bytes": out.stat().st_size,
+                    }
+                )
+
+    bp_summary = {
         "total_blueprints": len(generated),
+        "branches_covered": branches_covered,
+        "si_metric_scales": {"lia_m": 1.62, "nyx_m": 0.30, "table_m": 0.75, "crystal_vase_m": 0.32, "star_token_m": 0.10},
         "resolution": f"{WIDTH}x{HEIGHT}",
         "elapsed_sec": round(time.perf_counter() - t0, 2),
         "files": generated,
     }
+
+    # Refresh eval_blueprint_anchoring.json preserving existing live A/B numbers while attaching 4-branch manifest
+    anchor_json = config.ASSETS_DIR / "eval_blueprint_anchoring.json"
+    existing = {}
+    if anchor_json.is_file():
+        try:
+            existing = json.loads(anchor_json.read_text(encoding="utf-8"))
+        except Exception:
+            existing = {}
+    existing["blueprints_manifest"] = {
+        "updated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "total_blueprints": bp_summary["total_blueprints"],
+        "branches_covered": bp_summary["branches_covered"],
+        "si_metric_scales": bp_summary["si_metric_scales"],
+        "resolution": bp_summary["resolution"],
+    }
+    anchor_json.write_text(json.dumps(existing, ensure_ascii=False, indent=2), encoding="utf-8")
+    return bp_summary
 
 
 @log_function_call
