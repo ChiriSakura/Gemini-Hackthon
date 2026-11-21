@@ -2804,3 +2804,47 @@ body::before {
     width: min(300px, calc(100vw - 20px));
   }
 }
+
+
+/* Clip / world-view toggle and the "not generated yet" card */
+.stage-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.stage-head-text {
+  flex: 1;
+  min-width: 0;
+}
+.stage-view-toggle {
+  flex: none;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(253, 230, 138, 0.45);
+  background: rgba(15, 23, 42, 0.55);
+  color: #fde68a;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.stage-view-toggle:hover,
+.stage-view-toggle.active {
+  background: rgba(253, 230, 138, 0.18);
+}
+.cam {
+  position: relative;
+}
+.cam-pending {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(9, 13, 24, 0.82);
+  color: rgba(226, 232, 240, 0.85);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  border-radius: inherit;
+  pointer-events: none;
+}

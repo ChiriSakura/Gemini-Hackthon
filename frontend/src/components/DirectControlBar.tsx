@@ -35,6 +35,14 @@ const MIN_CLIP_MS = 1000;
  * falling back to any camera and finally to voice only when no camera works.
  * A permission refusal is rethrown so the caller can explain it.
  */
+/** Voice-first microphone settings: cut room noise and echo, level the volume, mono speech. */
+const CLEAR_SPEECH_AUDIO: MediaTrackConstraints = {
+  echoCancellation: true,
+  noiseSuppression: true,
+  autoGainControl: true,
+  channelCount: 1,
+};
+
 async function acquireDirectorStream(): Promise<MediaStream> {
   const media = navigator.mediaDevices;
   if (!media?.getUserMedia) throw new Error('unsupported');
@@ -45,15 +53,15 @@ async function acquireDirectorStream(): Promise<MediaStream> {
   try {
     return await media.getUserMedia({
       video: { width: { ideal: 1280 }, height: { ideal: 720 } },
-      audio: true,
+      audio: CLEAR_SPEECH_AUDIO,
     });
   } catch (err) {
     if (isDenied(err)) throw err;
     try {
-      return await media.getUserMedia({ video: true, audio: true });
+      return await media.getUserMedia({ video: true, audio: CLEAR_SPEECH_AUDIO });
     } catch (err2) {
       if (isDenied(err2)) throw err2;
-      return media.getUserMedia({ audio: true });
+      return media.getUserMedia({ audio: CLEAR_SPEECH_AUDIO });
     }
   }
 }
@@ -222,7 +230,9 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
     const mime = pickRecorderMime(stream.getVideoTracks().length > 0);
     let recorder: MediaRecorder;
     try {
-      recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+      recorder = mime
+        ? new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 128000 })
+        : new MediaRecorder(stream, { audioBitsPerSecond: 128000 });
     } catch {
       endHold();
       setCamError('Recording is not supported in this browser — type instead.');

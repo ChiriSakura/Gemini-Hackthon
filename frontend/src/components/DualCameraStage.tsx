@@ -149,7 +149,7 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
       compareBranch,
       allBranches,
       activeSceneIndex,
-      viewMode,
+      viewMode: appViewMode,
       pixelArtMode,
       autoCutEnabled,
       diffHaloEnabled,
@@ -172,6 +172,13 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
     const videoBRef = useRef<HTMLVideoElement | null>(null);
     const beforeVideoRef = useRef<HTMLVideoElement | null>(null);
     const managerRef = useRef<ThreeStageManager | null>(null);
+    // Every scene opens on its clip (or a "not generated yet" card); the 3D world view is one toggle away.
+    const [worldView, setWorldView] = useState(false);
+    void appViewMode;
+    const viewMode: 'preview' | 'final' = worldView ? 'preview' : 'final';
+    useEffect(() => {
+      setWorldView(false);
+    }, [activeSceneIndex, activeBranch.branch_id]);
     const [exporting, setExporting] = useState(false);
     const [activeCutCam, setActiveCutCam] = useState<'A' | 'B'>('A');
     const [narrationExpanded, setNarrationExpanded] = useState(false);
@@ -390,12 +397,10 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
     const showFinalA =
       viewMode === 'final' &&
       Boolean(camAUrl) &&
-      !scene.media.fallback_to_preview &&
       !(camAUrl && failedVideoUrls[camAUrl]);
     const showFinalB =
       viewMode === 'final' &&
       Boolean(camBUrl) &&
-      !scene.media.fallback_to_preview &&
       !(camBUrl && failedVideoUrls[camBUrl]);
 
     const onAir = (cam: 'A' | 'B') =>
@@ -422,6 +427,15 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
               {sceneText.narration}
             </button>
           </div>
+          <button
+            type="button"
+            className={`stage-view-toggle ${worldView ? 'active' : ''}`}
+            aria-pressed={worldView}
+            title={worldView ? 'Back to the clip' : 'Open the 3D world view: drag to orbit, drag a character to move it'}
+            onClick={() => setWorldView((v) => !v)}
+          >
+            {worldView ? 'Clip' : 'World view'}
+          </button>
         </header>
 
         <div className="stage-cams">
@@ -438,6 +452,11 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
                 onError={() => markVideoFailed(camAUrl)}
                 onToggle={handleToggleVideos}
               />
+            )}
+            {!worldView && !showFinalA && (
+              <div className="cam-pending" role="status">
+                <span>{renderingScene ? 'Generating…' : 'Not generated yet'}</span>
+              </div>
             )}
             <div className="cam-caption">
               <span>A</span>
@@ -457,6 +476,11 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
                 onError={() => markVideoFailed(camBUrl)}
                 onToggle={handleToggleVideos}
               />
+            )}
+            {!worldView && !showFinalB && (
+              <div className="cam-pending" role="status">
+                <span>{renderingScene ? 'Generating…' : 'Not generated yet'}</span>
+              </div>
             )}
             <div className="cam-caption">
               <span>B</span>
