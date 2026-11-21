@@ -34,7 +34,8 @@
 3. **中心化配置**：所有模型 ID、重试次数、分辨率、阈值均从 `backend/config.py` 导入，禁止在业务文件里硬编码。
 4. **结构化日志**：所有功能函数与 GenAI 调用均通过 `backend/logger.py`（`log_function_call` / `log_genai_call`）以 `INFO` 级别记录参数、模型、配置与输出，自动剥离 inline 二进制字节。
 5. **文档与注释**：在根目录维护 `Design.md`，每个文件顶部写清功能与用例长注释，每个函数添加 docstring。
-6. **Decisions API → `judge()` 统一抽象**：比赛账号实测 Decisions API 返回 `404`，所有是非打分、选片、受影响幕筛选与矛盾检查必须统一调用 `backend/director/hydrogen_judge.py` 的 `judge()`。
+6. **Decisions API + `judge()` 统一抽象**：Decisions API 走 `v1beta`（`gemini-decision-1`，实测约 0.64 秒/次）已打通！所有是非打分（`noul`）、分类路由（`choice`）、分级选片（`score`）、受影响幕筛选与矛盾检查统一调用 `backend/director/hydrogen_judge.py` 的 `judge()`（自动以 Hydrogen 结构化输出兜底）。
+7. **三层一致性规则**：每一幕 Omni Flash 生成都必须以本幕的 **2.5D Three.js 预览截图/短片 + 锁定角色立牌（`lia.png`/`nyx.png`）+ `config.STYLE_ANCHOR_PROMPT`** 为起点，**禁止用上一幕成片的尾帧当起点**，避免误差逐幕累积。
 
 ## 4. 派活、验收与熔断流程
 

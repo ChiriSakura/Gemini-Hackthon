@@ -13,7 +13,9 @@ Feature & Use Cases:
   - `POST /api/media/render-scene`: Renders a scene (or whole branch) concurrently via Omni Flash + `judge()`.
 """
 
+import base64
 import json
+from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -28,6 +30,7 @@ from backend.director.hydrogen_judge import (
     parse_director_input,
 )
 from backend.director.neon_director import plan_scenes
+from backend.director.rule_memory import add_rule, load_rules
 from backend.director.state_tree import get_branch, list_branches, save_branch
 from backend.logger import log_function_call
 from backend.media.prop_maker import create_prop
@@ -82,6 +85,13 @@ def api_get_branch(branch_id: str) -> BranchState:
     return branch
 
 
+@app.get("/api/director/rules")
+@log_function_call
+def api_get_rules() -> dict:
+    """Return active continuity rules learned from QA repairs."""
+    return {"rules": load_rules()}
+
+
 @app.post("/api/director/fork", response_model=BranchState)
 @log_function_call
 async def api_director_fork(
@@ -89,9 +99,11 @@ async def api_director_fork(
     target_scene_id: int = Form(2),
     text: Optional[str] = Form(None),
     force_ignore_contradiction: bool = Form(False),
+    confirm_contradiction: bool = Form(False),
     clip: Optional[UploadFile] = File(None),
 ) -> BranchState:
     """Fork a story branch from `target_scene_id` using 3s `.webm` gesture+voice clip or text fallback."""
+    ignore_conflict = force_ignore_contradiction or confirm_contradiction
     parent = get_branch(parent_branch_id)
     if not parent:
         raise HTTPException(status_code=404, detail=f"Parent branch {parent_branch_id} not found")
@@ -114,7 +126,7 @@ async def api_director_fork(
         updated_registry[prop_id] = prop_item
 
     prior_scenes = [s for s in parent.scenes if s.scene_id < parsed.target_scene_id]
-    if not force_ignore_contradiction and prior_scenes:
+    if not ignore_conflict and prior_scenes:
         has_conflict, reason = await check_contradiction(parsed.instruction, prior_scenes)
         if has_conflict:
             return BranchState(
@@ -133,13 +145,33 @@ async def api_director_fork(
         base_scenes=parent.scenes,
         parent_branch_id=parent.branch_id,
         props_registry=updated_registry,
+        learned_rules=load_rules(),
     )
-    affected_ids = await filter_affected_scenes(parsed.instruction, new_scenes, parsed.target_scene_id)
+    old_by_id = {s.scene_id: s for s in parent.scenes}
+    affected_ids = set(await filter_affected_scenes(parsed.instruction, parent.scenes, parsed.target_scene_id))
+    final_scenes: list[Scene] = []
     for scene in new_scenes:
-        if scene.scene_id >= parsed.target_scene_id:
-            scene.needs_rerender = scene.scene_id in affected_ids
-            if not scene.needs_rerender:
-                scene.reused_from_branch = parent.branch_id
+        old_s = old_by_id.get(scene.scene_id)
+        if scene.scene_id < parsed.target_scene_id:
+            final_scenes.append(scene)
+            continue
+        state_changed = (
+            old_s is None
+            or old_s.lighting != scene.lighting
+            or [(p.id, p.state, p.on_floor) for p in old_s.stage_props]
+            != [(p.id, p.state, p.on_floor) for p in scene.stage_props]
+            or [(a.id, a.action, a.holding_prop) for a in old_s.actors]
+            != [(a.id, a.action, a.holding_prop) for a in scene.actors]
+        )
+        if scene.scene_id in affected_ids or state_changed:
+            scene.needs_rerender = True
+            scene.reused_from_branch = None
+            final_scenes.append(scene)
+        else:
+            reused = old_s.model_copy(deep=True)
+            reused.needs_rerender = False
+            reused.reused_from_branch = parent.branch_id
+            final_scenes.append(reused)
 
     new_branch_id = f"branch_v{len(list_branches()) + 1}"
     new_branch = BranchState(
@@ -149,7 +181,7 @@ async def api_director_fork(
         forked_from_scene=parsed.target_scene_id,
         rewrite_summary=parsed.instruction,
         props_registry=updated_registry,
-        scenes=new_scenes,
+        scenes=final_scenes,
     )
     save_branch(new_branch)
     return new_branch
@@ -173,26 +205,69 @@ async def api_media_create_prop(
     return {"prop_id": prop_id, "image_url": item.image_url, "item": item}
 
 
+def _save_preview_file(branch_id: str, scene_id: int, cam_id: str, upload: Optional[UploadFile], png_b64: Optional[str]) -> Optional[str]:
+    """Persist an uploaded `.webm` preview or PNG data-URI fallback to `config.PREVIEWS_DIR`."""
+    if upload is not None:
+        ext = Path(upload.filename or "").suffix.lower() or ".webm"
+        out_path = config.PREVIEWS_DIR / f"{branch_id}_s{scene_id}_{cam_id}{ext}"
+        out_path.write_bytes(upload.file.read())
+        return f"/assets/previews/{out_path.name}"
+    if png_b64:
+        b64_part = png_b64.split(",")[-1]
+        out_path = config.PREVIEWS_DIR / f"{branch_id}_s{scene_id}_{cam_id}_start.png"
+        out_path.write_bytes(base64.b64decode(b64_part))
+        return f"/assets/previews/{out_path.name}"
+    return None
+
+
 @app.post("/api/media/render-scene")
 @log_function_call
 async def api_media_render_scene(
     branch_id: str = Form("branch_v1"),
     scene_id: Optional[int] = Form(None),
     scene_json: Optional[str] = Form(None),
+    cam_a_preview: Optional[UploadFile] = File(None),
+    cam_b_preview: Optional[UploadFile] = File(None),
+    cam_a_start_png: Optional[str] = Form(None),
+    cam_b_start_png: Optional[str] = Form(None),
 ) -> dict:
-    """Render either a specific `scene_id` or all `needs_rerender=True` scenes in `branch_id`."""
+    """Render either a specific scene (from `scene_id` or `scene_json` + 2.5D previews) or all `needs_rerender` scenes."""
     branch = get_branch(branch_id)
     if not branch:
         raise HTTPException(status_code=404, detail=f"Branch {branch_id} not found")
 
-    if scene_id is not None:
-        target = next((s for s in branch.scenes if s.scene_id == scene_id), None)
-        if not target and scene_json:
-            target = Scene.model_validate_json(scene_json)
+    parsed_scene = Scene.model_validate_json(scene_json) if scene_json else None
+    resolved_scene_id = scene_id if scene_id is not None else (parsed_scene.scene_id if parsed_scene else None)
+
+    if resolved_scene_id is not None:
+        target = next((s for s in branch.scenes if s.scene_id == resolved_scene_id), None)
+        if not target and parsed_scene:
+            target = parsed_scene
+            branch.scenes.append(target)
         if not target:
-            raise HTTPException(status_code=404, detail=f"Scene {scene_id} not found")
-        refs = [str(config.SHARED_ASSETS_DIR / "lia.png"), str(config.SHARED_ASSETS_DIR / "nyx.png")]
-        target.media = await render_scene_media(target, refs, tail_inspector=inspect_tail_frame)
+            raise HTTPException(status_code=404, detail=f"Scene {resolved_scene_id} not found")
+
+        preview_a_url = _save_preview_file(branch_id, target.scene_id, "cam_a", cam_a_preview, cam_a_start_png)
+        preview_b_url = _save_preview_file(branch_id, target.scene_id, "cam_b", cam_b_preview, cam_b_start_png)
+        if preview_a_url:
+            target.media.cam_a_preview_url = preview_a_url
+        if preview_b_url:
+            target.media.cam_b_preview_url = preview_b_url
+
+        refs = [str(config.SHARED_ASSETS_DIR / "lia.png"), str(config.SHARED_ASSETS_DIR / "nyx.png")] + [
+            p.image_url for p in branch.props_registry.values()
+        ]
+        target.media = await render_scene_media(
+            target,
+            refs,
+            cam_a_preview_path=target.media.cam_a_preview_url,
+            cam_b_preview_path=target.media.cam_b_preview_url,
+            tail_inspector=inspect_tail_frame,
+        )
+        if target.media.qa_retries > 0 and target.media.qa_result:
+            for item in target.media.qa_result.items:
+                if not item.passed:
+                    add_rule(f"Scene {target.scene_id} check reminder: {item.question}")
         save_branch(branch)
         return {"scene_id": target.scene_id, "media": target.media, "environment_notes": target.environment_notes}
 

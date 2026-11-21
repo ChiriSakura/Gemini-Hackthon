@@ -1,0 +1,45 @@
+{
+  "worker": "worker-2 (P3)",
+  "branch": "feat/w2-frontend",
+  "pull_main_first": true,
+  "batch_deadline": "14:45",
+  "owned_paths": ["frontend/**", "tasks/status_P3.json"],
+  "parallel_tasks": [
+    {
+      "task_id": "W2-T2A",
+      "priority": "P0",
+      "title": "Live FastAPI end-to-end integration test & preview upload wiring",
+      "details": "Pull main first (includes Vite /assets proxy + Nyx/prop scale fix in ThreeStageManager.ts). Verify live flow: fetch /api/branches -> Hold 3s Cam+Mic or text fork -> instant <1s 3D stage update -> upload 2.5D preview to /api/media/render-scene -> play AI render + Clapperboard QA."
+    },
+    {
+      "task_id": "W2-T2B",
+      "priority": "P0",
+      "title": "Contradiction confirmation bar, fallback badge & Pixel-Art filter toggle",
+      "details": "1) Show inline confirmation prompt with 'Force Rewrite' (confirm_contradiction=true) when BranchState.contradiction_warning is returned. 2) Show '已降级 (2.5D Preview)' badge when media.fallback_to_preview is true. 3) Add a 1-click low-res Pixel-Art upscaled preview toggle in ThreeStageManager."
+    },
+    {
+      "task_id": "W2-T2C",
+      "priority": "P0",
+      "title": "Live Webcam Snapshot Prop button (create-prop UI integration)",
+      "details": "Add a dedicated '📷 举实物造道具' button in DirectControlBar that grabs 1 webcam frame + prop name and posts to POST /api/media/create-prop, then immediately places the new transparent prop onto the Three.js stage and shows it in a Prop Tray."
+    },
+    {
+      "task_id": "W2-T2D",
+      "priority": "P1",
+      "title": "Dual-Camera Sync & Smart Cut toggle + Single-viewport layout polish",
+      "details": "Ensure dual cameras + Clapperboard QA strip + 4-scene Branch Tree + Old/New comparison fit cleanly in one 1280x720 / 1440x900 viewport, and add an optional 'Auto-Cut Cam A/B' playback toggle for the demo."
+    },
+    {
+      "task_id": "W2-T3A",
+      "priority": "P1",
+      "title": "Affected-scene savings pill & Rule Memory badge (non-dashboard)",
+      "details": "On the Branch Tree nodes, show a clean 'Reused (0s)' vs 'Re-rendered' chip so judges visually see prefix preservation & dependency savings without turning the UI into a dashboard."
+    },
+    {
+      "task_id": "W2-T3B",
+      "priority": "P1",
+      "title": "Demo preset quick-fill chips & 1-min video storyboard prep",
+      "details": "Add subtle one-click backup rewrite chips (e.g. '温柔安抚诺克斯保住花瓶') and clean fullscreen stage mode for 16:00 fallback recording."
+    }
+  ]
+}

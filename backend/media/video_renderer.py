@@ -167,6 +167,7 @@ def _build_shot_prompt(
     )
 
     parts = [
+        config.STYLE_ANCHOR_PROMPT,
         f"2.5D anime glass conservatory stage animation. {cam_desc}.",
         f"Action & narration: {scene.narration}",
         f"Lighting: {lighting_desc}.",
@@ -357,17 +358,17 @@ async def render_single_camera_shot(
         if len(local_refs) >= max_refs:
             break
 
-    local_preview = _resolve_asset_to_local_path(preview_path)
-    if local_preview and local_preview.suffix.lower() not in {".mp4", ".webm"}:
-        # Support P3 keyframe-PNG fallback previews as an extra reference image.
-        if local_preview.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"} and len(local_refs) < max_refs:
-            resolved_preview = str(local_preview.resolve())
-            if resolved_preview not in seen_paths:
-                seen_paths.add(resolved_preview)
-                local_refs.append(local_preview)
-        local_preview = None
+    local_preview_any = _resolve_asset_to_local_path(preview_path)
+    local_preview_img: Optional[Path] = None
+    local_preview: Optional[Path] = None
+    if local_preview_any:
+        if local_preview_any.suffix.lower() in {".mp4", ".webm"}:
+            local_preview = local_preview_any
+        elif local_preview_any.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}:
+            local_preview_img = local_preview_any
 
-    uploaded_prev_tail = await _get_or_upload_uri(local_prev_tail, use_cache=False) if local_prev_tail else None
+    start_frame_path = local_preview_img or local_prev_tail
+    uploaded_prev_tail = await _get_or_upload_uri(start_frame_path, use_cache=False) if start_frame_path else None
     uploaded_refs = list(await asyncio.gather(*(_get_or_upload_uri(p, use_cache=True) for p in local_refs)))
     uploaded_preview = await _get_or_upload_uri(local_preview, use_cache=False) if local_preview else None
 
@@ -487,18 +488,16 @@ async def render_branch_scenes(
         str(config.SHARED_ASSETS_DIR / "nyx.png"),
     ] + [p.image_url for p in branch.props_registry.values()]
 
-    scene_by_id = {s.scene_id: s for s in branch.scenes}
     target_scenes = [s for s in branch.scenes if s.needs_rerender]
 
     async def _run_scene(scene: Scene) -> None:
-        prev_scene = scene_by_id.get(scene.scene_id - 1)
-        prev_tail_a = prev_scene.media.cam_a_tail_frame_url if prev_scene else None
-        prev_tail_b = prev_scene.media.cam_b_tail_frame_url if prev_scene else None
+        # Three-layer consistency rule: anchor on each scene's own 2.5D preview,
+        # NEVER chaining from the previous generated clip's tail frame.
         scene.media = await render_scene_media(
             scene,
             ref_images,
-            prev_tail_a=prev_tail_a,
-            prev_tail_b=prev_tail_b,
+            cam_a_preview_path=scene.media.cam_a_preview_url,
+            cam_b_preview_path=scene.media.cam_b_preview_url,
             tail_inspector=tail_inspector,
         )
 

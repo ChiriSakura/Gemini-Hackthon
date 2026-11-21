@@ -3,8 +3,8 @@ Centralized Configuration Module for StageState.
 
 Feature & Use Cases:
 - Single source of truth for all Gemini 4 model identifiers (Neon, Hydrogen,
-  Omni Flash, Image models), shared asset paths, video rendering settings,
-  QA thresholds, and retry limits.
+  Decisions API `gemini-decision-1`, Omni Flash, Image models), shared asset
+  paths, video rendering settings, QA thresholds, and fixed style anchors.
 """
 
 import os
@@ -37,12 +37,13 @@ GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 DEMO_MODE: bool = os.getenv("STAGE_STATE_DEMO_MODE", "false").lower() == "true"
 LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO").upper()
 
-# Centralized Gemini 4 Model Registry (verify exact API model IDs at T0)
+# Centralized Gemini 4 Model Registry (live-verified via client.models.list)
 MODEL_DIRECTOR: str = os.getenv("MODEL_DIRECTOR", "gemini-4-neon")
 MODEL_JUDGE: str = os.getenv("MODEL_JUDGE", "gemini-4-hydrogen")
-MODEL_VIDEO: str = os.getenv("MODEL_VIDEO", "omni-flash")
-MODEL_IMAGE: str = os.getenv("MODEL_IMAGE", "gemini-3.1-flash-image-preview")
-USE_DECISIONS_API: bool = os.getenv("USE_DECISIONS_API", "false").lower() == "true"
+MODEL_DECISION: str = os.getenv("MODEL_DECISION", "models/gemini-decision-1")
+MODEL_VIDEO: str = os.getenv("MODEL_VIDEO", "gemini-omni-flash-preview")
+MODEL_IMAGE: str = os.getenv("MODEL_IMAGE", "gemini-3.1-flash-image")
+USE_DECISIONS_API: bool = os.getenv("USE_DECISIONS_API", "true").lower() == "true"
 
 # Stage & Video Defaults (tuned for 5-hour hackathon live demo speed)
 DEFAULT_SCENE_COUNT: int = int(os.getenv("DEFAULT_SCENE_COUNT", "4"))
@@ -51,7 +52,15 @@ VIDEO_DURATION_SEC: float = float(os.getenv("VIDEO_DURATION_SEC", "4.0"))
 VIDEO_ASPECT_RATIO: str = "16:9"
 DUAL_TAKE_COUNT: int = 2
 
-# Quality Assurance & Auto-Repair Thresholds
+# Consistency Anchor (Layer 3): fixed style text + 2.5D preview start frame (not prev tail frame)
+STYLE_ANCHOR_PROMPT: str = (
+    "2.5D stylized anime rooftop glass conservatory stage, clean cel-shaded lines, "
+    "consistent silver-haired girl Lia in starry dark blue cloak with red umbrella, "
+    "and black cat Nyx with golden moon bell collar, crisp spatial framing."
+)
+
+# Quality Assurance & Decision Thresholds
 QA_PASS_THRESHOLD: float = float(os.getenv("QA_PASS_THRESHOLD", "0.75"))
+DECISION_LOW_CONFIDENCE_THRESHOLD: float = float(os.getenv("DECISION_LOW_CONFIDENCE_THRESHOLD", "0.70"))
 MAX_QA_RETRIES: int = int(os.getenv("MAX_QA_RETRIES", "2"))
 MAX_ACTOR_REFERENCE_IMAGES: int = int(os.getenv("MAX_ACTOR_REFERENCE_IMAGES", "2"))
