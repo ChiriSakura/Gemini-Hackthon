@@ -1,0 +1,33 @@
+{
+  "worker": "worker-2 (P3)",
+  "branch": "feat/w2-frontend",
+  "pull_main_first": true,
+  "batch_deadline": "14:15",
+  "owned_paths": ["frontend/**", "tasks/status_P3.json"],
+  "parallel_tasks": [
+    {
+      "task_id": "W2-T2A",
+      "priority": "P0",
+      "title": "Live FastAPI end-to-end integration test",
+      "details": "Pull main (gets Vite /assets proxy + aligned /api/media/render-scene). Verify live flow: fetch /api/branches -> Hold 3s Cam+Mic or text fork -> instant <1s 3D stage update -> upload 2.5D preview to /api/media/render-scene -> play AI render + Clapperboard QA."
+    },
+    {
+      "task_id": "W2-T2B",
+      "priority": "P0",
+      "title": "Contradiction confirmation bar, fallback badge & Pixel-Art filter toggle",
+      "details": "1) Show inline confirmation prompt with 'Force Rewrite' (confirm_contradiction=true) when BranchState.contradiction_warning is returned. 2) Show '已降级 (2.5D Preview)' badge when media.fallback_to_preview is true. 3) Add a 1-click low-res Pixel-Art upscaled preview toggle in ThreeStageManager."
+    },
+    {
+      "task_id": "W2-T2C",
+      "priority": "P1",
+      "title": "Single-viewport stage-first layout polish (1280x720 / 1440x900)",
+      "details": "Ensure dual cameras + Clapperboard QA strip + 4-scene Branch Tree + Old/New comparison fit cleanly on one laptop screen without dashboard clutter."
+    },
+    {
+      "task_id": "W2-T2D",
+      "priority": "P1",
+      "title": "Demo preset quick-fill & 1-min video storyboard prep",
+      "details": "Add a subtle preset rewrite helper chip (for backup typing during live demo) and prepare clean stage capture layout for 16:00 video recording."
+    }
+  ]
+}

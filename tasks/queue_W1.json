@@ -1,0 +1,33 @@
+{
+  "worker": "worker-1 (P2)",
+  "branch": "feat/w1-media",
+  "pull_main_first": true,
+  "batch_deadline": "14:15",
+  "owned_paths": ["backend/media/**", "backend/assets/**", "tasks/status_P2.json"],
+  "parallel_tasks": [
+    {
+      "task_id": "W1-T2A",
+      "priority": "P0",
+      "title": "Pre-cache Branch 1 (4 scenes BE) real Omni Flash dual-cam clips",
+      "details": "Run render_branch_scenes on shared/mock_branch_1.json (all 4 scenes, 360p 4s) and persist resulting MP4s, tail PNGs, and updated branch_v1.json under backend/assets/ so live demo opens instantly."
+    },
+    {
+      "task_id": "W1-T2B",
+      "priority": "P0",
+      "title": "Wire Decisions API score_clip_alignment() + browser H.264 playback check",
+      "details": "In video_renderer.py, combine noul QA + score_clip_alignment() for Best-of-2 selection; verify generated .mp4 codec plays natively in Chrome <video> tags (remux/transcode with ffmpeg/cv2 only if needed)."
+    },
+    {
+      "task_id": "W1-T2C",
+      "priority": "P1",
+      "title": "Pre-cache Branch 2 (HE twist) fallback + test photo-based create_prop()",
+      "details": "Render Scene 2 & Scene 4 of shared/mock_branch_2.json as cached branch_v2_cached.json fallback, and verify create_prop() with a real camera JPEG/PNG photo input."
+    },
+    {
+      "task_id": "W1-T2D",
+      "priority": "P1",
+      "title": "Benchmark Decisions API multimodal (.mp4 vs tail PNG) latency & accuracy",
+      "details": "Test whether models/gemini-decision-1 accepts .mp4 directly or falls back to Hydrogen/PNG, and log exact latencies into tasks/status_P2.json."
+    }
+  ]
+}
