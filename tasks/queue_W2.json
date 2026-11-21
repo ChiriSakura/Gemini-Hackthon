@@ -2,39 +2,57 @@
   "worker": "worker-2 (P3)",
   "branch": "feat/w2-frontend",
   "pull_main_first": true,
-  "batch_deadline": "16:15",
+  "batch_deadline": "16:25",
   "owned_paths": ["frontend/**", "tasks/status_P3.json"],
-  "note": "Master merged f4afe49 (all W2-T3D..T4B passed!) and already completed all Master-side English fixes you noted (README.md, shared/mock_branch_1/2.json, backend/main.py, backend/director/*.py + prompts.py). Pull main first, then tackle these 5 new Code-Review & T5 Polish tasks.",
+  "note": "Master merged feat/w2-polish (58dd4f3), finished all Master-side English fixes, and exposed GET /api/media/progress/{branch_id} on backend/main.py! Also P2 completed new benchmarks (Dual-Cam Consistency 0.893, 20-Clip Calibration 1.000, Multi-Prop Stress 0.815). Pull main first, then execute these 8 CR + T5 tasks.",
   "parallel_tasks": [
     {
       "task_id": "W2-CR1",
       "priority": "P0",
       "title": "Fix Three.js r170 Actor Facing Flip (`scale.x = -w` Ignored) & Cache-Hit Prop Rescaling",
-      "details": "In `frontend/src/stage/ThreeStageManager.ts`: (1) Three.js r170 `sprite_vert` uses `length(modelMatrix[0].xyz)`, which ignores negative `sprite.scale.x = -w` so Lia and Nyx NEVER flip left/right! Fix actor facing cleanly (e.g., maintain normal + horizontally mirrored `THREE.Texture` via `repeat.x = -1; offset.x = 1` on a cloned texture, or switch actor cards to double-sided `PlaneGeometry` `THREE.Mesh`) so `facing: 'left' | 'right'` visibly flips characters on stage; (2) In `applyPropTexture()`, when `this.textureCache.get(effectiveUrl)` hits cache, it returns early without updating `ent.baseScale = this.fitScaleToBox(img.width, img.height, maxPropW, maxPropH)` — fix it so props transitioning between held (`0.30`) and table (`0.38`) rescale immediately."
+      "details": "In `frontend/src/stage/ThreeStageManager.ts`: (1) Three.js r170 `sprite_vert` uses `length(modelMatrix[0].xyz)` which ignores negative `sprite.scale.x = -w` so Lia and Nyx NEVER flip left/right! Fix actor facing cleanly (e.g., maintain horizontally mirrored cloned `THREE.Texture` with `repeat.x = -1; offset.x = 1` or double-sided `PlaneGeometry` `THREE.Mesh`) so `facing: 'left' | 'right'` visibly flips characters on stage; (2) In `applyPropTexture()`, when `this.textureCache.get(effectiveUrl)` hits cache, it currently returns early without updating `ent.baseScale = this.fitScaleToBox(img.width, img.height, maxPropW, maxPropH)` — fix it so props transitioning between held (`0.30`) and table (`0.38`) rescale immediately."
     },
     {
       "task_id": "W2-CR2",
       "priority": "P0",
       "title": "Fix `handleForceRewrite` Target Stale-State Bug & Send `scene_id` in `createStageProp`",
-      "details": "In `frontend/src/App.tsx`: `handleForceRewrite` calls `handleSubmitFork` without passing `pendingConflict.targetSceneId` and `pendingConflict.parentBranchId`; update `handleSubmitFork` to accept `{ targetSceneIdOverride, parentBranchIdOverride }` and pass `pendingConflict.targetSceneId` / `pendingConflict.parentBranchId` from `handleForceRewrite` so switching scenes/branches before clicking 'Force Rewrite Anyway' always targets the original conflict point. Also in `frontend/src/api/stageClient.ts` & `App.tsx`: include `scene_id` in `createStageProp()` FormData so backend `branch.scenes` stays synced."
+      "details": "In `frontend/src/App.tsx`: `handleForceRewrite` calls `handleSubmitFork` without passing `pendingConflict.targetSceneId` and `pendingConflict.parentBranchId`; update `handleSubmitFork` to accept `{ targetSceneIdOverride, parentBranchIdOverride }` and pass `pendingConflict.targetSceneId` / `pendingConflict.parentBranchId` from `handleForceRewrite` so switching scenes/branches before clicking 'Force Rewrite Anyway' always targets the original conflict point. Also in `frontend/src/api/stageClient.ts` & `App.tsx`: pass `scene_id` in `createStageProp()` FormData so backend `branch.scenes` stays in lockstep."
     },
     {
       "task_id": "W2-CR3",
       "priority": "P0",
-      "title": "Vite Offline Fallback for Static `/assets/actors/*` & `/assets/props/*` + Align Eval Modal Numbers",
-      "details": "In `frontend/vite.config.ts`: add a Vite proxy `bypass(req)` handler on `/assets` so when a local file exists under `frontend/public` (such as `/assets/actors/lia.png`, `/assets/actors/nyx.png`, `/assets/props/crystal_vase.png`, `/assets/props/crystal_vase_broken.png`), Vite serves it directly instead of returning 500 when FastAPI is offline. Also update `frontend/src/components/EvalModal.tsx` planning latency text to `6.90s – 9.65s` matching `eval/stress_report.json`."
+      "title": "Vite Offline `/assets` Bypass + Sync `EvalModal.tsx` with Latest P1 & P2 Benchmarks",
+      "details": "In `frontend/vite.config.ts`: add a `bypass(req)` handler on the `/assets` proxy so static files existing under `frontend/public` (`/assets/actors/*`, `/assets/props/*`) are served locally by Vite when FastAPI is offline instead of returning 500. In `frontend/src/components/EvalModal.tsx`: update planning latency to `6.90s – 9.65s` (matching `eval/stress_report.json`) and add P2's newly verified metrics (`Cross-Cam Consistency: 0.893 (25/28)`, `Decisions Calibration: 1.000 (20/20, TPR=1.0, TNR=1.0)`, `3-Prop Stress: 0.815 in 39.33s`, `decisions_api: 0.93s–1.54s`)."
     },
     {
       "task_id": "W2-T5A",
-      "priority": "P1",
-      "title": "Cam A / Cam B Tag Badges in ClapperboardQA Breakdown",
-      "details": "In `frontend/src/components/ClapperboardQA.tsx`: cleanly render `[CAM A]` and `[CAM B]` badges on QA verification items when prefixed by P2's combined dual-camera QA output (while keeping Clean Mode clutter-free and 100% English)."
+      "priority": "P0",
+      "title": "Wire Live Per-Scene Render Progress Polling (`GET /api/media/progress/{branch_id}`)",
+      "details": "Master just exposed `GET /api/media/progress/{branch_id}` wrapping P2's `get_render_progress()`. Add `fetchRenderProgress(branchId)` in `frontend/src/api/stageClient.ts` and poll it every 1.2s while `Render Branch` is running, showing live per-scene pills (`S1 Reused`, `S2 Rendering...`, `S3 Done 0.89`) cleanly in `App.tsx` / `DualCameraStage.tsx`."
     },
     {
       "task_id": "W2-T5B",
       "priority": "P1",
-      "title": "Final Pre-Pitch Visual Verification & `tsc && vite build` Check",
-      "details": "After fixing CR1..CR3 + T5A, verify `npx tsc --noEmit && npm run build`, confirm 0 CJK UI strings, confirm actor flip (`left` vs `right`) & held/table prop rescaling both work in 2.5D stage, and record checks in `tasks/status_P3.json`."
+      "title": "Render `[CAM A]` / `[CAM B]` Badges on ClapperboardQA Verification Items",
+      "details": "In `frontend/src/components/ClapperboardQA.tsx`: parse optional `[CAM A]` / `[CAM B]` prefixes (from P2's `W1-CR2` combined dual-cam QA) and display clean mini camera badges on each check row without adding clutter in Clean Capture Mode."
+    },
+    {
+      "task_id": "W2-T5C",
+      "priority": "P1",
+      "title": "3s Director Recording Countdown Meter & Prop Photo Preview in DirectControlBar",
+      "details": "In `frontend/src/components/DirectControlBar.tsx`: add a smooth `3.0s -> 0.0s` visual countdown/progress bar during `Hold to Direct (3s Cam+Mic)` recording so live presenters time voice + prop gestures cleanly, plus show a crisp mini thumbnail of the captured prop snapshot before submission."
+    },
+    {
+      "task_id": "W2-T5D",
+      "priority": "P1",
+      "title": "Flexible Side-by-Side Branch Selector in Comparison Mode",
+      "details": "In `frontend/src/components/DualCameraStage.tsx` / `App.tsx`: when Side-by-Side Comparison is active and >2 branches exist (e.g., `branch_v1` BE, `branch_v2` HE, `branch_v3_starlight_cached`, plus live forked branches), let the presenter pick which baseline/branch appears in the left comparison slot."
+    },
+    {
+      "task_id": "W2-T5E",
+      "priority": "P0",
+      "title": "Pre-Pitch Browser Readiness Audit & Clean `tsc && vite build` Check",
+      "details": "After implementing CR1..CR3 + T5A..T5D, run `npx tsc --noEmit && npm run build`, confirm zero CJK UI strings across all components, verify actor left/right facing flip, held-vs-table prop scaling, live progress polling, and record verification summary in `tasks/status_P3.json`."
     }
   ]
 }

@@ -48,12 +48,55 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
 }) => {
   const canvasARef = useRef<HTMLCanvasElement | null>(null);
   const canvasBRef = useRef<HTMLCanvasElement | null>(null);
+  const videoARef = useRef<HTMLVideoElement | null>(null);
+  const videoBRef = useRef<HTMLVideoElement | null>(null);
+  const compareOldVideoRef = useRef<HTMLVideoElement | null>(null);
+  const compareNewVideoRef = useRef<HTMLVideoElement | null>(null);
   const managerRef = useRef<ThreeStageManager | null>(null);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [autoCutEnabled, setAutoCutEnabled] = useState(false);
   const [activeCutCam, setActiveCutCam] = useState<'A' | 'B'>('A');
   const [soundEnabled, setSoundEnabled] = useState(false);
+  const [failedVideoUrls, setFailedVideoUrls] = useState<Record<string, boolean>>({});
+  const [renderElapsedSec, setRenderElapsedSec] = useState(0);
+
+  const markVideoFailed = (url: string) => {
+    setFailedVideoUrls((prev) => (prev[url] ? prev : { ...prev, [url]: true }));
+  };
+
+  useEffect(() => {
+    if (!renderingScene) {
+      setRenderElapsedSec(0);
+      return;
+    }
+    const startedAt = Date.now();
+    const timer = window.setInterval(() => {
+      setRenderElapsedSec(Math.floor((Date.now() - startedAt) / 1000));
+    }, 500);
+    return () => window.clearInterval(timer);
+  }, [renderingScene]);
+
+  const handleSyncReplay = () => {
+    const videos = [
+      videoARef.current,
+      videoBRef.current,
+      compareOldVideoRef.current,
+      compareNewVideoRef.current,
+    ];
+    for (const vid of videos) {
+      if (!vid) continue;
+      try {
+        vid.currentTime = 0;
+        const p = vid.play();
+        if (p && typeof p.catch === 'function') {
+          p.catch(() => {});
+        }
+      } catch {
+        // Ignore playback errors from unmounted/unready videos
+      }
+    }
+  };
 
   useEffect(() => {
     if (!autoCutEnabled) return;
@@ -118,18 +161,33 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
     }
   };
 
+  const camAUrl = scene?.media.cam_a_final_url ?? null;
+  const camBUrl = scene?.media.cam_b_final_url ?? null;
+  const compareCamAUrl = compareScene?.media.cam_a_final_url ?? null;
+
   const showFinalA =
     viewMode === 'final' &&
-    Boolean(scene?.media.cam_a_final_url) &&
-    !scene?.media.fallback_to_preview;
+    Boolean(camAUrl) &&
+    !scene?.media.fallback_to_preview &&
+    !(camAUrl && failedVideoUrls[camAUrl]);
   const showFinalB =
     viewMode === 'final' &&
-    Boolean(scene?.media.cam_b_final_url) &&
-    !scene?.media.fallback_to_preview;
+    Boolean(camBUrl) &&
+    !scene?.media.fallback_to_preview &&
+    !(camBUrl && failedVideoUrls[camBUrl]);
 
-  const isDegraded =
+  const isDegradedA = viewMode === 'final' && !showFinalA;
+  const isDegradedB = viewMode === 'final' && !showFinalB;
+  const hasAnyLiveVideo = showFinalA || showFinalB;
+
+  const showCompareOldVideo =
     viewMode === 'final' &&
-    (scene?.media.fallback_to_preview || !scene?.media.cam_a_final_url);
+    Boolean(compareCamAUrl) &&
+    !(compareCamAUrl && failedVideoUrls[compareCamAUrl]);
+  const showCompareNewVideo =
+    viewMode === 'final' &&
+    Boolean(camAUrl) &&
+    !(camAUrl && failedVideoUrls[camAUrl]);
 
   const shortEnvNotes =
     (scene.environment_notes || 'clean_stage').length > 44
@@ -185,6 +243,16 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
               {soundEnabled ? '🔊 Sound On' : '🔇 Muted'}
             </button>
           )}
+          {hasAnyLiveVideo && (
+            <button
+              type="button"
+              className="pill-btn blue"
+              onClick={handleSyncReplay}
+              title="Reset and sync playback across Cam A, Cam B & branch comparison"
+            >
+              🔄 Sync Replay
+            </button>
+          )}
           {!cleanCaptureMode && (
             <>
               <button
@@ -202,7 +270,9 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
                   onClick={() => handleExportPreview(true)}
                   disabled={exporting || renderingScene}
                 >
-                  {renderingScene ? '⏳ Rendering…' : '✨ Render Scene'}
+                  {renderingScene
+                    ? `⏳ Rendering (${renderElapsedSec}s)…`
+                    : '✨ Render Scene'}
                 </button>
               )}
             </>
@@ -237,15 +307,17 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
             ref={canvasARef}
             style={{ display: showFinalA ? 'none' : 'block' }}
           />
-          {showFinalA && scene.media.cam_a_final_url && (
+          {showFinalA && camAUrl && (
             <video
-              key={scene.media.cam_a_final_url}
-              src={scene.media.cam_a_final_url}
+              ref={videoARef}
+              key={camAUrl}
+              src={camAUrl}
               controls
               autoPlay
               loop
               muted={!soundEnabled}
               playsInline
+              onError={() => markVideoFailed(camAUrl)}
             />
           )}
           <div className="cam-badge-top">
@@ -255,7 +327,7 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
             </span>
             {showFinalA ? (
               <span className="cam-tag ai-ready">Omni Flash Render</span>
-            ) : isDegraded ? (
+            ) : isDegradedA ? (
               <span className="cam-tag fallback">Degraded (2.5D Preview)</span>
             ) : (
               <span className="cam-tag">
@@ -284,15 +356,17 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
             ref={canvasBRef}
             style={{ display: showFinalB ? 'none' : 'block' }}
           />
-          {showFinalB && scene.media.cam_b_final_url && (
+          {showFinalB && camBUrl && (
             <video
-              key={scene.media.cam_b_final_url}
-              src={scene.media.cam_b_final_url}
+              ref={videoBRef}
+              key={camBUrl}
+              src={camBUrl}
               controls
               autoPlay
               loop
               muted
               playsInline
+              onError={() => markVideoFailed(camBUrl)}
             />
           )}
           <div className="cam-badge-top">
@@ -302,7 +376,7 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
             </span>
             {showFinalB ? (
               <span className="cam-tag ai-ready">Omni Flash Render</span>
-            ) : isDegraded ? (
+            ) : isDegradedB ? (
               <span className="cam-tag fallback">Degraded (2.5D Preview)</span>
             ) : (
               <span className="cam-tag">Synced World Coordinates</span>
@@ -318,15 +392,17 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
             <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fda4af' }}>
               Baseline: {getBranchLabelEn(compareBranch)} (Scene {compareScene.scene_id})
             </div>
-            {viewMode === 'final' && compareScene.media.cam_a_final_url && (
+            {showCompareOldVideo && compareCamAUrl && (
               <video
-                key={compareScene.media.cam_a_final_url}
-                src={compareScene.media.cam_a_final_url}
+                ref={compareOldVideoRef}
+                key={compareCamAUrl}
+                src={compareCamAUrl}
                 controls
                 autoPlay
                 loop
                 muted
                 playsInline
+                onError={() => markVideoFailed(compareCamAUrl)}
                 style={{ width: '100%', maxHeight: 148, borderRadius: 8, background: '#000' }}
               />
             )}
@@ -343,15 +419,17 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
             <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#6ee7b7' }}>
               Active: {getBranchLabelEn(activeBranch)} (Scene {scene.scene_id})
             </div>
-            {viewMode === 'final' && scene.media.cam_a_final_url && (
+            {showCompareNewVideo && camAUrl && (
               <video
-                key={scene.media.cam_a_final_url}
-                src={scene.media.cam_a_final_url}
+                ref={compareNewVideoRef}
+                key={camAUrl}
+                src={camAUrl}
                 controls
                 autoPlay
                 loop
                 muted
                 playsInline
+                onError={() => markVideoFailed(camAUrl)}
                 style={{ width: '100%', maxHeight: 148, borderRadius: 8, background: '#000' }}
               />
             )}
