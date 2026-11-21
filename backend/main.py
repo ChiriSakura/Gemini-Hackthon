@@ -758,7 +758,28 @@ async def _save_preview_file(
 
 
 # Characters the user dragged on the 3D stage, per (branch, scene), so the next scene is directed from the new spot.
-_USER_MOVED_ACTORS: dict[tuple[str, int], set[str]] = {}
+_USER_MOVED_FILE = config.ASSETS_DIR / "user_moved_actors.json"
+
+
+def _load_user_moved() -> dict[tuple[str, int], set[str]]:
+    try:
+        raw = json.loads(_USER_MOVED_FILE.read_text())
+        return {(b, int(sid)): set(ids) for b, scenes in raw.items() for sid, ids in scenes.items()}
+    except Exception:
+        return {}
+
+
+def _save_user_moved() -> None:
+    raw: dict[str, dict[str, list[str]]] = {}
+    for (branch_id, scene_id), ids in _USER_MOVED_ACTORS.items():
+        raw.setdefault(branch_id, {})[str(scene_id)] = sorted(ids)
+    try:
+        _USER_MOVED_FILE.write_text(json.dumps(raw, indent=2))
+    except Exception:
+        pass
+
+
+_USER_MOVED_ACTORS: dict[tuple[str, int], set[str]] = _load_user_moved()
 
 
 def _describe_stage_spot(grid: list[float]) -> str:
@@ -811,6 +832,7 @@ async def api_director_move_actor(
         _keep_actors_clear_of_table(scene)
         save_branch(branch)
         _USER_MOVED_ACTORS.setdefault((branch_id, scene_id), set()).add(actor_id)
+        _save_user_moved()
         return {"branch_id": branch_id, "scene_id": scene_id, "actor_id": actor_id, "grid": actor.grid}
 
 
