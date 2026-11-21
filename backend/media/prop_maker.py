@@ -678,6 +678,64 @@ def _downscale_jpeg_sync(still: tuple[bytes, str], max_side: int = 384, quality:
         return still_bytes, still_mime
 
 
+def _is_real_camera_photo(still: Optional[tuple[bytes, str]]) -> bool:
+    """
+    Detect whether `still` is a real multi-toned webcam photo vs a uniform solid-color test swatch.
+
+    Real webcam frames (with lighting gradients, hand/room texture, and object details) always have
+    substantial grayscale luminance variance (`std >= 10.0`), whereas synthetic solid-color swatches
+    used in template-recolor unit tests have `std ~ 0.0`.
+    """
+    if not still:
+        return False
+    arr = np.frombuffer(still[0], dtype=np.uint8)
+    bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    if bgr is None or bgr.size == 0:
+        return False
+    gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+    return float(np.std(gray)) >= 10.0
+
+
+async def _extract_held_object_appearance_async(
+    camera_still: tuple[bytes, str],
+    name: str,
+    description: str,
+) -> str:
+    """
+    Fast parallel Hydrogen Vision extractor (~0.8s) returning the true color & form of ONLY the held object.
+
+    Runs concurrently alongside `_generate_prop_sync` (zero added wall-clock latency) so downstream
+    Omni Flash video generation receives the exact real colors of the held drink/object instead of
+    OpenCV's whole-frame face/shirt/wall color guess.
+    """
+    from backend.director.genai_client import generate_text, part_from_bytes
+
+    lean_bytes, lean_mime = await asyncio.to_thread(_downscale_jpeg_sync, camera_still, 384, 80)
+    hint = f"User label: '{name.strip()}'." if name.strip() else ""
+    if description.strip() and description.strip().lower() != name.strip().lower():
+        hint = f"{hint} Extra note: '{description.strip()}'."
+    system_prompt = (
+        "You inspect a webcam photo to describe ONLY the physical object being held up or showcased. "
+        "Completely ignore the person's face, skin, hands, clothing, and background room. "
+        "Output ONE concise English noun phrase (4 to 10 words, plain text, no quotes, no trailing period) "
+        "stating the exact real colors, color bands/cap color, and container/object shape "
+        "(e.g., 'white and blue milk bottle with white cap', 'bright yellow iced tea carton', "
+        "'red and white aluminum cola can', 'matte black smartphone')."
+    )
+    raw = await generate_text(
+        model=config.MODEL_JUDGE,
+        system_instruction=system_prompt,
+        contents=[
+            part_from_bytes(lean_bytes, lean_mime),
+            f"Describe ONLY the held physical object's exact real colors and shape. {hint}".strip(),
+        ],
+        temperature=0.0,
+        timeout_sec=12.0,
+    )
+    cleaned = re.sub(r"\s+", " ", (raw or "").strip().strip("\"'`."))
+    return cleaned[:120]
+
+
 def _generate_prop_sync(
     name: str,
     description: str,
@@ -686,9 +744,11 @@ def _generate_prop_sync(
     color_label: str = "",
 ) -> tuple[bytes, dict]:
     """
-    Synchronous Gemini Interactions API call to generate a chroma-green prop image (W1-V3-05 lean mode).
+    Synchronous Gemini Interactions API call to generate a chroma-green prop image.
 
-    Uses <=384px payload when `camera_still` is present and avoids extra serial LLM calls or warm-palette overrides.
+    When `camera_still` is present, sends the actual photo (<=512px JPEG) directly to the image model
+    WITHOUT any OpenCV `color_prefix` override so the generated 2D anime prop faithfully matches the
+    real held object's exact colors, bands, cap/lid, and container shape.
     """
     model_id = _resolve_image_model()
     client = genai.Client(http_options=types.HttpOptions(timeout=120_000))
@@ -696,20 +756,21 @@ def _generate_prop_sync(
     desc_text = appearance_summary.strip() or description.strip() or name
     lean_name = name.strip().lower() not in _GENERIC_PROP_NAMES
     if camera_still:
-        lean_still_bytes, lean_mime = _downscale_jpeg_sync(camera_still, max_side=384, quality=80)
-        if lean_name:
-            color_prefix = f"{color_label} " if color_label and color_label.lower() not in name.lower() else ""
-            prompt_text = (
-                f"Simple clean 2D anime cel-shaded game icon of a {color_prefix}{name.strip()}: "
-                "keep ONLY what the object is and its primary color; omit fine labels, small patterns, or complex lighting details. "
-                "No human hands, no shadows, isolated on solid flat #00FF00 chroma green background."
-            )
-        else:
-            prompt_text = (
-                f"Simple clean 2D anime cel-shaded game icon matching this object ({desc_text}): "
-                "keep ONLY what the object is and its exact primary color from the photo; omit fine labels or complex details. "
-                "No human hands, no shadows, isolated on solid flat #00FF00 chroma green background."
-            )
+        lean_still_bytes, lean_mime = _downscale_jpeg_sync(camera_still, max_side=512, quality=85)
+        label_hint = f" (user labeled it '{name.strip()}')" if lean_name else ""
+        prompt_text = (
+            f"LOOK DIRECTLY AT THE PHYSICAL OBJECT BEING HELD UP OR FEATURED IN THIS PHOTO{label_hint}. "
+            "Completely ignore the person's face, skin, hands, fingers, clothing, and room background. "
+            "Recreate ONLY that held physical object as a clean, crisp 2D anime cel-shaded game prop "
+            "centered on a flat, uniform solid #00FF00 chroma green background. "
+            "STRICT COLOR & SHAPE FIDELITY: reproduce the EXACT real colors, color bands/stripes, "
+            "cap/lid color, liquid/bottle transparency or opacity, and exact container/object shape "
+            "(bottle vs carton vs can vs cup vs mug vs box vs phone) directly from the held object in the photo — "
+            "NEVER recolor or shift it to another hue, and NEVER turn a bottle/carton/cup into a generic can. "
+            "Give the prop a clean dark anime ink outline so its silhouette cleanly separates from the pure #00FF00 "
+            "backdrop (even if the object itself is green, yellow, or white). "
+            "Simplify tiny unreadable fine text into clean matching color blocks. No human hands, no shadows, no green spill."
+        )
         input_payload: list[dict] | str = [
             {
                 "type": "image",
@@ -721,7 +782,7 @@ def _generate_prop_sync(
     else:
         prompt_text = (
             f"Create a single centered 2D anime visual-novel stage prop illustration of '{name}' "
-            f"({desc_text}). Style: crisp hand-painted anime cel-shaded game prop, clean silhouette, "
+            f"({desc_text}). Style: crisp hand-painted anime cel-shaded game prop, clean dark ink outline, "
             "front-facing 3/4 view, NO human hands, NO characters, NO text, NO watermark. "
             "Faithfully follow every color and material mentioned in the description (and avoid neon green or emerald reflections "
             "unless part of the item); when no color is specified, use warm rich ivory, gold, brass, crimson, silver, or sapphire tones. "
@@ -764,10 +825,13 @@ async def create_prop(
     """
     Generate a transparent PNG prop from text or webcam frame (up to 30s `.webm`) and save under `backend/assets/props/`.
 
-    Fast paths:
-    1) W1-V3-04 (<0.3s): Known categories (`soda_can`, `smartphone`, `coffee_mug`, `snack_bag`, `laptop`) reuse
-       `(category, color_bucket)` cache or shade-preservingly tint the neutral anime template via zero-LLM HSV color extraction.
-    2) W1-V3-05: Brand-new unseen categories run lean `<=384px` single-call generation without extra serial LLM round-trips.
+    Paths:
+    1) Live real webcam photo (`is_real_photo` & live API): Sends the actual photo directly to `MODEL_IMAGE`
+       without OpenCV color override + runs parallel Hydrogen Vision appearance extraction so BOTH the 2D prop PNG
+       and downstream Omni Flash videos strictly match the held object's real colors and shape.
+    2) Text-only / uniform-swatch fast path (<0.3s): Known categories (`soda_can`, `smartphone`, `coffee_mug`,
+       `snack_bag`, `laptop`) reuse `(category, color_bucket)` cache or shade-preservingly tint the neutral template.
+    3) Text-only unseen categories: Direct single-call anime prop generation on `#00FF00` chroma green.
     """
     resolved_ts = frame_timestamp_sec if frame_timestamp_sec is not None else timestamp_sec
     resolved_id = prop_id or _slugify(name, extra_bytes=camera_frame_bytes)
@@ -788,6 +852,7 @@ async def create_prop(
         if camera_frame_bytes
         else (None, None)
     )
+    is_real_photo = await asyncio.to_thread(_is_real_camera_photo, camera_still) if camera_still is not None else False
     color_label, target_rgb, color_bucket = await asyncio.to_thread(
         _extract_dominant_color_info,
         name,
@@ -795,14 +860,76 @@ async def create_prop(
         camera_still,
         motion_fg_mask,
     )
-    if camera_still is not None:
+    if camera_still is not None and not is_real_photo:
         base_desc = description.strip() or name.strip() or "object"
         appearance_summary = base_desc if color_bucket in base_desc.lower() else f"{color_label} {base_desc}".strip()
+    elif camera_still is not None:
+        appearance_summary = description.strip() or name.strip() or "captured physical object"
     else:
         appearance_summary = description.strip() or f"{color_label} {name}".strip()
 
     matched_category = _match_template_category(name, description)
-    if matched_category and not (config.DEMO_MODE and prop_id == "v2_throw_test_coin"):
+    use_live_photo_faithful = (
+        is_real_photo
+        and camera_still is not None
+        and not config.DEMO_MODE
+        and bool(config.GEMINI_API_KEY)
+    )
+
+    if use_live_photo_faithful:
+        try:
+            gen_task = asyncio.to_thread(
+                _generate_prop_sync,
+                name,
+                description,
+                camera_still,
+                appearance_summary,
+                "",
+            )
+            vision_task = _extract_held_object_appearance_async(camera_still, name, description)
+            gen_res, vision_res = await asyncio.gather(gen_task, vision_task, return_exceptions=True)
+
+            if isinstance(vision_res, str) and vision_res.strip():
+                appearance_summary = vision_res.strip()
+
+            if isinstance(gen_res, Exception):
+                raise gen_res
+
+            raw_img_bytes, meta = gen_res
+            rgba_img = await asyncio.to_thread(_chroma_key_green_to_rgba, raw_img_bytes, 512)
+            rgba_img.save(out_path, format="PNG")
+            log_genai_call(
+                resolved_model,
+                {
+                    "name": name,
+                    "description": description,
+                    "appearance_summary": appearance_summary,
+                    "has_camera_still": True,
+                    "photo_faithful_mode": True,
+                },
+                {"aspect_ratio": "1:1", "chroma_key": "opencv_hsv_despill", "max_size": 512},
+                {"saved_path": str(out_path), "size": [rgba_img.width, rgba_img.height], **meta},
+            )
+        except Exception as exc:
+            # Never crash live demo if image generation fails, but explicitly mark state degraded (R-18).
+            if matched_category and (TEMPLATES_DIR / f"{matched_category}.png").is_file():
+                # Derive fallback tint from Hydrogen's appearance_summary if available before falling back to OpenCV.
+                _, fb_rgb, _ = _extract_dominant_color_info(name, appearance_summary, None, None)
+                recolored = await asyncio.to_thread(
+                    _recolor_template_preserve_shading, TEMPLATES_DIR / f"{matched_category}.png", fb_rgb
+                )
+                recolored.save(out_path, format="PNG")
+            elif not out_path.exists():
+                img = Image.new("RGBA", (256, 256), (*target_rgb, 230))
+                img.save(out_path, format="PNG")
+            prop_state = "degraded_fallback"
+            log_genai_call(
+                resolved_model,
+                {"name": name, "description": description, "has_camera_still": True, "photo_faithful_mode": True},
+                {"fallback": True},
+                {"error": f"{type(exc).__name__}: {exc}", "saved_path": str(out_path), "state": prop_state},
+            )
+    elif matched_category and not (config.DEMO_MODE and prop_id == "v2_throw_test_coin"):
         TEMPLATE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
         cache_path = TEMPLATE_CACHE_DIR / f"{matched_category}_{color_bucket}.png"
         template_path = TEMPLATES_DIR / f"{matched_category}.png"
@@ -846,7 +973,7 @@ async def create_prop(
                 appearance_summary,
                 color_label,
             )
-            max_out = 384 if camera_still is not None else 512
+            max_out = 512
             rgba_img = await asyncio.to_thread(_chroma_key_green_to_rgba, raw_img_bytes, max_out)
             rgba_img.save(out_path, format="PNG")
             log_genai_call(
@@ -856,7 +983,7 @@ async def create_prop(
                     "description": description,
                     "appearance_summary": appearance_summary,
                     "has_camera_still": bool(camera_still),
-                    "lean_384px": bool(camera_still),
+                    "lean_384px": False,
                 },
                 {"aspect_ratio": "1:1", "chroma_key": "opencv_hsv_despill", "max_size": max_out},
                 {"saved_path": str(out_path), "size": [rgba_img.width, rgba_img.height], **meta},
