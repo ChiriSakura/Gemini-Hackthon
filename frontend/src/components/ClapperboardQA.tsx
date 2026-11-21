@@ -8,8 +8,15 @@
  *   `GET /api/director/rules` with hover tooltip details.
  * - Displays a compact stage prop tray showing registered transparent props.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import type { PropRegistryItem, Scene } from '../types/schema';
+
+function getPropFallbackEmoji(propId: string): string {
+  if (propId.includes('umbrella')) return '☂️';
+  if (propId.includes('vase')) return '🏺';
+  if (propId.includes('star')) return '⭐';
+  return '✨';
+}
 
 interface ClapperboardQAProps {
   scene: Scene;
@@ -22,6 +29,7 @@ export const ClapperboardQA: React.FC<ClapperboardQAProps> = ({
   rules,
   propsRegistry,
 }) => {
+  const [failedThumbUrls, setFailedThumbUrls] = useState<Record<string, boolean>>({});
   const media = scene.media;
   const qaItems = media.qa_result?.items;
   const scorePct = Math.round((media.qa_score ?? 0) * 100);
@@ -79,14 +87,22 @@ export const ClapperboardQA: React.FC<ClapperboardQAProps> = ({
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                 title={`${item.name} (${item.origin})`}
               >
-                <img
-                  src={item.image_url}
-                  alt={item.name}
-                  style={{ width: 16, height: 16, objectFit: 'contain' }}
-                  onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).style.display = 'none';
-                  }}
-                />
+                {item.image_url && !failedThumbUrls[item.image_url] ? (
+                  <img
+                    src={item.image_url}
+                    alt={item.name}
+                    style={{ width: 16, height: 16, objectFit: 'contain' }}
+                    onError={() => {
+                      setFailedThumbUrls((prev) =>
+                        prev[item.image_url]
+                          ? prev
+                          : { ...prev, [item.image_url]: true },
+                      );
+                    }}
+                  />
+                ) : (
+                  <span aria-hidden="true">{getPropFallbackEmoji(id)}</span>
+                )}
                 {item.name}
               </span>
             ))}

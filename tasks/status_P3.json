@@ -9,8 +9,9 @@
     "W2-T2E: Added dedicated '📷 举实物造道具' webcam snapshot prop capture panel wired to POST /api/media/create-prop + live Stage Prop Tray in ClapperboardQA",
     "W2-T3A: Upgraded StoryBranchTree nodes with crisp 'Reused (0s)' vs 'Re-rendered' badges + wired GET /api/director/rules to display Rule Memory pill ('N rules active') in ClapperboardQA",
     "W2-T3B: Added 'Auto-Cut A/B' 2s smart camera switching toggle in DualCameraStage + automatic crystal_vase_broken.png texture swap with graceful tilted fallback in ThreeStageManager",
-    "W2-T3C: Verified all 8 cached Branch 1 MP4 assets and upgraded side-by-side comparison to support parallel BE vs HE video playback"
+    "W2-T3C: Verified all 8 cached Branch 1 MP4 assets and upgraded side-by-side comparison to support parallel BE vs HE video playback",
+    "T3-Polish: Hardened AI video onError fallback to 2.5D preview, eliminated repeated 404 prop texture fetches, added live render elapsed timer + dual-cam/compare Sync Replay + demo keyboard shortcuts (1-4, V, Shift+C), and split Vite vendor chunks (0 warnings)"
   ],
   "blockers": [],
-  "last_updated": "2026-11-21T12:54:00-05:00"
+  "last_updated": "2026-11-21T13:05:00-05:00"
 }

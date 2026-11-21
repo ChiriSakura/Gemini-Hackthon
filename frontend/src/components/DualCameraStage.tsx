@@ -23,6 +23,7 @@ interface DualCameraStageProps {
   compareEnabled: boolean;
   pixelArtMode: boolean;
   renderingScene: boolean;
+  cleanCaptureMode?: boolean;
   onExportComplete?: (result: PreviewExportResult) => void;
   onRenderScene?: (scene: Scene, preview: PreviewExportResult) => void;
 }
@@ -35,16 +36,39 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
   compareEnabled,
   pixelArtMode,
   renderingScene,
+  cleanCaptureMode = false,
   onExportComplete,
   onRenderScene,
 }) => {
   const canvasARef = useRef<HTMLCanvasElement | null>(null);
   const canvasBRef = useRef<HTMLCanvasElement | null>(null);
+  const videoARef = useRef<HTMLVideoElement | null>(null);
+  const videoBRef = useRef<HTMLVideoElement | null>(null);
+  const compareOldVideoRef = useRef<HTMLVideoElement | null>(null);
+  const compareNewVideoRef = useRef<HTMLVideoElement | null>(null);
   const managerRef = useRef<ThreeStageManager | null>(null);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [autoCutEnabled, setAutoCutEnabled] = useState(false);
   const [activeCutCam, setActiveCutCam] = useState<'A' | 'B'>('A');
+  const [failedVideoUrls, setFailedVideoUrls] = useState<Record<string, boolean>>({});
+  const [renderElapsedSec, setRenderElapsedSec] = useState(0);
+
+  const markVideoFailed = (url: string) => {
+    setFailedVideoUrls((prev) => (prev[url] ? prev : { ...prev, [url]: true }));
+  };
+
+  useEffect(() => {
+    if (!renderingScene) {
+      setRenderElapsedSec(0);
+      return;
+    }
+    const startedAt = Date.now();
+    const timer = window.setInterval(() => {
+      setRenderElapsedSec(Math.floor((Date.now() - startedAt) / 1000));
+    }, 500);
+    return () => window.clearInterval(timer);
+  }, [renderingScene]);
 
   useEffect(() => {
     if (!autoCutEnabled) return;
@@ -53,6 +77,27 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
     }, 2000);
     return () => window.clearInterval(timer);
   }, [autoCutEnabled]);
+
+  const handleSyncReplay = () => {
+    const videos = [
+      videoARef.current,
+      videoBRef.current,
+      compareOldVideoRef.current,
+      compareNewVideoRef.current,
+    ];
+    for (const vid of videos) {
+      if (!vid) continue;
+      try {
+        vid.currentTime = 0;
+        const p = vid.play();
+        if (p && typeof p.catch === 'function') {
+          p.catch(() => {});
+        }
+      } catch {
+        // Ignore playback errors from unmounted/unready videos
+      }
+    }
+  };
 
   const scene: Scene =
     activeBranch.scenes[activeSceneIndex] ?? activeBranch.scenes[0];
@@ -103,18 +148,33 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
     }
   };
 
+  const camAUrl = scene?.media.cam_a_final_url ?? null;
+  const camBUrl = scene?.media.cam_b_final_url ?? null;
+  const compareCamAUrl = compareScene?.media.cam_a_final_url ?? null;
+
   const showFinalA =
     viewMode === 'final' &&
-    Boolean(scene?.media.cam_a_final_url) &&
-    !scene?.media.fallback_to_preview;
+    Boolean(camAUrl) &&
+    !scene?.media.fallback_to_preview &&
+    !(camAUrl && failedVideoUrls[camAUrl]);
   const showFinalB =
     viewMode === 'final' &&
-    Boolean(scene?.media.cam_b_final_url) &&
-    !scene?.media.fallback_to_preview;
+    Boolean(camBUrl) &&
+    !scene?.media.fallback_to_preview &&
+    !(camBUrl && failedVideoUrls[camBUrl]);
 
-  const isDegraded =
+  const isDegradedA = viewMode === 'final' && !showFinalA;
+  const isDegradedB = viewMode === 'final' && !showFinalB;
+  const hasAnyLiveVideo = showFinalA || showFinalB;
+
+  const showCompareOldVideo =
     viewMode === 'final' &&
-    (scene?.media.fallback_to_preview || !scene?.media.cam_a_final_url);
+    Boolean(compareCamAUrl) &&
+    !(compareCamAUrl && failedVideoUrls[compareCamAUrl]);
+  const showCompareNewVideo =
+    viewMode === 'final' &&
+    Boolean(camAUrl) &&
+    !(camAUrl && failedVideoUrls[camAUrl]);
 
   return (
     <section className="stage-theater">
@@ -145,22 +205,36 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
           >
             {autoCutEnabled ? `🎞️ Auto-Cut: CAM ${activeCutCam}` : '🎞️ Auto-Cut A/B'}
           </button>
-          <button
-            type="button"
-            className="pill-btn"
-            onClick={() => handleExportPreview(false)}
-            disabled={exporting || renderingScene}
-          >
-            {exporting ? '⏳ 录制预览中...' : '🎬 导出 4s 双机位预览'}
-          </button>
-          {onRenderScene && (
+          {hasAnyLiveVideo && (
+            <button
+              type="button"
+              className="pill-btn blue"
+              onClick={handleSyncReplay}
+              title="重置并同步播放双机位与新旧对比视频"
+            >
+              🔄 同步重播
+            </button>
+          )}
+          {!cleanCaptureMode && (
+            <button
+              type="button"
+              className="pill-btn"
+              onClick={() => handleExportPreview(false)}
+              disabled={exporting || renderingScene}
+            >
+              {exporting ? '⏳ 录制预览中...' : '🎬 导出 4s 双机位预览'}
+            </button>
+          )}
+          {!cleanCaptureMode && onRenderScene && (
             <button
               type="button"
               className="pill-btn active"
               onClick={() => handleExportPreview(true)}
               disabled={exporting || renderingScene}
             >
-              {renderingScene ? '⏳ Omni Flash 渲染中...' : '✨ 渲染本幕 AI 成片'}
+              {renderingScene
+                ? `⏳ Omni Flash 渲染中 (${renderElapsedSec}s)...`
+                : '✨ 渲染本幕 AI 成片'}
             </button>
           )}
         </div>
@@ -168,7 +242,7 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
 
       <div className="scene-narration">{scene.narration}</div>
 
-      {exportStatus && (
+      {!cleanCaptureMode && exportStatus && (
         <div
           style={{
             fontSize: '0.8rem',
@@ -203,15 +277,17 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
             ref={canvasARef}
             style={{ display: showFinalA ? 'none' : 'block' }}
           />
-          {showFinalA && scene.media.cam_a_final_url && (
+          {showFinalA && camAUrl && (
             <video
-              key={scene.media.cam_a_final_url}
-              src={scene.media.cam_a_final_url}
+              ref={videoARef}
+              key={camAUrl}
+              src={camAUrl}
               controls
               autoPlay
               loop
               muted
               playsInline
+              onError={() => markVideoFailed(camAUrl)}
             />
           )}
           <div className="cam-badge-top">
@@ -221,7 +297,7 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
             </span>
             {showFinalA ? (
               <span className="cam-tag ai-ready">Omni Flash 成片</span>
-            ) : isDegraded ? (
+            ) : isDegradedA ? (
               <span className="cam-tag fallback">已降级 (2.5D Preview)</span>
             ) : (
               <span className="cam-tag">
@@ -250,15 +326,17 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
             ref={canvasBRef}
             style={{ display: showFinalB ? 'none' : 'block' }}
           />
-          {showFinalB && scene.media.cam_b_final_url && (
+          {showFinalB && camBUrl && (
             <video
-              key={scene.media.cam_b_final_url}
-              src={scene.media.cam_b_final_url}
+              ref={videoBRef}
+              key={camBUrl}
+              src={camBUrl}
               controls
               autoPlay
               loop
               muted
               playsInline
+              onError={() => markVideoFailed(camBUrl)}
             />
           )}
           <div className="cam-badge-top">
@@ -268,7 +346,7 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
             </span>
             {showFinalB ? (
               <span className="cam-tag ai-ready">Omni Flash 成片</span>
-            ) : isDegraded ? (
+            ) : isDegradedB ? (
               <span className="cam-tag fallback">已降级 (2.5D Preview)</span>
             ) : (
               <span className="cam-tag">同步世界坐标</span>
@@ -284,15 +362,17 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
             <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fda4af' }}>
               旧分支：{compareBranch.branch_label}（第 {compareScene.scene_id} 幕）
             </div>
-            {viewMode === 'final' && compareScene.media.cam_a_final_url && (
+            {showCompareOldVideo && compareCamAUrl && (
               <video
-                key={compareScene.media.cam_a_final_url}
-                src={compareScene.media.cam_a_final_url}
+                ref={compareOldVideoRef}
+                key={compareCamAUrl}
+                src={compareCamAUrl}
                 controls
                 autoPlay
                 loop
                 muted
                 playsInline
+                onError={() => markVideoFailed(compareCamAUrl)}
                 style={{ width: '100%', maxHeight: 160, borderRadius: 8, background: '#000' }}
               />
             )}
@@ -311,15 +391,17 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
             <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#6ee7b7' }}>
               当前分支：{activeBranch.branch_label}（第 {scene.scene_id} 幕）
             </div>
-            {viewMode === 'final' && scene.media.cam_a_final_url && (
+            {showCompareNewVideo && camAUrl && (
               <video
-                key={scene.media.cam_a_final_url}
-                src={scene.media.cam_a_final_url}
+                ref={compareNewVideoRef}
+                key={camAUrl}
+                src={camAUrl}
                 controls
                 autoPlay
                 loop
                 muted
                 playsInline
+                onError={() => markVideoFailed(camAUrl)}
                 style={{ width: '100%', maxHeight: 160, borderRadius: 8, background: '#000' }}
               />
             )}

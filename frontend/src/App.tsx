@@ -65,6 +65,30 @@ export default function App(): React.ReactElement {
     fetchDirectorRules().then(setRules);
   }, []);
 
+  // Keyboard shortcuts for smooth live demo & 1-minute video capture
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
+      if (e.shiftKey && e.key.toLowerCase() === 'c') {
+        e.preventDefault();
+        setCleanCaptureMode((v) => !v);
+      } else if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (e.key >= '1' && e.key <= '4') {
+          const idx = Number(e.key) - 1;
+          setActiveSceneIndex(idx);
+          setTargetSceneId(idx + 1);
+        } else if (e.key.toLowerCase() === 'v') {
+          setViewMode((m) => (m === 'preview' ? 'final' : 'preview'));
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   const activeBranch = useMemo(
     () => branches.find((b) => b.branch_id === activeBranchId) ?? branches[0],
     [branches, activeBranchId],
@@ -144,6 +168,7 @@ export default function App(): React.ReactElement {
     scene: Scene,
     preview: PreviewExportResult,
   ) => {
+    if (renderingScene) return;
     setRenderingScene(true);
     setStatusNote(`正在上传第 ${scene.scene_id} 幕 2.5D 预览并调用 Omni Flash 双拍渲染...`);
     const result = await requestSceneRender({
@@ -353,6 +378,7 @@ export default function App(): React.ReactElement {
         compareEnabled={compareEnabled}
         pixelArtMode={pixelArtMode}
         renderingScene={renderingScene}
+        cleanCaptureMode={cleanCaptureMode}
         onExportComplete={handleExportComplete}
         onRenderScene={handleRenderScene}
       />
