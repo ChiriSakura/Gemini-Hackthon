@@ -19,16 +19,25 @@ function getPropFallbackEmoji(propId: string): string {
   return '✨';
 }
 
+function parseCameraPrefix(question: string): { cam: 'CAM A' | 'CAM B' | null; text: string } {
+  const match = question.match(/^\s*\[(CAM\s*[AB])\]\s*(.*)$/i);
+  if (!match) return { cam: null, text: question };
+  const normalized = match[1].toUpperCase().replace(/\s+/, ' ') as 'CAM A' | 'CAM B';
+  return { cam: normalized, text: match[2] || question };
+}
+
 interface ClapperboardQAProps {
   scene: Scene;
   rules: string[];
   propsRegistry: Record<string, PropRegistryItem>;
+  cleanCaptureMode?: boolean;
 }
 
 export const ClapperboardQA: React.FC<ClapperboardQAProps> = ({
   scene,
   rules,
   propsRegistry,
+  cleanCaptureMode = false,
 }) => {
   const [failedThumbUrls, setFailedThumbUrls] = useState<Record<string, boolean>>({});
   const media = scene.media;
@@ -65,21 +74,45 @@ export const ClapperboardQA: React.FC<ClapperboardQAProps> = ({
 
       <div className="qa-pills">
         {qaItems && qaItems.length > 0
-          ? qaItems.map((item, idx) => (
-              <span
-                key={idx}
-                className={`qa-pill ${item.passed ? 'pass' : 'fail'}`}
-                title={item.reason ?? item.question}
-              >
-                {item.passed ? '✓' : '✗'} Q{idx + 1} (
-                {Math.round(item.confidence * 100)}%)
-              </span>
-            ))
-          : scene.qa_questions.map((q, idx) => (
-              <span key={idx} className="qa-pill pass" title={q}>
-                ✓ Q{idx + 1}
-              </span>
-            ))}
+          ? qaItems.map((item, idx) => {
+              const parsed = parseCameraPrefix(item.question);
+              return (
+                <span
+                  key={idx}
+                  className={`qa-pill ${item.passed ? 'pass' : 'fail'}`}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                  title={item.reason ? `${parsed.text} — ${item.reason}` : parsed.text}
+                >
+                  {!cleanCaptureMode && parsed.cam && (
+                    <span className={`cam-mini-badge ${parsed.cam === 'CAM A' ? 'cam-a' : 'cam-b'}`}>
+                      {parsed.cam}
+                    </span>
+                  )}
+                  <span>
+                    {item.passed ? '✓' : '✗'} Q{idx + 1} (
+                    {Math.round(item.confidence * 100)}%)
+                  </span>
+                </span>
+              );
+            })
+          : scene.qa_questions.map((q, idx) => {
+              const parsed = parseCameraPrefix(q);
+              return (
+                <span
+                  key={idx}
+                  className="qa-pill pass"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                  title={parsed.text}
+                >
+                  {!cleanCaptureMode && parsed.cam && (
+                    <span className={`cam-mini-badge ${parsed.cam === 'CAM A' ? 'cam-a' : 'cam-b'}`}>
+                      {parsed.cam}
+                    </span>
+                  )}
+                  <span>✓ Q{idx + 1}</span>
+                </span>
+              );
+            })}
       </div>
 
       {propEntries.length > 0 && (

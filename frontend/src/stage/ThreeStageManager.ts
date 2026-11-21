@@ -33,6 +33,8 @@ interface SpriteEntity {
   targetPos: THREE.Vector3;
   action: string;
   facing: string;
+  assetUrl?: string;
+  appliedFlipped?: boolean;
   broken?: boolean;
   currentTextureUrl?: string;
   usingBrokenAsset?: boolean;
@@ -132,6 +134,7 @@ export class ThreeStageManager {
 
   private textureLoader = new THREE.TextureLoader();
   private textureCache = new Map<string, THREE.Texture>();
+  private flippedTextureCache = new Map<string, THREE.Texture>();
   private failedUrls = new Set<string>();
   private fallbackStarTexture: THREE.CanvasTexture | null = null;
   private actorEntities = new Map<string, SpriteEntity>();
@@ -413,6 +416,43 @@ export class ThreeStageManager {
     return tex;
   }
 
+  private syncActorFacingTexture(ent: SpriteEntity): void {
+    const url = ent.assetUrl;
+    if (!url) return;
+    const baseTex = this.textureCache.get(url);
+    if (!baseTex) return;
+
+    const shouldFlip = ent.facing === 'left';
+    if (ent.appliedFlipped === shouldFlip && ent.sprite.material.map) {
+      return;
+    }
+
+    if (!shouldFlip) {
+      ent.sprite.material.map = baseTex;
+      ent.sprite.material.needsUpdate = true;
+      ent.appliedFlipped = false;
+      return;
+    }
+
+    let flippedTex = this.flippedTextureCache.get(url);
+    if (!flippedTex) {
+      flippedTex = baseTex.clone();
+      flippedTex.colorSpace = THREE.SRGBColorSpace;
+      flippedTex.wrapS = THREE.RepeatWrapping;
+      flippedTex.repeat.set(-1, 1);
+      flippedTex.offset.set(1, 0);
+      flippedTex.needsUpdate = true;
+      this.flippedTextureCache.set(url, flippedTex);
+    } else if (baseTex.image && flippedTex.image !== baseTex.image) {
+      flippedTex.image = baseTex.image;
+      flippedTex.needsUpdate = true;
+    }
+
+    ent.sprite.material.map = flippedTex;
+    ent.sprite.material.needsUpdate = true;
+    ent.appliedFlipped = true;
+  }
+
   private fitScaleToBox(imgW: number, imgH: number, maxW: number, maxH: number): [number, number] {
     if (!imgW || !imgH) return [maxW, maxH];
     const ratio = imgW / imgH;
@@ -455,9 +495,17 @@ export class ThreeStageManager {
         const mat = new THREE.SpriteMaterial({
           map: this.loadSpriteTexture(actor.asset_url, undefined, (iw, ih) => {
             const fitted = this.fitScaleToBox(iw, ih, maxW, maxH);
+            const loadedBase = this.textureCache.get(actor.asset_url);
+            const cachedFlip = this.flippedTextureCache.get(actor.asset_url);
+            if (loadedBase?.image && cachedFlip) {
+              cachedFlip.image = loadedBase.image;
+              cachedFlip.needsUpdate = true;
+            }
             if (spriteRef.entity) {
               spriteRef.entity.baseScale = fitted;
               spriteRef.entity.targetPos.y = fitted[1] / 2 + 0.02;
+              spriteRef.entity.appliedFlipped = undefined;
+              this.syncActorFacingTexture(spriteRef.entity);
             }
           }),
           transparent: true,
@@ -489,13 +537,17 @@ export class ThreeStageManager {
           targetPos: new THREE.Vector3(x, y, z),
           action: actor.action,
           facing: actor.facing,
+          assetUrl: actor.asset_url,
         };
         spriteRef.entity = entity;
         this.actorEntities.set(actor.id, entity);
+        this.syncActorFacingTexture(entity);
       } else {
         entity.targetPos.set(x, entity.baseScale[1] / 2 + 0.02, z);
         entity.action = actor.action;
         entity.facing = actor.facing;
+        entity.assetUrl = actor.asset_url;
+        this.syncActorFacingTexture(entity);
       }
       sumPos.add(entity.targetPos);
     }
@@ -565,9 +617,22 @@ export class ThreeStageManager {
           : 0.77 + maxPropH / 2;
 
       let entity = this.propEntities.get(prop.id);
+      const rescalePropToBox = (ent: SpriteEntity, tex?: THREE.Texture | null) => {
+        const img = tex?.image as { width?: number; height?: number } | undefined;
+        const fitted: [number, number] =
+          img?.width && img?.height
+            ? this.fitScaleToBox(img.width, img.height, maxPropW, maxPropH)
+            : [maxPropW, maxPropH];
+        ent.baseScale = fitted;
+        ent.sprite.scale.set(fitted[0], fitted[1], 1);
+      };
+
       const applyPropTexture = (ent: SpriteEntity, targetUrl: string, fallbackUrl: string) => {
         const effectiveUrl = this.failedUrls.has(targetUrl) ? fallbackUrl : targetUrl;
-        if (ent.currentTextureUrl === effectiveUrl) return;
+        if (ent.currentTextureUrl === effectiveUrl) {
+          rescalePropToBox(ent, ent.sprite.material.map);
+          return;
+        }
         ent.currentTextureUrl = effectiveUrl;
         ent.usingBrokenAsset = false;
 
@@ -575,6 +640,7 @@ export class ThreeStageManager {
           const fbTex = this.getFallbackStarTexture();
           ent.sprite.material.map = fbTex;
           ent.sprite.material.needsUpdate = true;
+          rescalePropToBox(ent, fbTex);
           return;
         }
 
@@ -582,6 +648,7 @@ export class ThreeStageManager {
         if (cached) {
           ent.sprite.material.map = cached;
           ent.sprite.material.needsUpdate = true;
+          rescalePropToBox(ent, cached);
           if (effectiveUrl.includes('crystal_vase_broken')) {
             ent.usingBrokenAsset = true;
             ent.sprite.material.opacity = 1.0;
@@ -749,7 +816,7 @@ export class ThreeStageManager {
       ent.sprite.position.lerp(ent.targetPos, lerpFactor);
 
       const [w, h] = ent.baseScale;
-      const flipX = ent.facing === 'left' ? -1 : 1;
+      this.syncActorFacingTexture(ent);
       let scaleY = h;
       let offsetY = Math.sin(elapsed * 2.4 + (id === 'nyx' ? 1.4 : 0)) * 0.03;
 
@@ -765,7 +832,8 @@ export class ThreeStageManager {
       }
 
       ent.sprite.position.y = ent.targetPos.y + offsetY;
-      ent.sprite.scale.set(w * flipX, scaleY, 1);
+      // Keep positive scale.x in Three.js r170 (horizontal flip handled via UV-mirrored texture)
+      ent.sprite.scale.set(w, scaleY, 1);
       if (ent.shadow) {
         ent.shadow.position.x = ent.sprite.position.x;
         ent.shadow.position.z = ent.sprite.position.z;
@@ -939,5 +1007,9 @@ export class ThreeStageManager {
       tex.dispose();
     }
     this.textureCache.clear();
+    for (const tex of this.flippedTextureCache.values()) {
+      tex.dispose();
+    }
+    this.flippedTextureCache.clear();
   }
 }

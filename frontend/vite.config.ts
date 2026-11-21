@@ -1,11 +1,14 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 /**
  * Vite configuration for StageState Frontend.
  *
- * Proxies `/api` requests to the local FastAPI backend (`http://localhost:8000`)
- * during development while serving static assets from `frontend/public`.
+ * Proxies `/api` and dynamic `/assets` requests to the local FastAPI backend
+ * (`http://localhost:8000`) during development, while bypassing proxy for static
+ * files already present under `frontend/public` so offline preview never 500s.
  */
 export default defineConfig({
   plugins: [react()],
@@ -30,6 +33,14 @@ export default defineConfig({
       '/assets': {
         target: 'http://localhost:8000',
         changeOrigin: true,
+        bypass(req) {
+          const reqPath = (req.url || '').split('?')[0];
+          const localFile = path.resolve(__dirname, 'public', reqPath.replace(/^\/+/, ''));
+          if (fs.existsSync(localFile) && fs.statSync(localFile).isFile()) {
+            return req.url;
+          }
+          return undefined;
+        },
       },
       '/shared-assets': {
         target: 'http://localhost:8000',

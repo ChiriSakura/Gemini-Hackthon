@@ -2,69 +2,69 @@
   "worker": "worker-1 (P2)",
   "branch": "feat/w1-media",
   "pull_main_first": true,
-  "batch_deadline": "16:20",
+  "batch_deadline": "16:35",
   "owned_paths": ["backend/media/**", "backend/assets/**", "tasks/status_P2.json"],
-  "note": "Master merged feat/w2-polish (58dd4f3) and exposed GET /api/media/progress/{branch_id} on backend/main.py using your get_render_progress()! P3 also requested translating backend/assets/branches/branch_v1.json & branch_v2_cached.json to English. Pull main first, then execute these 10 parallel/batched tasks.",
+  "note": "Master merged de10347 cleanly (all 10 W1-CR/T3/T4/T5 tasks passed!). Per user request for larger parallel batches (since P2 ships fast), here are 10 new T6 high-impact pitch, caching & robustness tasks. Pull main first, push every 3-4 completed tasks!",
   "parallel_tasks": [
     {
-      "task_id": "W1-CR1",
+      "task_id": "W1-T6A",
       "priority": "P0",
-      "title": "Fix prop_maker.py Slug Collision, Model Alias, and .webm Frame Extraction",
-      "details": "In `backend/media/prop_maker.py`: (1) Add `'gemini-3.1-flash-image': 'gemini-nano-banana-2.1'` to `_IMAGE_MODEL_ALIASES` alongside `gemini-3.1-flash-image-preview`; (2) Fix `_slugify(name)` to include a short deterministic sha1 suffix (`prop_<sha1[:6]>` or `<slug>_<hash4>`) so non-ASCII or similar prop names never overwrite `custom_prop.png`; (3) Support `frame_timestamp_sec: Optional[float] = None` in `create_prop()` and pass it to `_extract_image_from_bytes()`, fixing OpenCV `.webm` capture when `CAP_PROP_FRAME_COUNT <= 0` (use `CAP_PROP_POS_MSEC` when timestamp given or count decoded frames to grab true midpoint instead of frame 0)."
+      "title": "Build 1-Minute Full-Pitch Composite Video (`pitch_demo_reel_1min.mp4`)",
+      "details": "Extend `backend/media/build_demo_reel.py` to generate a polished ~48-56s 16:9 showcase MP4 (`backend/assets/finals/pitch_demo_reel_1min.mp4`, H.264 + muxed AAC audio) with Title Card (5s) -> Branch 1 BE (Scenes 1..4) -> Branch 2 HE Starlight Twist (Scenes 2..4) -> Branch 3 Keepsake Showcase -> Ending Metric Card (0.929 Dual-Cam Consistency, 100% Persistence, 66.7% Rewrite Savings)."
     },
     {
-      "task_id": "W1-CR2",
+      "task_id": "W1-T6B",
       "priority": "P0",
-      "title": "Combine Cam A + Cam B QA Items, Fix Unicode in is_browser_h264 & Clean cache_branch_v1.py",
-      "details": "In `backend/media/video_renderer.py`: (1) In `render_scene_media()`, combine BOTH Cam A (`[CAM A] ...`) and Cam B (`[CAM B] ...`) `JudgeItem`s into `SceneMedia.qa_result` so ClapperboardQA displays dual-camera verification; (2) Use `_open_video_capture_safe(video_path)` inside `is_browser_h264()` so Windows Unicode paths like `Gemini·` never return false negatives. In `backend/media/cache_branch_v1.py`: replace/remove any `prev_tail_a/b` tail-frame chaining and anchor cached renders strictly on each scene's own 2.5D preview start frame (AGENTS.md Rule 3.7)."
+      "title": "Live Judge-Desk Physical Object Benchmark (3 Everyday Objects via `create_prop`)",
+      "details": "Benchmark `create_prop()` on 3 everyday physical desk items (`ceramic coffee mug`, `folded red paper heart`, `brass apartment key`), save under `backend/assets/props/showcase_desk_*.png` with 0 chroma-green spill, and save timing + RGBA quality audit to `backend/assets/eval_live_props_sim.json`."
     },
     {
-      "task_id": "W1-CR3",
+      "task_id": "W1-T6C",
       "priority": "P0",
-      "title": "Translate Cached Branch JSONs to 100% English & Preserve Real Decision-1 Reasons",
-      "details": "Requested by P3 in status_P3.json notes_for_master: update `backend/assets/branches/branch_v1.json` and `backend/assets/branches/branch_v2_cached.json` so `branch_label`, `rewrite_summary`, `props_registry.*.name`, `actors.*.name` (`Lia` / `Nyx`), `title`, and `narration` match the 100% English copy in `shared/mock_branch_1.json` & `mock_branch_2.json`, and ensure all `qa_result.items[].reason` fields contain real `Decision-1 P(true)=...` scores."
+      "title": "Pre-Cache 4th Instant Demo Preset Branch (`branch_v4_umbrella_shield_cached.json`)",
+      "details": "Render Scenes 2..4 of a 100% English branch (`branch_v4_umbrella_shield_cached`) matching the 2nd Demo Preset ('Shield · Umbrella Guard' where Lia uses her crimson umbrella to guard the crystal vase intact cleanly), saving 6 H.264 MP4s + 6 tails + `backend/assets/branches/branch_v4_umbrella_shield_cached.json` (reusing Scene 1 from `branch_v1`)."
     },
     {
-      "task_id": "W1-T3F",
-      "priority": "P0",
-      "title": "5-Prop Diversity Showcase via create_prop() (Chroma-Key & Halo Benchmark)",
-      "details": "Run `create_prop()` on 5 diverse stage props (e.g., origami crane, brass pocket watch, crystal shield, glowing quill, star lantern), save under `backend/assets/props/showcase_*.png`, and verify opaque-pixel green-spill count == 0, tight alpha bounding box, RGBA mode, and average latency in `tasks/status_P2.json`."
-    },
-    {
-      "task_id": "W1-T3G",
-      "priority": "P0",
-      "title": "Pre-cache 3rd Fallback Branch (`branch_v3_starlight_cached.json` with `star_token`)",
-      "details": "Render Scenes 2..4 of a 100% English twist branch (`branch_v3_starlight_cached`) introducing `star_token` in Scene 2 and carrying it cleanly through Scene 4 (reusing Scene 1 from `branch_v1`), saving H.264 MP4s + tail PNGs + `backend/assets/branches/branch_v3_starlight_cached.json`."
-    },
-    {
-      "task_id": "W1-T3H",
+      "task_id": "W1-T6D",
       "priority": "P1",
-      "title": "720p vs 360p Omni Flash Latency & Cost Tradeoff Benchmark",
-      "details": "Render 1 single 4s clip of Scene 4 at `720p` and compare wall-clock latency, file size, and cost ($0.07/s vs $0.02/s) against `360p`. Record comparison in `tasks/status_P2.json` for Q&A defense."
+      "title": "Cross-Branch Consistency Matrix Across All Cached Branches (`eval_branch_matrix.json`)",
+      "details": "Run `models/gemini-decision-1` across all cached branches (`branch_v1`, `branch_v2_cached`, `branch_v3_starlight_cached`, `branch_v4_umbrella_shield_cached`) verifying object permanence, character consistency, and lighting separation; save matrix report to `backend/assets/eval_branch_matrix.json`."
     },
     {
-      "task_id": "W1-T4B",
-      "priority": "P0",
-      "title": "Generate Side-by-Side BE vs HE Demo Comparison Video (`demo_comparison_be_vs_he.mp4`)",
-      "details": "Create `backend/media/build_demo_reel.py` to stitch cached Scene 1..4 H.264 MP4s from `branch_v1` (BE) vs `branch_v2_cached` (HE) side-by-side into `backend/assets/finals/demo_comparison_be_vs_he.mp4` (using Unicode-safe temp-dir OpenCV / ffmpeg H.264 encoding), with crisp English labels (`Scene 1 Shared`, `Branch 1 BE`, `Branch 2 HE`)."
-    },
-    {
-      "task_id": "W1-T4C",
+      "task_id": "W1-T6E",
       "priority": "P1",
-      "title": "Measure Multi-Scene Prop Persistence & PNG Tight-Crop / Halo Audit",
-      "details": "Audit all prop PNGs (`backend/assets/props/*.png`) for tight bottom-flush alpha crop, exact `width/height` aspect ratios, and 0 green halo pixels; measure multi-scene prop persistence across `branch_v3_starlight_cached` via `models/gemini-decision-1` into `backend/assets/eval_prop_persistence.json`."
+      "title": "Multimodal Audio-Mood Verification via `models/gemini-decision-1` (`eval_audio_mood.json`)",
+      "details": "Feed paired cached MP4s (`scene_2_cam_a.mp4` stormy rain/thunder vs `branch_v2_scene_4_cam_a.mp4` warm chimes/snow) into `models/gemini-decision-1` (`v1beta`, native video+audio tokens) testing whether audio mood accurately matches `scene.audio_mood`; save results to `backend/assets/eval_audio_mood.json`."
     },
     {
-      "task_id": "W1-T5A",
+      "task_id": "W1-T6F",
       "priority": "P1",
-      "title": "Full Cached MP4 Audio-Track, Frame-Count & H.264 Codec Audit",
-      "details": "Write a lightweight audit script in `backend/media/` verifying every cached MP4 across `branch_v1`, `branch_v2_cached`, and `branch_v3_starlight_cached` (`640x360`, `24fps`, `~4.0s`, `H.264`, playable `<video>` container + present native audio stream), writing summary stats to `backend/assets/eval_audio_codec.json`."
+      "title": "Automated 3s `.webm` Physical-Prop Frame Extraction Regression Test (`test_webm_prop.py`)",
+      "details": "Create `backend/media/test_webm_prop.py` generating a synthetic 3s `.webm` clip containing a distinct object at `t=1.5s`, run `_extract_image_from_bytes(..., frame_timestamp_sec=1.5)` under Windows Unicode paths, and assert accurate non-frame-0 extraction + JPEG validity."
     },
     {
-      "task_id": "W1-T5B",
+      "task_id": "W1-T6G",
+      "priority": "P1",
+      "title": "Generate High-Resolution Storyboard Contact-Sheet PNG (`showcase_storyboard_strip.png`)",
+      "details": "Create `backend/assets/showcase_storyboard_strip.png` stitching clean BE vs HE tail frames across Scenes 1..4 with crisp typography banners so judges / README / frontend Eval modal have an instant visual comic-strip overview."
+    },
+    {
+      "task_id": "W1-T6H",
+      "priority": "P1",
+      "title": "Cache Reuse & Cost-Savings Quantifier (`eval_cache_savings.json`)",
+      "details": "Write `backend/media/eval_cache_savings.py` measuring exact latency & USD savings of StageState's localized `reused_from_branch` + cached prefix strategy across all 4 branches vs naive full-branch 4-scene regeneration; export `backend/assets/eval_cache_savings.json`."
+    },
+    {
+      "task_id": "W1-T6I",
+      "priority": "P1",
+      "title": "Concurrent `create_prop` + `render_scene_media` Burst Stress Test (`eval_burst_stress.json`)",
+      "details": "Simulate rapid live judge booth usage (`create_prop` followed immediately by `render_scene_media` with asyncio concurrency), verify zero deadlocks, zero temp-file collisions, and save latency/QA output to `backend/assets/eval_burst_stress.json`."
+    },
+    {
+      "task_id": "W1-T6J",
       "priority": "P0",
-      "title": "Extend `test_media_smoke.py` for Progress Endpoint, 0 CJK in Branches, & Full HTTP 200 Checks",
-      "details": "Update `backend/media/test_media_smoke.py` to assert `GET /api/media/progress/branch_v1` returns 200 OK, assert ALL branches in `GET /api/branches` pass HTTP 200 on every `cam_a/b_final_url` and `cam_a/b_tail_frame_url`, and verify zero CJK characters remain in `backend/assets/branches/*.json`."
+      "title": "Master Pre-Freeze Audit Suite (`audit_props` + `audit_audio_codec` + `test_media_smoke`)",
+      "details": "Run all 3 verification scripts cleanly after completing `T6A..T6I`, verify 100% HTTP 200 OK across all branches/MP4s/props, 0 chroma-green spill, 0 CJK in branch JSONs, and update `tasks/status_P2.json`."
     }
   ]
 }
