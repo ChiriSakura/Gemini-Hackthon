@@ -1,17 +1,15 @@
 {
   "agent": "P1_director",
   "branch": "main",
-  "current_milestone": "T1",
-  "status": "implemented_awaiting_env_key_test",
+  "current_milestone": "T2",
+  "status": "t1_all_3_agents_merged_into_main",
   "completed_items": [
-    "google-genai 3.6.1 installed",
-    "backend/director/genai_client.py structured output & media Part helper",
-    "backend/director/hydrogen_judge.py real Gemini 4 Hydrogen judge/parse/contradiction/affected-scene/tail-frame/repair",
-    "backend/director/neon_director.py real Gemini 4 Neon one-shot k..4 replanning",
-    "FastAPI TestClient smoke test passed (/api/health, /api/branches, /api/director/fork)"
+    "Live-verified Decisions API v1beta (models/gemini-decision-1: noul 0.66s-1.58s w/ PNG, choice, score)",
+    "Live-verified Gemini 4 Neon (thinking_level=LOW -> 27s) + Neon schema & affected-scene diff fix",
+    "Reviewed & merged origin/feat/w1-media (P2 prop_maker + dual-take Omni Flash renderer) with 2.5D preview anchoring",
+    "Reviewed & merged origin/feat/w2-frontend (P3 Three.js 2.5D dual-camera stage + Vite build verified)",
+    "Aligned FastAPI /api/director/fork & /api/media/render-scene with frontend FormData and Vite /assets proxy"
   ],
-  "blockers": [
-    "Local .env file with GEMINI_API_KEY needed to verify live Gemini 4 model IDs"
-  ],
-  "last_updated": "2026-11-21T12:30:00-05:00"
+  "blockers": [],
+  "last_updated": "2026-11-21T12:41:00-05:00"
 }
