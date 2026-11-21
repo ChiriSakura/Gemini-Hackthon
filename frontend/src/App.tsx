@@ -874,10 +874,16 @@ export default function App(): React.ReactElement {
       void refreshHealth(isMockMode);
     }
 
-    const isExplicitToss =
-      payload.entryMotion === 'throw_arc' || payload.placement === 'held';
+    // W2-V3-01: ONLY trigger `catch_from_camera` / throw-arc when `entryMotion === 'throw_arc'`.
+    // Default `place` (table/floor) NEVER overwrites Lia's action to `catch_from_camera`.
+    const isExplicitToss = payload.entryMotion === 'throw_arc';
     const onFloor = payload.placement === 'floor';
     const propState: 'held' | 'glowing' = payload.placement === 'held' ? 'held' : 'glowing';
+    const appearanceSummary = (
+      created.appearance_summary ??
+      created.item.appearance_summary ??
+      ''
+    ).trim();
     const propGrid: [number, number] =
       payload.placement === 'table'
         ? [1.08, 1.08]
@@ -895,27 +901,27 @@ export default function App(): React.ReactElement {
             [created.prop_id]: {
               ...created.item,
               state: propState,
+              appearance_summary: appearanceSummary || created.item.appearance_summary,
             },
           },
           scenes: b.scenes.map((s) => {
             if (s.scene_id < currentSceneId) return s;
-            // W2-V2-02/03 (15:06 rule): Only trigger `catch_from_camera` when explicitly
-            // handing/tossing an object to Lia; default table/floor props leave Lia in her normal pose.
-            const nextActors = isExplicitToss
-              ? s.actors.map((a) =>
-                  a.id === 'lia'
-                    ? {
-                        ...a,
-                        holding_prop:
-                          payload.placement === 'held' ? created.prop_id : a.holding_prop,
-                        action:
-                          s.scene_id === currentSceneId
-                            ? ('catch_from_camera' as const)
-                            : a.action,
-                      }
-                    : a,
-                )
-              : s.actors;
+            const nextActors =
+              isExplicitToss || payload.placement === 'held'
+                ? s.actors.map((a) =>
+                    a.id === 'lia'
+                      ? {
+                          ...a,
+                          holding_prop:
+                            payload.placement === 'held' ? created.prop_id : a.holding_prop,
+                          action:
+                            isExplicitToss && s.scene_id === currentSceneId
+                              ? ('catch_from_camera' as const)
+                              : a.action,
+                        }
+                      : a,
+                  )
+                : s.actors;
             const exists = s.stage_props.some((p) => p.id === created.prop_id);
             const resolvedMotion = isExplicitToss ? ('throw_arc' as const) : ('place' as const);
             const nextStageProps =
@@ -944,10 +950,19 @@ export default function App(): React.ReactElement {
                         entry_origin: isExplicitToss ? [1.0, 1.5, 0.8] : null,
                       },
                     ];
+            // W2-V3-02: Append `<prop_id>: <appearance_summary>` to environment_notes for render fidelity
+            let nextEnvNotes = s.environment_notes || '';
+            if (appearanceSummary) {
+              const cue = `${created.prop_id}: ${appearanceSummary}`;
+              if (!nextEnvNotes.includes(cue)) {
+                nextEnvNotes = nextEnvNotes ? `${nextEnvNotes} ${cue}`.trim() : cue;
+              }
+            }
             return {
               ...s,
               actors: nextActors,
               stage_props: nextStageProps,
+              environment_notes: nextEnvNotes,
             };
           }),
         };
@@ -963,18 +978,17 @@ export default function App(): React.ReactElement {
       }, 60);
     }
 
+    const matchedLabel = appearanceSummary || created.item.name;
     setHeardNote((prev) => ({
       heard: prev?.heard ?? null,
       saw: isExplicitToss
-        ? `${created.item.name} (tossed to Lia)`
-        : `${created.item.name} (placed on ${payload.placement})`,
+        ? `${matchedLabel} (tossed to Lia)`
+        : `${matchedLabel} (placed on ${payload.placement})`,
     }));
     setStatusNote(
       created.simulated
         ? `Offline cutout fallback — ${isExplicitToss ? 'tossed' : 'placed'} "${payload.name}" (${payload.placement}) on Scene ${currentSceneId}+.`
-        : isExplicitToss
-          ? `Tossed "${created.item.name}" into the stage — Lia caught it!`
-          : `Placed "${created.item.name}" cleanly on the ${payload.placement}.`,
+        : `Captured prop matched: ${matchedLabel} (${isExplicitToss ? 'tossed to Lia' : `placed on ${payload.placement}`}).`,
     );
 
     // If a story prompt was waiting for this object, continue extending automatically

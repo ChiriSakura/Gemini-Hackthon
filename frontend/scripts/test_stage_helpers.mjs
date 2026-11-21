@@ -238,10 +238,60 @@ try {
   assert.equal(livePerceive.error, null);
   assert.equal(livePerceive.parsed?.target_scene_id, 6);
   assert.equal(livePerceive.parsed?.needs_prop_prompt, true);
+
+  // W2-V3-03: Verify entryMotion='place' vs 'throw_arc' and appearance_summary 0-CJK sanitization
+  let lastPropForm = null;
+  globalThis.fetch = async (_url, init) => {
+    lastPropForm = init?.body;
+    return new Response(
+      JSON.stringify({
+        prop_id: 'yellow_soda_can',
+        image_url: '/assets/props/star_token.png',
+        placement: 'table',
+        entry_motion: 'place',
+        appearance_summary: 'bright yellow cylindrical soda can with red stripe \u9ec4\u8272\u6613\u62c9\u7f50',
+        item: {
+          name: 'Yellow Soda Can',
+          image_url: '/assets/props/star_token.png',
+          state: 'glowing',
+          origin: 'camera_physical',
+          appearance_summary: 'bright yellow cylindrical soda can with red stripe \u9ec4\u8272\u6613\u62c9\u7f50',
+        },
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    );
+  };
+  const placeProp = await client.createStageProp({
+    name: 'Yellow Soda Can',
+    branchId: 'branch_v1',
+    sceneId: 2,
+    placement: 'table',
+    entryMotion: 'place',
+    imageBlob: null,
+  });
+  assert.equal(placeProp.simulated, false);
+  assert.equal(placeProp.entry_motion, 'place');
+  assert.equal(lastPropForm.get('entry_motion'), 'place');
+  assert.equal(
+    placeProp.entry_motion === 'throw_arc',
+    false,
+    'Default place entry_motion must not trigger catch_from_camera',
+  );
+  assert.ok(placeProp.appearance_summary && placeProp.appearance_summary.includes('bright yellow'));
+  assert.equal(
+    CJK_REGEX.test(placeProp.appearance_summary ?? ''),
+    false,
+    'appearance_summary must have 0 CJK leaks',
+  );
+  assert.equal(
+    CJK_REGEX.test(placeProp.item.appearance_summary ?? ''),
+    false,
+    'item.appearance_summary must have 0 CJK leaks',
+  );
 } finally {
   globalThis.fetch = originalFetch;
 }
 
 console.log(
-  '[test-stage-helpers] PASS: soundCue, 4-branch mock invariants (grids/lighting/0-CJK), V2 perceive/extend/throw-arc/fast_live_mode, and stageClient edge cases all passed!',
+  '[test-stage-helpers] PASS: soundCue, 4-branch mock invariants (grids/lighting/0-CJK), V2/V3 perceive/extend/place-vs-throw/appearance_summary/fast_live_mode, and stageClient edge cases all passed!',
 );
