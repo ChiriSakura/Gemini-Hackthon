@@ -33,7 +33,7 @@
 | R-03 | fork 成功但还没渲染时，放的是父分支的旧成片和旧 QA，还挂着 “Omni Flash Render” | 后端 fork 不清 media（`main.py:199-208`）；前端默认 final 视图（`App.tsx:84-86`、`DualCameraStage.tsx:277-281,502-503`） | fork 时把 `needs_rerender` 场景的 `media` 清空；前端 fork 后切到 2.5D 预览 | 已修（后端 `215417f` + 前端 `6bb0954` `hasOwnFinalMedia`） |
 | R-04 | 场记板没有质检结果时也全部打勾 | `ClapperboardQA.tsx:61,98-115` | 没有 `qa_result.items` 时显示灰色 “not judged” | 已修（`6bb0954`） |
 | R-05 | 评测弹窗的数字全是写死的，标题却写 “live verified”，且和仓库报告对不上 | `EvalModal.tsx:19-40,106,150-168`。写 “20/20 (TPR=1, TNR=1)”，`calibration_20_clips.json` 是 0.95 / TPR 0.929；“0.815 · 39.33s” 找不到来源；0.951 是 2 场景的分数 | 改成读报告文件里的值；去掉 “live verified”，标 “offline eval” | 已修（`6bb0954` 动态读报告文件并移除无来源行与角色曲线） |
-| R-06 | 提交用的图表板写死了和数据不符的数字 | `build_submission_assets.py:243-245,131`。“81%→100%” 实际是单拍 80.9%、双拍 87.2%、重拍后 97.9%（47 个镜头，1 个全败）；“noul 100%” 实际 0.95；“14/14 音频” 实际 4 段 | 文字从 JSON 里算出来，或删掉这几行 | 代码已修（`785fb2e` 动态从 JSON 计算，待重生成图表及同步 `build_press_kit.py`） |
+| R-06 | 提交用的图表板写死了和数据不符的数字 | `build_submission_assets.py:243-245,131`。“81%→100%” 实际是单拍 80.9%、双拍 87.2%、重拍后 97.9%（47 个镜头，1 个全败）；“noul 100%” 实际 0.95；“14/14 音频” 实际 4 段 | 文字从 JSON 里算出来，或删掉这几行 | 已修（`785fb2e` 动态计算 + 已重生成 `eval_charts_board.png` & `eval_dashboard_12s.mp4`；待同步 `build_press_kit.py` TTS 口播） |
 | R-07 | baseline 对比不成立 | `eval/stress_test.py:113-146,85-90,33-40`：baseline 和我们问的不是同一组题；只跑 1 次；评的是文字计划不是成片；“1→4 个角色”曲线没意义（代码里只有两个角色的站位）。`eval_cache_savings.py:18-21,85` 是常量算出来的 | 两边用同一组题；标明 plan-level、n=1；删掉角色曲线；省钱数字标 “estimated” | 已修（`stress_test.py` 统一题集 + `README.md` 诚实标注 `plan-level n=1` 与 `estimated`，`W1-FIX-R07` 同步 JSON 标注） |
 | R-08 | `worker_mcp.py` 监听所有网卡的 8000 端口，没有任何验证 | `worker_mcp.py:8,44-50`。同一 Wi-Fi 的人可以让这台电脑上的 agent 执行任意指令 | 现在就关掉，或绑定 `127.0.0.1` | 未修（仍在运行） |
 

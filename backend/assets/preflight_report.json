@@ -1,6 +1,6 @@
 {
   "preflight_passed": true,
-  "elapsed_sec": 1.8,
+  "elapsed_sec": 5.91,
   "api_checks": {
     "health_200": true,
     "branches_200": true,
@@ -42,9 +42,9 @@
     }
   ],
   "mp4_summary": {
-    "total_mp4s": 28,
+    "total_mp4s": 29,
     "all_h264": true,
-    "with_audio_count": 28,
+    "with_audio_count": 29,
     "files": [
       {
         "file": "finals/branch_v2_scene_2_cam_a.mp4",
@@ -201,28 +201,6 @@
         "has_audio": true
       },
       {
-        "file": "finals/branch_v4_scene_3_cam_a.mp4",
-        "bytes": 1645498,
-        "fourcc": "h264",
-        "is_h264": true,
-        "resolution": "640x360",
-        "fps": 24.0,
-        "frames": 96,
-        "duration_sec": 4.0,
-        "has_audio": true
-      },
-      {
-        "file": "finals/branch_v4_scene_3_cam_b.mp4",
-        "bytes": 1690036,
-        "fourcc": "h264",
-        "is_h264": true,
-        "resolution": "640x360",
-        "fps": 24.0,
-        "frames": 96,
-        "duration_sec": 4.0,
-        "has_audio": true
-      },
-      {
         "file": "finals/branch_v4_scene_4_cam_a.mp4",
         "bytes": 1788143,
         "fourcc": "h264",
@@ -245,8 +223,8 @@
         "has_audio": true
       },
       {
-        "file": "finals/scene_1_cam_a.mp4",
-        "bytes": 1567825,
+        "file": "finals/scene_1_cam_a_fb8847.mp4",
+        "bytes": 1558937,
         "fourcc": "h264",
         "is_h264": true,
         "resolution": "640x360",
@@ -256,8 +234,8 @@
         "has_audio": true
       },
       {
-        "file": "finals/scene_1_cam_b.mp4",
-        "bytes": 1498975,
+        "file": "finals/scene_1_cam_b_cb43a1.mp4",
+        "bytes": 1391834,
         "fourcc": "h264",
         "is_h264": true,
         "resolution": "640x360",
@@ -289,8 +267,8 @@
         "has_audio": true
       },
       {
-        "file": "finals/scene_3_cam_a.mp4",
-        "bytes": 1623197,
+        "file": "finals/scene_3_cam_a_34ad67.mp4",
+        "bytes": 1577853,
         "fourcc": "h264",
         "is_h264": true,
         "resolution": "640x360",
@@ -300,8 +278,30 @@
         "has_audio": true
       },
       {
-        "file": "finals/scene_3_cam_b.mp4",
-        "bytes": 1543898,
+        "file": "finals/scene_3_cam_a_fa2651.mp4",
+        "bytes": 1689275,
+        "fourcc": "h264",
+        "is_h264": true,
+        "resolution": "640x360",
+        "fps": 24.0,
+        "frames": 96,
+        "duration_sec": 4.0,
+        "has_audio": true
+      },
+      {
+        "file": "finals/scene_3_cam_b_40c994.mp4",
+        "bytes": 1529751,
+        "fourcc": "h264",
+        "is_h264": true,
+        "resolution": "640x360",
+        "fps": 24.0,
+        "frames": 96,
+        "duration_sec": 4.0,
+        "has_audio": true
+      },
+      {
+        "file": "finals/scene_3_cam_b_958e35.mp4",
+        "bytes": 1562612,
         "fourcc": "h264",
         "is_h264": true,
         "resolution": "640x360",
@@ -334,7 +334,7 @@
       },
       {
         "file": "submission/eval_dashboard_12s.mp4",
-        "bytes": 392707,
+        "bytes": 389747,
         "fourcc": "h264",
         "is_h264": true,
         "resolution": "1280x720",
@@ -352,6 +352,17 @@
         "fps": 24.0,
         "frames": 240,
         "duration_sec": 10.0,
+        "has_audio": true
+      },
+      {
+        "file": "submission/pitch_submission_1min_narrated.mp4",
+        "bytes": 6493474,
+        "fourcc": "h264",
+        "is_h264": true,
+        "resolution": "1280x720",
+        "fps": 24.0,
+        "frames": 1308,
+        "duration_sec": 54.5,
         "has_audio": true
       }
     ]
