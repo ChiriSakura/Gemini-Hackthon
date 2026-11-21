@@ -146,23 +146,74 @@ async def _run_stateless_baseline(num_scenes: int = 4) -> dict[str, Any]:
     }
 
 
+async def _run_actor_scaling_point(num_actors: int) -> dict[str, Any]:
+    """Run one actor-count stress point (1, 2, 3, or 4 actors) on a 4-scene stage."""
+    cast_names = ["lia", "nyx", "owl_keeper", "clockmaker"][:num_actors]
+    prompt = (
+        f"Generate a 4-scene stage drama on a 3x3 grid (coords 0..2) with {num_actors} active actors: {cast_names}.\n"
+        "In Scene 2, crystal_vase breaks (`vase_state='broken'`) and must stay broken in Scenes 3-4.\n"
+        "Strict rule: every character stays in [0..2, 0..2], and only 1 red_umbrella exists."
+    )
+    t0 = time.perf_counter()
+    try:
+        plan = await generate_structured(
+            model=config.MODEL_DIRECTOR,
+            system_instruction="Output strict JSON for _StressPlan.",
+            contents=[prompt],
+            response_schema=_StressPlan,
+            temperature=0.3,
+            thinking_level="LOW",
+        )
+        inv_ok, inv_errs = _hard_invariant_check(plan.scenes, expected_vase="broken")
+        qa = await judge(
+            [
+                f"Are all {num_actors} actors cleanly placed on the 3x3 stage without colliding or spawning duplicates?",
+                "Does crystal_vase stay broken from Scene 2 through Scene 4?",
+            ],
+            context_text=plan.model_dump_json(),
+        )
+        return {
+            "num_actors": num_actors,
+            "cast": cast_names,
+            "invariant_passed": inv_ok,
+            "invariant_errors": inv_errs,
+            "judge_score": qa.overall_score,
+            "judge_all_passed": qa.all_passed,
+            "latency_sec": round(time.perf_counter() - t0, 2),
+        }
+    except Exception as exc:
+        return {
+            "num_actors": num_actors,
+            "cast": cast_names,
+            "invariant_passed": False,
+            "invariant_errors": [str(exc)],
+            "judge_score": 0.0,
+            "judge_all_passed": False,
+            "latency_sec": round(time.perf_counter() - t0, 2),
+        }
+
+
 @log_function_call
 async def run_stress_suite() -> dict[str, Any]:
-    """Run scene-scaling failure curves (2->8) and Stateless Baseline comparison."""
+    """Run scene-scaling (2->8), actor-scaling (1->4), and Stateless Baseline comparison."""
     scene_points = [2, 4, 6, 8]
+    actor_points = [1, 2, 3, 4]
     baseline_task = _run_stateless_baseline(4)
     no_rules_tasks = [_run_scene_scaling_point(n, use_rule_memory=False) for n in scene_points]
     with_rules_tasks = [_run_scene_scaling_point(n, use_rule_memory=True) for n in scene_points]
+    actor_tasks = [_run_actor_scaling_point(a) for a in actor_points]
 
     baseline_res = await baseline_task
     no_rules_res = await asyncio.gather(*no_rules_tasks)
     with_rules_res = await asyncio.gather(*with_rules_tasks)
+    actor_res = await asyncio.gather(*actor_tasks)
 
     report = {
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         "stateless_baseline": baseline_res,
         "scene_scaling_without_rules": no_rules_res,
         "scene_scaling_with_rule_memory": with_rules_res,
+        "actor_scaling": actor_res,
     }
     (EVAL_DIR / "stress_report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -182,7 +233,18 @@ async def run_stress_suite() -> dict[str, Any]:
         )
     lines += [
         "",
-        "## 2. Stateless Baseline vs. StageState (4 Scenes)",
+        "## 2. Actor Count Scaling Curve (1 -> 4 Actors, 4 Scenes)",
+        "| Actors | Cast | `judge()` Score | Invariant | Latency (s) |",
+        "| :---: | :--- | :---: | :---: | :---: |",
+    ]
+    for ar in actor_res:
+        lines.append(
+            f"| {ar['num_actors']} | {', '.join(ar['cast'])} | {ar['judge_score']} "
+            f"| {'PASS' if ar['invariant_passed'] else 'FAIL'} | {ar['latency_sec']} |"
+        )
+    lines += [
+        "",
+        "## 3. Stateless Baseline vs. StageState (4 Scenes)",
         f"- **Stateless Text Chaining Baseline**: `judge_score={baseline_res['judge_score']}`, `all_passed={baseline_res['all_passed']}`",
         f"- **StageState (WorldState + Rule Memory)**: `judge_score={with_rules_res[1]['judge_score']}`, `invariant_passed={with_rules_res[1]['invariant_passed']}`",
     ]
