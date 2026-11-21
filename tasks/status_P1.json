@@ -1,9 +1,17 @@
 {
   "agent": "P1_director",
-  "branch": "feat/p1-director",
-  "current_milestone": "T0",
-  "status": "ready_to_start",
-  "completed_items": [],
-  "blockers": [],
-  "last_updated": "2026-11-21T12:10:00-05:00"
+  "branch": "main",
+  "current_milestone": "T1",
+  "status": "implemented_awaiting_env_key_test",
+  "completed_items": [
+    "google-genai 3.6.1 installed",
+    "backend/director/genai_client.py structured output & media Part helper",
+    "backend/director/hydrogen_judge.py real Gemini 4 Hydrogen judge/parse/contradiction/affected-scene/tail-frame/repair",
+    "backend/director/neon_director.py real Gemini 4 Neon one-shot k..4 replanning",
+    "FastAPI TestClient smoke test passed (/api/health, /api/branches, /api/director/fork)"
+  ],
+  "blockers": [
+    "Local .env file with GEMINI_API_KEY needed to verify live Gemini 4 model IDs"
+  ],
+  "last_updated": "2026-11-21T12:30:00-05:00"
 }
