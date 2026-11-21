@@ -5,31 +5,31 @@
   "batch_deadline": "16:50",
   "feature_freeze": true,
   "owned_paths": ["frontend/**", "tasks/status_P3.json"],
-  "note": "Master merged ad869eb — ALL 5 frontend gates passed 100%! UI features are now cleanly FEATURE-FROZEN for 17:00 pitch stability. Execute only these 4 zero-risk verification & static-package polish tasks (do NOT alter UI components unless a bug fails smoke!).",
+  "note": "Master merged cfee377 (`npm run verify` passed 100%!). However, running `node scripts/smoke_preview.mjs` on Master's Windows Node v24 caught `Error: spawn EINVAL` on line 45 (`spawn('npx.cmd', ...)` without shell fails under Node CVE-2024-27980). Pull main first and knock out these 4 zero-risk script & offline-asset fixes (no UI component edits!).",
   "parallel_tasks": [
     {
-      "task_id": "W2-T11A",
-      "priority": "P1",
-      "title": "Add Combined `npm run verify` Script in `frontend/package.json`",
-      "details": "Add a convenient `verify` npm script in `frontend/package.json` chaining `tsc --noEmit && vite build && node scripts/verify-locale.mjs && node scripts/verify_frontend.mjs && node scripts/test_stage_helpers.mjs` so judges or Master can run all 5 checks with one command."
-    },
-    {
-      "task_id": "W2-T11B",
-      "priority": "P1",
-      "title": "Mirror Key Lightweight Showcase Prop Thumbnails Under `frontend/public/assets/props/` for Offline Fallback",
-      "details": "Verify `star_token.png` exists cleanly under `frontend/public/assets/props/` (alongside `crystal_vase.png` and `crystal_vase_broken.png`) so even without FastAPI running, all 4 branches render 100% real PNGs instead of stars in 2.5D offline mode."
-    },
-    {
-      "task_id": "W2-T11C",
-      "priority": "P1",
-      "title": "Add `vite preview` Offline HTTP 200 Check (`frontend/scripts/smoke_preview.mjs`)",
-      "details": "Write a lightweight Node script spawning `npx vite preview --port 4173` briefly, requesting `http://localhost:4173/` and `/assets/actors/lia.png` + `/assets/props/crystal_vase_broken.png` via `fetch`, asserting HTTP 200 OK, and shutting down cleanly."
-    },
-    {
-      "task_id": "W2-T11D",
+      "task_id": "W2-T12A",
       "priority": "P0",
-      "title": "Run Full `npm run verify` + `smoke_preview.mjs` & Lock Final Readiness in `tasks/status_P3.json`",
-      "details": "Run `npm run verify` and `node scripts/smoke_preview.mjs`, confirm 100% pass, and record `feature_freeze_verified: true` in `tasks/status_P3.json`."
+      "title": "Fix `smoke_preview.mjs` Windows Node v24 `spawn EINVAL` Bug",
+      "details": "In `frontend/scripts/smoke_preview.mjs`: replace `spawn(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['vite', ...])` with `spawn(process.execPath, [path.join(frontendDir, 'node_modules', 'vite', 'bin', 'vite.js'), 'preview', '--host', '127.0.0.1', '--port', String(PORT), '--strictPort'], { cwd: frontendDir, stdio: ['ignore', 'pipe', 'pipe'] })` so it passes cleanly on Windows Node v24, macOS, and Linux without `shell: true`."
+    },
+    {
+      "task_id": "W2-T12B",
+      "priority": "P1",
+      "title": "Ensure `stage_concept_split.png` & Showcase Desk Fallback Coverage Under `frontend/public/assets/`",
+      "details": "Verify `frontend/public/assets/` has all key fallback PNGs (`actors/lia.png`, `actors/nyx.png`, `props/crystal_vase.png`, `props/crystal_vase_broken.png`, `props/star_token.png`, `concept/stage_concept_split.png`) and extend `smoke_preview.mjs` ENDPOINTS to check them all with HTTP 200."
+    },
+    {
+      "task_id": "W2-T12C",
+      "priority": "P1",
+      "title": "Chain `smoke_preview.mjs` Into `npm run verify` in `frontend/package.json`",
+      "details": "Once `W2-T12A` is fixed cross-platform, add `&& node scripts/smoke_preview.mjs` onto `frontend/package.json` `verify` script so one command tests TypeScript, bundle build, 0-CJK locale, disk assets, helper unit tests, and live HTTP 200 preview serving."
+    },
+    {
+      "task_id": "W2-T12D",
+      "priority": "P0",
+      "title": "Re-Verify Full `npm run verify` After Windows Fix & Lock `tasks/status_P3.json`",
+      "details": "Run `npm run verify` cleanly, confirm 0 errors across all 6 checks, and update `tasks/status_P3.json`."
     }
   ]
 }
