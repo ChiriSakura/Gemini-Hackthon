@@ -191,11 +191,11 @@ async function queryDeviceState(
 function devicePill(label: string, state: DeviceState): { className: string; text: string } {
   switch (state) {
     case 'granted':
-      return { className: 'qa-pill pass', text: `✓ ${label} allowed` };
+      return { className: 'qa-pill pass', text: `${label} allowed` };
     case 'denied':
-      return { className: 'qa-pill fail', text: `✗ ${label} blocked` };
+      return { className: 'qa-pill fail', text: `${label} blocked` };
     case 'missing':
-      return { className: 'qa-pill fail', text: `✗ No ${label.toLowerCase()} found` };
+      return { className: 'qa-pill fail', text: `No ${label.toLowerCase()} found` };
     case 'prompt':
       return { className: 'qa-pill', text: `${label}: permission not granted yet` };
     default:
@@ -262,12 +262,12 @@ export const EvalModal: React.FC<EvalModalProps> = ({
   const camPill = devicePill('Cam', camState);
   const apiPill =
     apiLive === null
-      ? { className: 'qa-pill', text: 'API: checking…' }
+      ? { className: 'qa-pill', text: 'Backend: checking…' }
       : apiLive
-        ? { className: 'qa-pill pass', text: '✓ API live (models on)' }
+        ? { className: 'qa-pill pass', text: 'Live generation on' }
         : backendReachable
-          ? { className: 'qa-pill fail', text: '✗ API canned (no model key / demo mode)' }
-          : { className: 'qa-pill fail', text: '✗ API offline (mock data)' };
+          ? { className: 'qa-pill fail', text: 'Live generation off (no model key) · saved runs only' }
+          : { className: 'qa-pill fail', text: 'Backend offline · saved runs only' };
 
   const TAKE_ROWS = [
     { label: 'Single take', passed: takeStats.singleTakePass },
@@ -289,14 +289,14 @@ export const EvalModal: React.FC<EvalModalProps> = ({
         >
           <div>
             <strong style={{ fontSize: '1.02rem' }}>
-              📊 Empirical Benchmark, Cutout Props &amp; BE/HE Reel
+              Empirical Benchmark, Cutout Props &amp; BE/HE Reel
             </strong>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
               Gemini 4 Neon + Hydrogen + Decisions API v1beta + Omni Flash · Offline eval · Nov 21
             </div>
           </div>
           <button type="button" className="pill-btn" onClick={onClose}>
-            ✕ Close
+            Close
           </button>
         </div>
 
@@ -322,7 +322,7 @@ export const EvalModal: React.FC<EvalModalProps> = ({
           <span className={apiPill.className}>{apiPill.text}</span>
           <span className="qa-pill">
             {branchCount} {branchCount === 1 ? 'branch' : 'branches'} loaded
-            {isMockMode ? ' (mock data)' : ''}
+            {isMockMode ? ' (built-in storyboard, no clips)' : ''}
           </span>
         </div>
 
@@ -428,7 +428,7 @@ export const EvalModal: React.FC<EvalModalProps> = ({
                 <span className="bar-val">
                   {row.withRules.toFixed(3)} vs{' '}
                   {row.noRules !== null ? row.noRules.toFixed(3) : '—'}{' '}
-                  {row.withRulesPassed ? '✓' : '⚠ judge fail'}
+                  {row.withRulesPassed ? 'pass' : 'judge fail'}
                 </span>
               </div>
             ))}
@@ -479,7 +479,7 @@ export const EvalModal: React.FC<EvalModalProps> = ({
                       }
                     />
                   ) : (
-                    <span style={{ fontSize: '1.1rem' }}>✨</span>
+                    <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>missing</span>
                   )}
                 </div>
                 <span className="showcase-prop-label">{prop.label}</span>
@@ -499,7 +499,7 @@ export const EvalModal: React.FC<EvalModalProps> = ({
             }}
           >
             <span className="eval-box-title" style={{ margin: 0 }}>
-              🎬 Stitched BE vs. HE Side-by-Side Comparison Reel
+              Stitched BE vs. HE Side-by-Side Comparison Reel
             </span>
             <button
               type="button"
@@ -509,7 +509,7 @@ export const EvalModal: React.FC<EvalModalProps> = ({
                 setReelOpen((v) => !v);
               }}
             >
-              {reelOpen ? 'Hide Reel' : '▶ Watch BE vs. HE Reel'}
+              {reelOpen ? 'Hide Reel' : 'Watch BE vs. HE Reel'}
             </button>
           </div>
           {reelOpen && (
@@ -549,7 +549,7 @@ export const EvalModal: React.FC<EvalModalProps> = ({
             }}
           >
             <span className="eval-box-title" style={{ margin: 0 }}>
-              🎞️ Submission &amp; Storyboard Showcase Gallery
+              Submission &amp; Storyboard Showcase Gallery
             </span>
             <button
               type="button"

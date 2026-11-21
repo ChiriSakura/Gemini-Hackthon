@@ -1,13 +1,16 @@
 /**
- * StageState Root Theater Application (English-First UI).
+ * StageState Root Application.
  *
  * Feature & Use Cases:
- * - Coordinates story branches (`branch_v1` BE vs. forked HE branches), active
- *   scene selection, `▶ Play 1→4` auto-sequence playback, 2.5D Preview vs.
- *   Omni Flash AI Render toggle, Pixel-Art preview, and side-by-side comparison.
- * - Connects 3s Cam+Mic / text director input to `POST /api/director/fork` with
- *   inline contradiction confirmation and physical prop creation to `/api/media/create-prop`.
- * - Hosts a lightweight collapsible `📊 Eval` modal showing real empirical curves.
+ * - First view has three zones: the dual-camera stage, the save tree of scene
+ *   snapshots, and one input dock pinned at the bottom (type, hold to talk,
+ *   show an object). Everything else lives behind a single overflow menu.
+ * - Saved runs (branches generated earlier and kept on disk) are one click away
+ *   on the tree; a live rewrite via `POST /api/director/fork` grows a new
+ *   branch. The header badge says whether live generation is available.
+ * - Honesty signals stay visible in the first view: the header badge, the
+ *   error line with an "Open a saved run" action, the "Heard / Saw" echo, and
+ *   the waiting counter for long backend calls.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -26,7 +29,26 @@ import {
   DirectControlBar,
   type PropPlacement,
 } from './components/DirectControlBar';
-import { DualCameraStage } from './components/DualCameraStage';
+import {
+  DualCameraStage,
+  type DualCameraStageHandle,
+} from './components/DualCameraStage';
+import {
+  IconChart,
+  IconClapper,
+  IconCompare,
+  IconDownload,
+  IconEye,
+  IconGrid,
+  IconHalo,
+  IconHelp,
+  IconLayers,
+  IconMore,
+  IconPlug,
+  IconReset,
+  IconScissors,
+  IconSync,
+} from './components/Icons';
 import { EvalModal } from './components/EvalModal';
 import { StoryBranchTree } from './components/StoryBranchTree';
 import { INITIAL_MOCK_BRANCHES } from './data/mockBranches';
@@ -49,7 +71,8 @@ interface PendingForkInput {
   warning: string;
 }
 
-type ApiStatus = 'checking' | 'live' | 'mock';
+// 'saved' = backend offline or without a model key: saved runs only, no live generation
+type ApiStatus = 'checking' | 'live' | 'saved';
 
 /**
  * Honest wait indicator: shows how long the current backend call has been
@@ -73,8 +96,8 @@ function WaitingBanner({
     return () => window.clearInterval(timer);
   }, [since]);
   return (
-    <div className="pipeline-stepper" role="status" aria-live="polite">
-      <span className="pipeline-step active">
+    <div className="notice wait" role="status">
+      <span>
         {label} — waiting for backend… {elapsedSec}s ({typical})
       </span>
     </div>
@@ -87,6 +110,13 @@ export default function App(): React.ReactElement {
   const [apiStatus, setApiStatus] = useState<ApiStatus>('checking');
   const [backendReachable, setBackendReachable] = useState<boolean | null>(null);
   const [errorNote, setErrorNote] = useState<string | null>(null);
+  const [errorSceneId, setErrorSceneId] = useState<number | null>(null);
+  const [liveBranchIds, setLiveBranchIds] = useState<Set<string>>(() => new Set());
+  const [autoCutEnabled, setAutoCutEnabled] = useState(false);
+  const [diffHaloEnabled, setDiffHaloEnabled] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const stageRef = useRef<DualCameraStageHandle | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const [renderedSceneKeys, setRenderedSceneKeys] = useState<Set<string>>(
     () => new Set(),
   );
@@ -96,7 +126,7 @@ export default function App(): React.ReactElement {
   const [compareBranchId, setCompareBranchId] = useState<string | null>(null);
   const [activeSceneIndex, setActiveSceneIndex] = useState<number>(0);
   const [viewMode, setViewMode] = useState<'preview' | 'final'>('preview');
-  const [compareEnabled, setCompareEnabled] = useState<boolean>(true);
+  const [compareEnabled, setCompareEnabled] = useState<boolean>(false);
   const [pixelArtMode, setPixelArtMode] = useState<boolean>(false);
   const [cleanCaptureMode, setCleanCaptureMode] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
@@ -127,7 +157,7 @@ export default function App(): React.ReactElement {
   const refreshHealth = async (branchesFromMock: boolean) => {
     const health = await fetchHealth();
     setBackendReachable(health.reachable);
-    setApiStatus(health.reachable && health.live && !branchesFromMock ? 'live' : 'mock');
+    setApiStatus(health.reachable && health.live && !branchesFromMock ? 'live' : 'saved');
     return health;
   };
 
@@ -140,7 +170,7 @@ export default function App(): React.ReactElement {
     setBranches(loaded);
     setIsMockMode(fromMock);
     setBackendReachable(health.reachable);
-    setApiStatus(health.reachable && health.live && !fromMock ? 'live' : 'mock');
+    setApiStatus(health.reachable && health.live && !fromMock ? 'live' : 'saved');
     if (loaded.length > 0) {
       setActiveBranchId((curr) =>
         loaded.some((b) => b.branch_id === curr) ? curr : loaded[0].branch_id,
@@ -155,10 +185,10 @@ export default function App(): React.ReactElement {
     if (showFeedback) {
       setStatusNote(
         fromMock
-          ? 'Backend still offline — staying in Mock Mode (canned data).'
+          ? 'Backend still offline — showing saved runs only.'
           : health.live
             ? `Connected to Live FastAPI (${loaded.length} branches loaded)!`
-            : `Backend reachable (${loaded.length} branches) but no model key / demo mode — answers are canned.`,
+            : `Backend reachable (${loaded.length} saved runs) but it has no model key — live generation is off.`,
       );
     }
   };
@@ -276,6 +306,7 @@ export default function App(): React.ReactElement {
       } else if (e.key === 'Escape') {
         setEvalModalOpen(false);
         setShortcutsOpen(false);
+        setMenuOpen(false);
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -301,7 +332,9 @@ export default function App(): React.ReactElement {
     setRenderProgress(null);
     setStatusNote(null);
     setErrorNote(null);
+    setErrorSceneId(null);
     setHeardNote(null);
+    setMenuOpen(false);
     setCompareBranchId(null);
     if (baseBranch) {
       setActiveBranchId(baseBranch.branch_id);
@@ -356,6 +389,7 @@ export default function App(): React.ReactElement {
     if (!newBranch) {
       setStatusNote(null);
       setErrorNote(`Rewrite failed: ${forkError ?? 'unknown error'}. No branch was added.`);
+      setErrorSceneId(effectiveTargetSceneId);
       void refreshHealth(isMockMode);
       return false;
     }
@@ -384,10 +418,14 @@ export default function App(): React.ReactElement {
     }
 
     setBranches((prev) => [...prev, newBranch]);
+    setLiveBranchIds((prev) => {
+      const next = new Set(prev);
+      next.add(newBranch.branch_id);
+      return next;
+    });
     setActiveBranchId(newBranch.branch_id);
     setActiveSceneIndex(Math.max(0, effectiveTargetSceneId - 1));
     setTargetSceneId(effectiveTargetSceneId);
-    setCompareEnabled(true);
     // A fresh fork has no rendered clips of its own yet: show the 2.5D preview
     setViewMode('preview');
     playCompletionChime(soundEnabled);
@@ -442,6 +480,7 @@ export default function App(): React.ReactElement {
       setErrorNote(
         `Render failed: ${renderError ?? 'unknown error'}. Staying on the 2.5D preview.`,
       );
+      setErrorSceneId(scene.scene_id);
       void refreshHealth(isMockMode);
       return;
     }
@@ -492,8 +531,8 @@ export default function App(): React.ReactElement {
       !judge.judged
         ? `Scene ${scene.scene_id} rendered — no QA result returned.`
         : judge.allPassed
-          ? `Scene ${scene.scene_id} rendered — QA passed ${judge.passedCount}/${judge.total} checks (judge ${judge.scorePct}%).`
-          : `Scene ${scene.scene_id} rendered — QA failed ${judge.total - judge.passedCount} of ${judge.total} checks (judge ${judge.scorePct}%).`,
+          ? `Scene ${scene.scene_id} rendered — QA passed.`
+          : `Scene ${scene.scene_id} rendered — QA failed ${judge.total - judge.passedCount} of ${judge.total} checks.`,
     );
   };
 
@@ -515,6 +554,7 @@ export default function App(): React.ReactElement {
     setBusy(null);
     if (!updated) {
       setErrorNote(`Branch render failed: ${renderError ?? 'unknown error'}.`);
+      setErrorSceneId(before.forked_from_scene ?? null);
       void refreshHealth(isMockMode);
       return;
     }
@@ -561,20 +601,44 @@ export default function App(): React.ReactElement {
     );
   };
 
-  // W2-T7C: Non-blocking demo safety escape to cached Starlight branch if live render > 35s
-  const handleSwitchToCachedSafeBranch = () => {
-    const safeBranch =
-      branches.find((b) => b.branch_id === 'branch_v3_starlight_cached') ??
-      branches.find((b) => b.branch_id === 'branch_v2_cached') ??
-      branches.find((b) => b.branch_id !== 'branch_v1') ??
-      branches[0];
-    if (!safeBranch) return;
-    setActiveBranchId(safeBranch.branch_id);
-    setActiveSceneIndex(1);
-    setTargetSceneId(2);
-    setCompareEnabled(true);
-    setViewMode(safeBranch.scenes[1]?.media.cam_a_final_url ? 'final' : 'preview');
-    setStatusNote(`Switched seamlessly to pre-cached "${getBranchLabelEn(safeBranch)}".`);
+  // Explicit escape hatch: open the closest saved run (never switched silently).
+  // Prefers a saved fork at the same scene, then the first saved fork with clips.
+  const handleOpenSavedRun = (preferredSceneId?: number | null) => {
+    const hasClips = (b: BranchState) =>
+      b.scenes.some((s) => hasOwnFinalMedia(s, findParentScene(b, branches, s.scene_id)));
+    const savedForks = branches.filter(
+      (b) =>
+        !liveBranchIds.has(b.branch_id) &&
+        b.branch_id !== activeBranch.branch_id &&
+        Boolean(b.parent_branch_id),
+    );
+    const withClips = savedForks.filter(hasClips);
+    const pool = withClips.length > 0 ? withClips : savedForks;
+    const saved =
+      pool.find((b) => preferredSceneId != null && b.forked_from_scene === preferredSceneId) ??
+      pool[0] ??
+      branches.find((b) => !liveBranchIds.has(b.branch_id) && b.branch_id !== activeBranch.branch_id);
+    if (!saved) {
+      setStatusNote('No saved run is available to open.');
+      return;
+    }
+    const sceneIdx = Math.max(
+      0,
+      Math.min(saved.scenes.length - 1, (saved.forked_from_scene ?? 1) - 1),
+    );
+    const target = saved.scenes[sceneIdx];
+    setIsPlayingStory(false);
+    setActiveBranchId(saved.branch_id);
+    setActiveSceneIndex(sceneIdx);
+    setTargetSceneId(sceneIdx + 1);
+    setViewMode(
+      target && hasOwnFinalMedia(target, findParentScene(saved, branches, target.scene_id))
+        ? 'final'
+        : 'preview',
+    );
+    setErrorNote(null);
+    setErrorSceneId(null);
+    setStatusNote(`Opened saved run "${getBranchLabelEn(saved)}" (Saved, generated earlier).`);
   };
 
   const handleCreateProp = async (opts: {
@@ -664,7 +728,7 @@ export default function App(): React.ReactElement {
 
     setStatusNote(
       created.simulated
-        ? `Placed simulated prop "${opts.name}" (${opts.placement}) across Scenes ${currentSceneId}–4.`
+        ? `Prop generation failed — placed your raw camera snapshot "${opts.name}" (${opts.placement}) on Scenes ${currentSceneId}–4 instead.`
         : `Prop "${opts.name}" (${opts.placement}) generated & synced across Scenes ${currentSceneId}–4!`,
     );
   };
@@ -677,179 +741,204 @@ export default function App(): React.ReactElement {
     );
   };
 
-  return (
-    <div className="app-shell">
-      <header className="top-bar">
-        <div className="brand-group">
-          <span className="brand-title">StageState</span>
-          <span className="brand-subtitle">
-            One-Sentence Dual-Camera 2.5D Stage Director
-          </span>
-          {apiStatus === 'mock' && (
-            <span
-              className="cam-tag fallback"
-              role="status"
-              style={{ fontSize: '0.82rem', fontWeight: 800, letterSpacing: '0.06em' }}
-              title="No model key / backend offline — canned data"
-            >
-              MOCK MODE
-            </span>
-          )}
-          {!cleanCaptureMode && apiStatus === 'checking' && (
-            <span className="cam-tag" style={{ fontSize: '0.7rem' }}>
-              Checking API…
-            </span>
-          )}
-          {!cleanCaptureMode && apiStatus === 'live' && (
-            <span className="cam-tag ai-ready" style={{ fontSize: '0.7rem' }}>
-              Live FastAPI
-            </span>
-          )}
-          {!cleanCaptureMode && apiStatus === 'mock' && (
-            <button
-              type="button"
-              className="pill-btn subtle"
-              style={{ fontSize: '0.7rem', padding: '3px 9px' }}
-              onClick={() => loadBackendState(true)}
-              disabled={reconnectingApi}
-              title="Re-ping FastAPI backend without reloading the page"
-            >
-              {reconnectingApi ? '⏳ Reconnecting…' : '↻ Retry API'}
-            </button>
-          )}
-        </div>
+  // Close the overflow menu when clicking anywhere outside it
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    window.addEventListener('pointerdown', onPointerDown);
+    return () => window.removeEventListener('pointerdown', onPointerDown);
+  }, [menuOpen]);
 
-        <div className="toolbar-actions">
+  const activeParentScene = findParentScene(activeBranch, branches, activeScene.scene_id);
+  const activeOwnsRender = hasOwnFinalMedia(activeScene, activeParentScene);
+  const hasSavedRun = branches.some(
+    (b) => !liveBranchIds.has(b.branch_id) && b.branch_id !== activeBranch.branch_id,
+  );
+
+  const menuItems: Array<
+    | 'sep'
+    | {
+        label: string;
+        icon: React.ReactNode;
+        onSelect: () => void;
+        checked?: boolean;
+        disabled?: boolean;
+        keepOpen?: boolean;
+        hint?: string;
+      }
+  > = [
+    {
+      label: 'Compare before / after',
+      icon: <IconCompare />,
+      checked: compareEnabled,
+      onSelect: () => setCompareEnabled((v) => !v),
+    },
+    {
+      label: 'Auto-cut between cameras',
+      icon: <IconScissors />,
+      checked: autoCutEnabled,
+      onSelect: () => setAutoCutEnabled((v) => !v),
+    },
+    {
+      label: 'Pixel preview',
+      icon: <IconGrid />,
+      checked: pixelArtMode,
+      onSelect: () => setPixelArtMode((v) => !v),
+    },
+    {
+      label: 'Highlight changed actors',
+      icon: <IconHalo />,
+      checked: diffHaloEnabled,
+      onSelect: () => setDiffHaloEnabled((v) => !v),
+    },
+    'sep',
+    {
+      label: 'Render this scene',
+      icon: <IconClapper />,
+      disabled: renderingScene,
+      onSelect: () => void stageRef.current?.exportPreview(true),
+    },
+    {
+      label: 'Render whole branch',
+      icon: <IconLayers />,
+      disabled: renderingScene || isMockMode,
+      onSelect: () => void handleRenderWholeBranch(),
+    },
+    {
+      label: 'Sync replay',
+      icon: <IconSync />,
+      onSelect: () => stageRef.current?.syncReplay(),
+    },
+    {
+      label: 'Export 4s preview',
+      icon: <IconDownload />,
+      disabled: renderingScene,
+      onSelect: () => void stageRef.current?.exportPreview(false),
+    },
+    'sep',
+    {
+      label: 'Eval',
+      icon: <IconChart />,
+      hint: 'E',
+      onSelect: () => setEvalModalOpen(true),
+    },
+    {
+      label: 'Clean view',
+      icon: <IconEye />,
+      checked: cleanCaptureMode,
+      hint: 'C',
+      onSelect: () => setCleanCaptureMode((v) => !v),
+    },
+    {
+      label: 'Reset demo',
+      icon: <IconReset />,
+      hint: 'R',
+      onSelect: handleResetDemo,
+    },
+    {
+      label: reconnectingApi ? 'Reconnecting' : 'Reconnect to backend',
+      icon: <IconPlug />,
+      disabled: reconnectingApi,
+      onSelect: () => void loadBackendState(true),
+    },
+    {
+      label: 'Help',
+      icon: <IconHelp />,
+      hint: '?',
+      onSelect: () => setShortcutsOpen(true),
+    },
+  ];
+
+  return (
+    <div className="app-shell" data-mood={activeScene.lighting}>
+      <header className="topbar">
+        <span className="brand" title="One-sentence dual-camera 2.5D stage director">
+          StageState
+        </span>
+        {apiStatus === 'live' && (
+          <span className="mode-badge live" role="status" title="Models are reachable: rewrites and renders run live">
+            Live
+          </span>
+        )}
+        {apiStatus === 'saved' && (
+          <span
+            className="mode-badge saved"
+            role="status"
+            title={
+              backendReachable
+                ? 'The backend has no model key: saved runs play, new rewrites and renders are unavailable.'
+                : 'The backend is unreachable: showing the built-in storyboard of the saved runs (no clips). New rewrites and renders are unavailable.'
+            }
+          >
+            Saved runs only · live generation off
+          </span>
+        )}
+        {apiStatus === 'checking' && <span className="mode-badge">Checking backend</span>}
+        <span className="topbar-spacer" />
+        <div ref={menuRef}>
           <button
             type="button"
-            className={`pill-btn blue ${viewMode === 'preview' ? 'active' : ''}`}
-            onClick={() => setViewMode('preview')}
+            className={`icon-btn ${menuOpen ? 'on' : ''}`}
+            aria-label="More"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            title="More"
+            onClick={() => {
+              setMenuOpen((v) => !v);
+              setShortcutsOpen(false);
+            }}
           >
-            🎭 2.5D Stage
+            <IconMore size={20} />
           </button>
-          <button
-            type="button"
-            className={`pill-btn blue ${viewMode === 'final' ? 'active' : ''}`}
-            onClick={() => setViewMode('final')}
-          >
-            ✨ AI Render
-          </button>
-          <button
-            type="button"
-            className={`pill-btn ${compareEnabled ? 'active' : ''}`}
-            onClick={() => setCompareEnabled((v) => !v)}
-          >
-            ⚖️ Compare
-          </button>
-          <button
-            type="button"
-            className={`pill-btn subtle ${pixelArtMode ? 'active' : ''}`}
-            onClick={() => setPixelArtMode((v) => !v)}
-          >
-            👾 Pixel
-          </button>
-          <button
-            type="button"
-            className="pill-btn subtle"
-            onClick={() => setEvalModalOpen(true)}
-          >
-            📊 Eval
-          </button>
-          {!cleanCaptureMode && (
-            <div style={{ position: 'relative' }}>
-              <button
-                type="button"
-                className={`pill-btn subtle ${shortcutsOpen ? 'active' : ''}`}
-                onClick={() => setShortcutsOpen((v) => !v)}
-                title="Keyboard shortcuts cheat-sheet (?)"
-                aria-label="Keyboard shortcuts"
-              >
-                ?
-              </button>
-              {shortcutsOpen && (
-                <div className="shortcut-popover" role="dialog" aria-label="Keyboard shortcuts">
-                  <div className="shortcut-title">Stage Presenter Shortcuts</div>
-                  <div className="shortcut-row"><kbd>Space</kbd><span>Play / Stop 1→4</span></div>
-                  <div className="shortcut-row"><kbd>1–4</kbd><span>Jump to Scene</span></div>
-                  <div className="shortcut-row"><kbd>Tab</kbd><span>Toggle 2.5D / AI</span></div>
-                  <div className="shortcut-row"><kbd>E</kbd><span>Toggle Eval Modal</span></div>
-                  <div className="shortcut-row"><kbd>C</kbd><span>Toggle Clean View</span></div>
-                  <div className="shortcut-row"><kbd>R</kbd><span>Reset Booth Demo</span></div>
-                </div>
+          {menuOpen && (
+            <div className="menu" role="menu">
+              {menuItems.map((item, idx) =>
+                item === 'sep' ? (
+                  <div key={idx} className="menu-sep" role="separator" />
+                ) : (
+                  <button
+                    key={item.label}
+                    type="button"
+                    className="menu-item"
+                    role={item.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
+                    aria-checked={item.checked === undefined ? undefined : item.checked}
+                    disabled={item.disabled}
+                    onClick={() => {
+                      item.onSelect();
+                      if (item.checked === undefined) setMenuOpen(false);
+                    }}
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                    <span className="menu-state">
+                      {item.checked === undefined ? (item.hint ?? '') : item.checked ? 'On' : 'Off'}
+                    </span>
+                  </button>
+                ),
               )}
             </div>
           )}
-          {!isMockMode && !cleanCaptureMode && (
-            <button
-              type="button"
-              className="pill-btn subtle"
-              onClick={handleRenderWholeBranch}
-              disabled={renderingScene}
-            >
-              {renderingScene ? '⏳ Rendering…' : '🚀 Render Branch'}
-            </button>
+          {shortcutsOpen && (
+            <div className="help-pop" role="dialog" aria-label="Keyboard shortcuts">
+              <div className="shortcut-title">Keyboard shortcuts</div>
+              <div className="shortcut-row"><kbd>Space</kbd><span>Play / stop scenes 1 to 4</span></div>
+              <div className="shortcut-row"><kbd>1–4</kbd><span>Jump to scene</span></div>
+              <div className="shortcut-row"><kbd>Tab</kbd><span>2.5D preview / film clips</span></div>
+              <div className="shortcut-row"><kbd>E</kbd><span>Eval</span></div>
+              <div className="shortcut-row"><kbd>C</kbd><span>Clean view</span></div>
+              <div className="shortcut-row"><kbd>R</kbd><span>Reset demo</span></div>
+              <div className="shortcut-row"><kbd>Esc</kbd><span>Close</span></div>
+            </div>
           )}
-          <button
-            type="button"
-            className={`pill-btn subtle ${cleanCaptureMode ? 'active' : ''}`}
-            onClick={() => setCleanCaptureMode((v) => !v)}
-          >
-            🎥 Clean View
-          </button>
-          <button
-            type="button"
-            className="pill-btn subtle"
-            onClick={handleResetDemo}
-            title="Reset stage cleanly to branch_v1 Scene 1 for the next judge"
-          >
-            ↺ Reset Demo
-          </button>
         </div>
       </header>
 
-      {busy && <WaitingBanner label={busy.label} typical={busy.typical} since={busy.since} />}
-
-      {heardNote && (heardNote.heard || heardNote.saw) && (
-        <div className="status-banner blue" role="status">
-          {heardNote.heard && (
-            <span>
-              <strong>Heard:</strong> &ldquo;{heardNote.heard}&rdquo;
-            </span>
-          )}
-          {heardNote.heard && heardNote.saw && <span> · </span>}
-          {heardNote.saw && (
-            <span>
-              <strong>Saw:</strong> {heardNote.saw}
-            </span>
-          )}
-        </div>
-      )}
-
-      {errorNote && (
-        <div
-          className="warning-banner"
-          role="alert"
-          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}
-        >
-          <span>
-            <strong>{errorNote}</strong>
-          </span>
-          <button type="button" className="pill-btn" onClick={() => setErrorNote(null)}>
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      {!cleanCaptureMode && statusNote && !busy && (
-        <div className="status-banner gold" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-          <span>{statusNote}</span>
-          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-            Keys: Space (Play 1→4) · 1–4 (Scene) · Tab (2.5D/AI) · C (Clean View)
-          </span>
-        </div>
-      )}
-
       <DualCameraStage
+        ref={stageRef}
         activeBranch={activeBranch}
         compareBranch={compareBranch}
         allBranches={branches}
@@ -857,29 +946,34 @@ export default function App(): React.ReactElement {
         viewMode={viewMode}
         compareEnabled={compareEnabled}
         pixelArtMode={pixelArtMode}
+        autoCutEnabled={autoCutEnabled}
+        diffHaloEnabled={diffHaloEnabled}
         renderingScene={renderingScene}
         renderProgress={renderProgress}
         isPlayingStory={isPlayingStory}
         soundEnabled={soundEnabled}
         modalOpen={evalModalOpen}
-        onSoundEnabledChange={setSoundEnabled}
+        sceneRenderedLive={renderedSceneKeys.has(
+          sceneKey(activeBranch.branch_id, activeScene.scene_id),
+        )}
         cleanCaptureMode={cleanCaptureMode}
+        onSoundEnabledChange={setSoundEnabled}
+        onViewModeChange={setViewMode}
         onSelectCompareBranch={setCompareBranchId}
-        onSwitchToCachedSafeBranch={handleSwitchToCachedSafeBranch}
+        onOpenSavedRun={hasSavedRun ? () => handleOpenSavedRun(activeScene.scene_id) : undefined}
         onTogglePlayStory={handleTogglePlayStory}
+        onExportStart={() => setStatusNote('Capturing a 4s dual-camera preview…')}
         onExportComplete={handleExportComplete}
         onRenderScene={handleRenderScene}
-      />
-
-      <ClapperboardQA
-        scene={activeScene}
-        hasOwnRender={hasOwnFinalMedia(
-          activeScene,
-          findParentScene(activeBranch, branches, activeScene.scene_id),
-        )}
-        rules={rules}
-        propsRegistry={activeBranch.props_registry}
-        cleanCaptureMode={cleanCaptureMode}
+        footer={
+          <ClapperboardQA
+            scene={activeScene}
+            hasOwnRender={activeOwnsRender}
+            rules={rules}
+            propsRegistry={activeBranch.props_registry}
+            cleanCaptureMode={cleanCaptureMode}
+          />
+        }
       />
 
       <StoryBranchTree
@@ -887,23 +981,79 @@ export default function App(): React.ReactElement {
         activeBranchId={activeBranch.branch_id}
         activeSceneIndex={activeSceneIndex}
         renderedSceneKeys={renderedSceneKeys}
+        liveBranchIds={liveBranchIds}
         onSelectScene={handleSelectScene}
       />
 
-      <DirectControlBar
-        targetSceneId={targetSceneId}
-        onTargetSceneChange={setTargetSceneId}
-        submitting={submitting}
-        creatingProp={creatingProp}
-        contradictionWarning={
-          pendingConflict?.warning ?? activeBranch.contradiction_warning
-        }
-        cleanCaptureMode={cleanCaptureMode}
-        onDismissContradiction={() => setPendingConflict(null)}
-        onForceRewrite={handleForceRewrite}
-        onCreateProp={handleCreateProp}
-        onSubmitFork={handleSubmitFork}
-      />
+      <div className="dock">
+        {errorNote && (
+          <div className="notice error" role="alert">
+            <span>
+              <strong>{errorNote}</strong>
+            </span>
+            {hasSavedRun && (
+              <button
+                type="button"
+                className="notice-btn strong"
+                onClick={() => handleOpenSavedRun(errorSceneId)}
+              >
+                Open a saved run
+              </button>
+            )}
+            <button
+              type="button"
+              className="notice-btn"
+              onClick={() => {
+                setErrorNote(null);
+                setErrorSceneId(null);
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {busy && <WaitingBanner label={busy.label} typical={busy.typical} since={busy.since} />}
+
+        {heardNote && (heardNote.heard || heardNote.saw) && (
+          <div className="notice heard" role="status">
+            <span>
+              {heardNote.heard && (
+                <>
+                  <strong>Heard:</strong> &ldquo;{heardNote.heard}&rdquo;
+                </>
+              )}
+              {heardNote.heard && heardNote.saw && ' · '}
+              {heardNote.saw && (
+                <>
+                  <strong>Saw:</strong> {heardNote.saw}
+                </>
+              )}
+            </span>
+          </div>
+        )}
+
+        {!cleanCaptureMode && statusNote && !busy && (
+          <div className="notice" role="status">
+            <span>{statusNote}</span>
+          </div>
+        )}
+
+        <DirectControlBar
+          targetSceneId={targetSceneId}
+          onTargetSceneChange={setTargetSceneId}
+          submitting={submitting}
+          creatingProp={creatingProp}
+          contradictionWarning={
+            pendingConflict?.warning ?? activeBranch.contradiction_warning
+          }
+          cleanCaptureMode={cleanCaptureMode}
+          onDismissContradiction={() => setPendingConflict(null)}
+          onForceRewrite={handleForceRewrite}
+          onCreateProp={handleCreateProp}
+          onSubmitFork={handleSubmitFork}
+        />
+      </div>
 
       <EvalModal
         open={evalModalOpen}
