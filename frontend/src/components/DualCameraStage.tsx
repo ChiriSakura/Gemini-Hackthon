@@ -75,6 +75,68 @@ interface DualCameraStageProps {
   onRenderScene?: (scene: Scene, preview: PreviewExportResult) => void;
 }
 
+interface StageVideoProps {
+  src: string;
+  poster?: string;
+  muted: boolean;
+  onError: () => void;
+  /** Called with the clicked element so every visible clip toggles together. */
+  onToggle: (video: HTMLVideoElement) => void;
+}
+
+/**
+ * Clip without native browser controls: click toggles play/pause, a thin gold
+ * line shows progress, and a centred play glyph appears only while paused.
+ */
+const StageVideo = forwardRef<HTMLVideoElement, StageVideoProps>(function StageVideo(
+  { src, poster, muted, onError, onToggle },
+  ref,
+) {
+  const [paused, setPaused] = useState(false);
+  const barRef = useRef<HTMLSpanElement | null>(null);
+  const lastRatioRef = useRef(0);
+
+  const handleTimeUpdate = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const video = e.currentTarget;
+    const bar = barRef.current;
+    if (!bar || !Number.isFinite(video.duration) || video.duration <= 0) return;
+    const ratio = Math.min(1, video.currentTime / video.duration);
+    // No easing when the clip loops back to the start
+    bar.style.transition = ratio < lastRatioRef.current ? 'none' : 'transform 0.25s linear';
+    bar.style.transform = `scaleX(${ratio})`;
+    lastRatioRef.current = ratio;
+  };
+
+  return (
+    <>
+      <video
+        ref={ref}
+        src={src}
+        poster={poster}
+        preload="auto"
+        autoPlay
+        loop
+        muted={muted}
+        playsInline
+        title="Click to pause or play"
+        onClick={(e) => onToggle(e.currentTarget)}
+        onPlay={() => setPaused(false)}
+        onPause={() => setPaused(true)}
+        onTimeUpdate={handleTimeUpdate}
+        onError={onError}
+      />
+      {paused && (
+        <span className="cam-paused" aria-hidden="true">
+          <IconPlay size={26} />
+        </span>
+      )}
+      <span className="cam-progress" aria-hidden="true">
+        <span ref={barRef} />
+      </span>
+    </>
+  );
+});
+
 export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStageProps>(
   function DualCameraStage(
     {
@@ -172,6 +234,23 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
           }
         } catch {
           // Ignore playback errors from unmounted/unready videos
+        }
+      }
+    };
+
+    // Clicking any clip pauses or resumes every visible clip together
+    const handleToggleVideos = (clicked: HTMLVideoElement) => {
+      const shouldPlay = clicked.paused;
+      const videos = [videoARef.current, videoBRef.current, beforeVideoRef.current];
+      for (const vid of videos) {
+        if (!vid) continue;
+        if (shouldPlay) {
+          const p = vid.play();
+          if (p && typeof p.catch === 'function') {
+            p.catch(() => {});
+          }
+        } else {
+          vid.pause();
         }
       }
     };
@@ -335,20 +414,18 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
       Boolean(beforeUrl) &&
       !(beforeUrl && failedVideoUrls[beforeUrl]);
 
-    const clipTag = sceneRenderedLive ? 'Live' : 'Saved';
-    const stateChip = (
-      showFinal: boolean,
-      degraded: boolean,
-      idleLabel: string,
-    ): React.ReactNode =>
+    // One small state tag per camera: Saved / Live for clips, otherwise the honest preview state
+    const stateTag = (showFinal: boolean, degraded: boolean): React.ReactNode =>
       showFinal ? (
-        <span className="chip gold">Omni Flash Render · {clipTag}</span>
+        <span className={`cam-state ${sceneRenderedLive ? 'live' : ''}`}>
+          {sceneRenderedLive ? 'Live' : 'Saved'}
+        </span>
       ) : degraded ? (
-        <span className="chip rose">Degraded (2.5D Preview)</span>
+        <span className="cam-state rose">Degraded · 2.5D preview</span>
       ) : notRenderedYet ? (
-        <span className="chip">2.5D Preview · not rendered yet</span>
+        <span className="cam-state">Not rendered yet</span>
       ) : (
-        <span className="chip">{idleLabel}</span>
+        <span className="cam-state">{pixelArtMode ? 'Pixel preview' : '2.5D preview'}</span>
       );
 
     const onAir = (cam: 'A' | 'B') =>
@@ -432,32 +509,24 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
           <div className={`cam ${onAir('A')}`}>
             <canvas ref={canvasARef} style={{ display: showFinalA ? 'none' : 'block' }} />
             {showFinalA && camAUrl && (
-              <video
+              <StageVideo
                 ref={videoARef}
                 key={camAUrl}
                 src={camAUrl}
                 poster={camAPoster}
-                preload="auto"
-                controls
-                autoPlay
-                loop
                 muted={!soundEnabled || modalOpen}
-                playsInline
                 onError={() => markVideoFailed(camAUrl)}
+                onToggle={handleToggleVideos}
               />
             )}
-            <div className="cam-label">
-              <span className="chip">
+            <div className="cam-caption">
+              <span>
                 {compareOpen
                   ? `After · ${getBranchLabelEn(activeBranch)}`
-                  : `${autoCutEnabled && activeCutCam === 'A' ? 'ON AIR · ' : ''}CAM A · Front Wide`}
+                  : `${autoCutEnabled && activeCutCam === 'A' ? 'On air · ' : ''}A · Front wide`}
               </span>
-              {stateChip(
-                showFinalA,
-                isDegradedA,
-                pixelArtMode ? 'Pixel-Art 2.5D Preview' : '2.5D Live Preview',
-              )}
             </div>
+            {stateTag(showFinalA, isDegradedA)}
             {notRenderedYet && !cleanCaptureMode && onRenderScene && (
               <div className="cam-cta">
                 <button
@@ -482,43 +551,35 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
           <div className={`cam ${onAir('B')}`} style={{ display: compareOpen ? 'none' : undefined }}>
             <canvas ref={canvasBRef} style={{ display: showFinalB ? 'none' : 'block' }} />
             {showFinalB && camBUrl && !compareOpen && (
-              <video
+              <StageVideo
                 ref={videoBRef}
                 key={camBUrl}
                 src={camBUrl}
                 poster={camBPoster}
-                preload="auto"
-                controls
-                autoPlay
-                loop
                 muted
-                playsInline
                 onError={() => markVideoFailed(camBUrl)}
+                onToggle={handleToggleVideos}
               />
             )}
-            <div className="cam-label">
-              <span className="chip">
-                {autoCutEnabled && activeCutCam === 'B' ? 'ON AIR · ' : ''}CAM B · 45° Close-Up
+            <div className="cam-caption">
+              <span>
+                {autoCutEnabled && activeCutCam === 'B' ? 'On air · ' : ''}B · 45° close-up
               </span>
-              {stateChip(showFinalB, isDegradedB, 'Synced World Coordinates')}
             </div>
+            {stateTag(showFinalB, isDegradedB)}
           </div>
 
           {compareOpen && compareBranch && compareScene && compareSceneText && (
             <div className="cam cam-before">
               {showBeforeVideo && beforeUrl ? (
-                <video
+                <StageVideo
                   ref={beforeVideoRef}
                   key={beforeUrl}
                   src={beforeUrl}
                   poster={beforeStill ?? undefined}
-                  preload="auto"
-                  controls
-                  autoPlay
-                  loop
                   muted={!beforeAudioOn || modalOpen}
-                  playsInline
                   onError={() => markVideoFailed(beforeUrl)}
+                  onToggle={handleToggleVideos}
                 />
               ) : beforeStill ? (
                 <img className="cam-still" src={beforeStill} alt="" />
@@ -536,7 +597,7 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
                   </small>
                 </div>
               )}
-              <div className="cam-label">
+              <div className="cam-caption">
                 {allBranches.length > 2 && onSelectCompareBranch ? (
                   <select
                     className="chip-select"
@@ -553,7 +614,7 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
                       ))}
                   </select>
                 ) : (
-                  <span className="chip">Before · {getBranchLabelEn(compareBranch)}</span>
+                  <span>Before · {getBranchLabelEn(compareBranch)}</span>
                 )}
                 {showBeforeVideo && (
                   <button

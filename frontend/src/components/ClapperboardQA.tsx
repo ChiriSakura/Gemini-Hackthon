@@ -76,7 +76,7 @@ export const ClapperboardQA: React.FC<ClapperboardQAProps> = ({
           <div>
             <h4>
               {judge.judged
-                ? `Checks · judge() ${judge.scorePct}% · take ${media.selected_candidate_index + 1} · retries ${media.qa_retries}`
+                ? `Omni Flash render checks · judge() ${judge.scorePct}% · take ${media.selected_candidate_index + 1} · retries ${media.qa_retries}`
                 : 'Checks · judge() — · not judged yet'}
             </h4>
             {judge.judged
