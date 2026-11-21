@@ -2,57 +2,39 @@
   "worker": "worker-2 (P3)",
   "branch": "feat/w2-frontend",
   "pull_main_first": true,
-  "batch_deadline": "16:25",
+  "batch_deadline": "16:30",
   "owned_paths": ["frontend/**", "tasks/status_P3.json"],
-  "note": "Master merged feat/w2-polish (58dd4f3), finished all Master-side English fixes, and exposed GET /api/media/progress/{branch_id} on backend/main.py! Also P2 completed new benchmarks (Dual-Cam Consistency 0.893, 20-Clip Calibration 1.000, Multi-Prop Stress 0.815). Pull main first, then execute these 8 CR + T5 tasks.",
+  "note": "Master merged your W2-CR1..T5E (4925d3f) + merged P2's latest (21a55aa): P2 just boosted Cross-Cam Consistency to 0.929 (26/28), generated showcase_*.png + branch_v3_starlight_cached.json (3rd instant cached branch!), and stitched demo_comparison_be_vs_he.mp4 + eval_720p_vs_360p.json (71.4% cost savings). Pull main first, then build these 6 T6 pitch & demo UX upgrades!",
   "parallel_tasks": [
     {
-      "task_id": "W2-CR1",
+      "task_id": "W2-T6A",
       "priority": "P0",
-      "title": "Fix Three.js r170 Actor Facing Flip (`scale.x = -w` Ignored) & Cache-Hit Prop Rescaling",
-      "details": "In `frontend/src/stage/ThreeStageManager.ts`: (1) Three.js r170 `sprite_vert` uses `length(modelMatrix[0].xyz)` which ignores negative `sprite.scale.x = -w` so Lia and Nyx NEVER flip left/right! Fix actor facing cleanly (e.g., maintain horizontally mirrored cloned `THREE.Texture` with `repeat.x = -1; offset.x = 1` or double-sided `PlaneGeometry` `THREE.Mesh`) so `facing: 'left' | 'right'` visibly flips characters on stage; (2) In `applyPropTexture()`, when `this.textureCache.get(effectiveUrl)` hits cache, it currently returns early without updating `ent.baseScale = this.fitScaleToBox(img.width, img.height, maxPropW, maxPropH)` — fix it so props transitioning between held (`0.30`) and table (`0.38`) rescale immediately."
+      "title": "Embed Side-by-Side Comparison Reel (`/assets/finals/demo_comparison_be_vs_he.mp4`) & Updated Metrics in `EvalModal.tsx`",
+      "details": "In `frontend/src/components/EvalModal.tsx`: update Cross-Cam Consistency to `0.929 (26/28)`, Prop Persistence to `1.000`, `720p vs 360p` cost savings (`71.4% cheaper, $0.48 vs $1.68 per 6-clip branch`), and include a collapsible `<video controls src='/assets/finals/demo_comparison_be_vs_he.mp4'>` player + 5-prop showcase strip (`/assets/props/showcase_*.png`) inside the Eval modal so judges can see real cutout props & side-by-side renders in 1 click."
     },
     {
-      "task_id": "W2-CR2",
+      "task_id": "W2-T6B",
       "priority": "P0",
-      "title": "Fix `handleForceRewrite` Target Stale-State Bug & Send `scene_id` in `createStageProp`",
-      "details": "In `frontend/src/App.tsx`: `handleForceRewrite` calls `handleSubmitFork` without passing `pendingConflict.targetSceneId` and `pendingConflict.parentBranchId`; update `handleSubmitFork` to accept `{ targetSceneIdOverride, parentBranchIdOverride }` and pass `pendingConflict.targetSceneId` / `pendingConflict.parentBranchId` from `handleForceRewrite` so switching scenes/branches before clicking 'Force Rewrite Anyway' always targets the original conflict point. Also in `frontend/src/api/stageClient.ts` & `App.tsx`: pass `scene_id` in `createStageProp()` FormData so backend `branch.scenes` stays in lockstep."
+      "title": "One-Click 'Reset Booth Demo' Button (`branch_v1` Scene 1) for Smooth Judge Handoffs",
+      "details": "In `frontend/src/App.tsx`: add a clean top-bar `Reset Demo` button (next to `Clean Mode`) that cleanly jumps back to `branch_v1` Scene 1, turns off playing/compare loops, clears transient contradiction banners/status errors, and restores the crisp initial stage state without reloading the page."
     },
     {
-      "task_id": "W2-CR3",
-      "priority": "P0",
-      "title": "Vite Offline `/assets` Bypass + Sync `EvalModal.tsx` with Latest P1 & P2 Benchmarks",
-      "details": "In `frontend/vite.config.ts`: add a `bypass(req)` handler on the `/assets` proxy so static files existing under `frontend/public` (`/assets/actors/*`, `/assets/props/*`) are served locally by Vite when FastAPI is offline instead of returning 500. In `frontend/src/components/EvalModal.tsx`: update planning latency to `6.90s – 9.65s` (matching `eval/stress_report.json`) and add P2's newly verified metrics (`Cross-Cam Consistency: 0.893 (25/28)`, `Decisions Calibration: 1.000 (20/20, TPR=1.0, TNR=1.0)`, `3-Prop Stress: 0.815 in 39.33s`, `decisions_api: 0.93s–1.54s`)."
-    },
-    {
-      "task_id": "W2-T5A",
-      "priority": "P0",
-      "title": "Wire Live Per-Scene Render Progress Polling (`GET /api/media/progress/{branch_id}`)",
-      "details": "Master just exposed `GET /api/media/progress/{branch_id}` wrapping P2's `get_render_progress()`. Add `fetchRenderProgress(branchId)` in `frontend/src/api/stageClient.ts` and poll it every 1.2s while `Render Branch` is running, showing live per-scene pills (`S1 Reused`, `S2 Rendering...`, `S3 Done 0.89`) cleanly in `App.tsx` / `DualCameraStage.tsx`."
-    },
-    {
-      "task_id": "W2-T5B",
+      "task_id": "W2-T6C",
       "priority": "P1",
-      "title": "Render `[CAM A]` / `[CAM B]` Badges on ClapperboardQA Verification Items",
-      "details": "In `frontend/src/components/ClapperboardQA.tsx`: parse optional `[CAM A]` / `[CAM B]` prefixes (from P2's `W1-CR2` combined dual-cam QA) and display clean mini camera badges on each check row without adding clutter in Clean Capture Mode."
+      "title": "Mirrored Webcam PiP Preview + Live Audio RMS Meter in `DirectControlBar.tsx`",
+      "details": "In `frontend/src/components/DirectControlBar.tsx`: mirror the live PiP camera preview (`transform: scaleX(-1)`) and attach a lightweight Web Audio API `AnalyserNode` meter while `Hold to Direct (3s Cam+Mic)` is recording so presenters immediately see voice input levels react in real time."
     },
     {
-      "task_id": "W2-T5C",
+      "task_id": "W2-T6D",
       "priority": "P1",
-      "title": "3s Director Recording Countdown Meter & Prop Photo Preview in DirectControlBar",
-      "details": "In `frontend/src/components/DirectControlBar.tsx`: add a smooth `3.0s -> 0.0s` visual countdown/progress bar during `Hold to Direct (3s Cam+Mic)` recording so live presenters time voice + prop gestures cleanly, plus show a crisp mini thumbnail of the captured prop snapshot before submission."
+      "title": "Verify Smooth Multi-Branch UX Across `branch_v1`, `branch_v2_cached`, and `branch_v3_starlight_cached`",
+      "details": "Verify `StoryBranchTree.tsx` & `DualCameraStage.tsx` baseline selector handle 3+ branches (`branch_v1`, `branch_v2_cached`, `branch_v3_starlight_cached`) cleanly without layout overflow on `1280x800` / `1440x900` screens, resetting transient video error sets cleanly on branch switch."
     },
     {
-      "task_id": "W2-T5D",
-      "priority": "P1",
-      "title": "Flexible Side-by-Side Branch Selector in Comparison Mode",
-      "details": "In `frontend/src/components/DualCameraStage.tsx` / `App.tsx`: when Side-by-Side Comparison is active and >2 branches exist (e.g., `branch_v1` BE, `branch_v2` HE, `branch_v3_starlight_cached`, plus live forked branches), let the presenter pick which baseline/branch appears in the left comparison slot."
-    },
-    {
-      "task_id": "W2-T5E",
+      "task_id": "W2-T6E",
       "priority": "P0",
-      "title": "Pre-Pitch Browser Readiness Audit & Clean `tsc && vite build` Check",
-      "details": "After implementing CR1..CR3 + T5A..T5D, run `npx tsc --noEmit && npm run build`, confirm zero CJK UI strings across all components, verify actor left/right facing flip, held-vs-table prop scaling, live progress polling, and record verification summary in `tasks/status_P3.json`."
+      "title": "Final Pre-Freeze Verification (`tsc && vite build`, 0 CJK Audit, Clean Mode Viewport Check)",
+      "details": "Pull main, run `npx tsc --noEmit && npm run build`, confirm 0 CJK UI strings across `frontend/src` & `index.html`, confirm `/assets/finals/demo_comparison_be_vs_he.mp4` and `branch_v3_starlight_cached` integrate cleanly, and update `tasks/status_P3.json`."
     }
   ]
 }
