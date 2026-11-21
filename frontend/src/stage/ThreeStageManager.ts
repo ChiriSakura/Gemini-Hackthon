@@ -33,6 +33,8 @@ interface SpriteEntity {
   action: string;
   facing: string;
   broken?: boolean;
+  currentTextureUrl?: string;
+  usingBrokenAsset?: boolean;
 }
 
 /**
@@ -138,6 +140,7 @@ export class ThreeStageManager {
   private animFrameId: number | null = null;
   private clock = new THREE.Clock();
   private disposed = false;
+  private pixelArtMode = false;
 
   /**
    * Initialize the shared 3D world and attach two WebGLRenderers for Camera A & B.
@@ -435,9 +438,13 @@ export class ThreeStageManager {
       activePropIds.add(prop.id);
 
       const regItem = propsRegistry[prop.id];
-      const imageUrl = regItem?.image_url ?? `/assets/props/${prop.id}.png`;
-      const { x, z } = gridToWorld(prop.grid);
+      const baseImageUrl = regItem?.image_url ?? `/assets/props/${prop.id}.png`;
       const isBroken = prop.state === 'broken';
+      const preferredUrl =
+        prop.id === 'crystal_vase' && isBroken
+          ? '/assets/props/crystal_vase_broken.png'
+          : baseImageUrl;
+      const { x, z } = gridToWorld(prop.grid);
       if (prop.id === 'crystal_vase' && isBroken) {
         anyBrokenVase = true;
       }
@@ -452,15 +459,64 @@ export class ThreeStageManager {
           : 0.77 + maxPropH / 2;
 
       let entity = this.propEntities.get(prop.id);
-      if (!entity) {
-        const propRef: { entity?: SpriteEntity } = {};
-        const mat = new THREE.SpriteMaterial({
-          map: this.loadSpriteTexture(imageUrl, prop.id, (iw, ih) => {
-            const fitted = this.fitScaleToBox(iw, ih, maxPropW, maxPropH);
-            if (propRef.entity) {
-              propRef.entity.baseScale = fitted;
+      const applyPropTexture = (ent: SpriteEntity, targetUrl: string, fallbackUrl: string) => {
+        if (ent.currentTextureUrl === targetUrl) return;
+        ent.currentTextureUrl = targetUrl;
+        ent.usingBrokenAsset = false;
+
+        const cached = this.textureCache.get(targetUrl);
+        if (cached) {
+          ent.sprite.material.map = cached;
+          ent.sprite.material.needsUpdate = true;
+          if (targetUrl.includes('crystal_vase_broken')) {
+            ent.usingBrokenAsset = true;
+            ent.sprite.material.opacity = 1.0;
+            ent.sprite.material.rotation = 0;
+          }
+          return;
+        }
+
+        const tex = this.textureLoader.load(
+          targetUrl,
+          (loaded) => {
+            loaded.colorSpace = THREE.SRGBColorSpace;
+            this.textureCache.set(targetUrl, loaded);
+            if (ent.currentTextureUrl === targetUrl) {
+              ent.sprite.material.map = loaded;
+              ent.sprite.material.needsUpdate = true;
+              const img = loaded.image as { width?: number; height?: number } | undefined;
+              if (img?.width && img?.height) {
+                ent.baseScale = this.fitScaleToBox(img.width, img.height, maxPropW, maxPropH);
+              }
+              if (targetUrl.includes('crystal_vase_broken')) {
+                ent.usingBrokenAsset = true;
+                ent.sprite.material.opacity = 1.0;
+                ent.sprite.material.rotation = 0;
+              }
             }
-          }),
+          },
+          undefined,
+          () => {
+            if (targetUrl !== fallbackUrl) {
+              ent.usingBrokenAsset = false;
+              const fbTex = this.loadSpriteTexture(fallbackUrl, prop.id, (iw, ih) => {
+                ent.baseScale = this.fitScaleToBox(iw, ih, maxPropW, maxPropH);
+              });
+              ent.sprite.material.map = fbTex;
+              ent.sprite.material.needsUpdate = true;
+              ent.sprite.material.opacity = isBroken ? 0.55 : 1.0;
+              ent.sprite.material.rotation = isBroken ? 0.65 : 0;
+            }
+          },
+        );
+        tex.colorSpace = THREE.SRGBColorSpace;
+        ent.sprite.material.map = tex;
+        ent.sprite.material.needsUpdate = true;
+      };
+
+      if (!entity) {
+        const mat = new THREE.SpriteMaterial({
+          map: this.loadSpriteTexture(baseImageUrl, prop.id),
           transparent: true,
         });
         const sprite = new THREE.Sprite(mat);
@@ -475,16 +531,22 @@ export class ThreeStageManager {
           facing: 'front',
           broken: isBroken,
         };
-        propRef.entity = entity;
         this.propEntities.set(prop.id, entity);
+        applyPropTexture(entity, preferredUrl, baseImageUrl);
       } else {
         entity.targetPos.set(x, y, z);
         entity.action = prop.state;
         entity.broken = isBroken;
+        applyPropTexture(entity, preferredUrl, baseImageUrl);
       }
 
-      entity.sprite.material.opacity = isBroken ? 0.55 : 1.0;
-      entity.sprite.material.rotation = isBroken ? 0.65 : 0;
+      if (isBroken && !entity.usingBrokenAsset) {
+        entity.sprite.material.opacity = 0.55;
+        entity.sprite.material.rotation = 0.65;
+      } else {
+        entity.sprite.material.opacity = 1.0;
+        entity.sprite.material.rotation = 0;
+      }
     }
 
     for (const [id, ent] of this.propEntities.entries()) {
@@ -711,6 +773,26 @@ export class ThreeStageManager {
         elapsedMs: Math.round(performance.now() - startTime),
       };
     }
+  }
+
+  /**
+   * Toggle low-resolution upscaled Pixel-Art preview mode (`160x90` crisp pixelated).
+   */
+  public setPixelArtMode(enabled: boolean): void {
+    if (this.pixelArtMode === enabled) return;
+    this.pixelArtMode = enabled;
+    const width = enabled ? 160 : 640;
+    const height = enabled ? 90 : 360;
+    const dpr = enabled ? 1 : Math.min(window.devicePixelRatio, 2);
+
+    this.rendererA.setPixelRatio(dpr);
+    this.rendererA.setSize(width, height, false);
+    this.rendererB.setPixelRatio(dpr);
+    this.rendererB.setSize(width, height, false);
+
+    const rendering = enabled ? 'pixelated' : 'auto';
+    this.canvasA.style.imageRendering = rendering;
+    this.canvasB.style.imageRendering = rendering;
   }
 
   public dispose(): void {

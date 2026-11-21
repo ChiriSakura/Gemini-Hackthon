@@ -1,0 +1,138 @@
+{
+  "timestamp": "2026-11-21 12:56:09",
+  "stateless_baseline": {
+    "system": "Stateless Text Chaining Baseline",
+    "scenes": 4,
+    "judge_score": 0.564,
+    "all_passed": false,
+    "latency_sec": 29.16
+  },
+  "scene_scaling_without_rules": [
+    {
+      "num_scenes": 2,
+      "rule_memory": false,
+      "invariant_passed": true,
+      "invariant_errors": [],
+      "judge_score": 0.951,
+      "judge_all_passed": true,
+      "latency_sec": 8.2
+    },
+    {
+      "num_scenes": 4,
+      "rule_memory": false,
+      "invariant_passed": true,
+      "invariant_errors": [],
+      "judge_score": 0.952,
+      "judge_all_passed": true,
+      "latency_sec": 9.65
+    },
+    {
+      "num_scenes": 6,
+      "rule_memory": false,
+      "invariant_passed": true,
+      "invariant_errors": [],
+      "judge_score": 0.937,
+      "judge_all_passed": true,
+      "latency_sec": 11.54
+    },
+    {
+      "num_scenes": 8,
+      "rule_memory": false,
+      "invariant_passed": true,
+      "invariant_errors": [],
+      "judge_score": 0.95,
+      "judge_all_passed": true,
+      "latency_sec": 15.17
+    }
+  ],
+  "scene_scaling_with_rule_memory": [
+    {
+      "num_scenes": 2,
+      "rule_memory": true,
+      "invariant_passed": true,
+      "invariant_errors": [],
+      "judge_score": 0.947,
+      "judge_all_passed": true,
+      "latency_sec": 5.63
+    },
+    {
+      "num_scenes": 4,
+      "rule_memory": true,
+      "invariant_passed": true,
+      "invariant_errors": [],
+      "judge_score": 0.901,
+      "judge_all_passed": true,
+      "latency_sec": 6.9
+    },
+    {
+      "num_scenes": 6,
+      "rule_memory": true,
+      "invariant_passed": true,
+      "invariant_errors": [],
+      "judge_score": 0.699,
+      "judge_all_passed": false,
+      "latency_sec": 11.13
+    },
+    {
+      "num_scenes": 8,
+      "rule_memory": true,
+      "invariant_passed": true,
+      "invariant_errors": [],
+      "judge_score": 0.946,
+      "judge_all_passed": true,
+      "latency_sec": 11.51
+    }
+  ],
+  "actor_scaling": [
+    {
+      "num_actors": 1,
+      "cast": [
+        "lia"
+      ],
+      "invariant_passed": true,
+      "invariant_errors": [],
+      "judge_score": 0.885,
+      "judge_all_passed": true,
+      "latency_sec": 11.65
+    },
+    {
+      "num_actors": 2,
+      "cast": [
+        "lia",
+        "nyx"
+      ],
+      "invariant_passed": true,
+      "invariant_errors": [],
+      "judge_score": 0.855,
+      "judge_all_passed": true,
+      "latency_sec": 11.04
+    },
+    {
+      "num_actors": 3,
+      "cast": [
+        "lia",
+        "nyx",
+        "owl_keeper"
+      ],
+      "invariant_passed": true,
+      "invariant_errors": [],
+      "judge_score": 0.82,
+      "judge_all_passed": true,
+      "latency_sec": 10.08
+    },
+    {
+      "num_actors": 4,
+      "cast": [
+        "lia",
+        "nyx",
+        "owl_keeper",
+        "clockmaker"
+      ],
+      "invariant_passed": true,
+      "invariant_errors": [],
+      "judge_score": 0.82,
+      "judge_all_passed": true,
+      "latency_sec": 10.67
+    }
+  ]
+}

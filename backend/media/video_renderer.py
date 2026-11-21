@@ -529,6 +529,16 @@ async def render_single_camera_shot(
         if len(local_refs) >= max_refs:
             break
 
+    local_preview_any = _resolve_asset_to_local_path(preview_path)
+    local_preview_img: Optional[Path] = None
+    local_preview: Optional[Path] = None
+    if local_preview_any:
+        if local_preview_any.suffix.lower() in {".mp4", ".webm"}:
+            local_preview = local_preview_any
+        elif local_preview_any.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}:
+            local_preview_img = local_preview_any
+
+    start_frame_path = local_preview_img or local_prev_tail
     uploaded_prev_tail = await _get_or_upload_uri(start_frame_path, use_cache=False) if start_frame_path else None
     uploaded_refs = list(await asyncio.gather(*(_get_or_upload_uri(p, use_cache=True) for p in local_refs)))
     uploaded_preview = await _get_or_upload_uri(local_preview, use_cache=False) if local_preview else None

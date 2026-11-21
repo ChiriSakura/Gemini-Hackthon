@@ -2,44 +2,33 @@
   "worker": "worker-2 (P3)",
   "branch": "feat/w2-frontend",
   "pull_main_first": true,
-  "batch_deadline": "14:45",
+  "batch_deadline": "15:25",
   "owned_paths": ["frontend/**", "tasks/status_P3.json"],
+  "note": "W2-T2E..T3C merged cleanly into main! Pull main (also gets eval tables & latest backend), then knock out this T3.5/T4 demo-hardening batch.",
   "parallel_tasks": [
     {
-      "task_id": "W2-T2A",
+      "task_id": "W2-T3D",
       "priority": "P0",
-      "title": "Live FastAPI end-to-end integration test & preview upload wiring",
-      "details": "Pull main first (includes Vite /assets proxy + Nyx/prop scale fix in ThreeStageManager.ts). Verify live flow: fetch /api/branches -> Hold 3s Cam+Mic or text fork -> instant <1s 3D stage update -> upload 2.5D preview to /api/media/render-scene -> play AI render + Clapperboard QA."
+      "title": "Multimodal Cue Pills (Vocal Emotion, Gesture Intent & Tail-Frame Environment Notes)",
+      "details": "In DualCameraStage or ClapperboardQA, render compact subtle pills for the active scene's `vocal_emotion`, `gesture_intent`, and `environment_notes` (e.g. '🎙️ gentle_whisper · 🤲 beckon_soothe · 👁️ glass_conservatory_clean_floor') so judges immediately see raw audio/video signals driving the stage."
     },
     {
-      "task_id": "W2-T2B",
+      "task_id": "W2-T3E",
       "priority": "P0",
-      "title": "Contradiction confirmation bar, fallback badge & Pixel-Art filter toggle",
-      "details": "1) Show inline confirmation prompt with 'Force Rewrite' (confirm_contradiction=true) when BranchState.contradiction_warning is returned. 2) Show '已降级 (2.5D Preview)' badge when media.fallback_to_preview is true. 3) Add a 1-click low-res Pixel-Art upscaled preview toggle in ThreeStageManager."
+      "title": "'Play Full 1->4 Story' auto-sequence playback button",
+      "details": "Add a '▶ Play 1→4' button in DualCameraStage / StoryBranchTree that auto-advances scenes 1→4 every 4s (works seamlessly in both 2.5D Preview and AI Render + Auto-Cut A/B modes) for effortless live demo & 1-min video recording."
     },
     {
-      "task_id": "W2-T2C",
-      "priority": "P0",
-      "title": "Live Webcam Snapshot Prop button (create-prop UI integration)",
-      "details": "Add a dedicated '📷 举实物造道具' button in DirectControlBar that grabs 1 webcam frame + prop name and posts to POST /api/media/create-prop, then immediately places the new transparent prop onto the Three.js stage and shows it in a Prop Tray."
-    },
-    {
-      "task_id": "W2-T2D",
+      "task_id": "W2-T3F",
       "priority": "P1",
-      "title": "Dual-Camera Sync & Smart Cut toggle + Single-viewport layout polish",
-      "details": "Ensure dual cameras + Clapperboard QA strip + 4-scene Branch Tree + Old/New comparison fit cleanly in one 1280x720 / 1440x900 viewport, and add an optional 'Auto-Cut Cam A/B' playback toggle for the demo."
+      "title": "Lightweight collapsible 'Eval & Failure Curve' modal (non-dashboard)",
+      "details": "Keep the main screen 100% stage-focused, and add a tiny top-bar button '📊 Eval' that opens a clean modal showing our real benchmark results: Stateless Baseline (0.564, 29.16s) vs StageState (0.951, 8.19s), 1->4 actor & 2->8 scene curves, and 66.7% rerender savings."
     },
     {
-      "task_id": "W2-T3A",
+      "task_id": "W2-T4A",
       "priority": "P1",
-      "title": "Affected-scene savings pill & Rule Memory badge (non-dashboard)",
-      "details": "On the Branch Tree nodes, show a clean 'Reused (0s)' vs 'Re-rendered' chip so judges visually see prefix preservation & dependency savings without turning the UI into a dashboard."
-    },
-    {
-      "task_id": "W2-T3B",
-      "priority": "P1",
-      "title": "Demo preset quick-fill chips & 1-min video storyboard prep",
-      "details": "Add subtle one-click backup rewrite chips (e.g. '温柔安抚诺克斯保住花瓶') and clean fullscreen stage mode for 16:00 fallback recording."
+      "title": "End-to-end browser verification against live FastAPI + zero console errors",
+      "details": "Run `npm run build` and test against `uvicorn backend.main:app` (Play Branch 1 cached MP4s, trigger rewrite, test Play 1->4, test Clean Capture mode), logging pass status in tasks/status_P3.json."
     }
   ]
 }
