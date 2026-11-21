@@ -611,6 +611,16 @@ def _build_shot_prompt(
         parts.append("Characters: " + "; ".join(actor_phrases) + ".")
     if prop_phrases:
         parts.append("Stage props: " + "; ".join(prop_phrases) + ".")
+    # Only prompt forward camera grab when explicitly requested (catch_from_camera / throw_arc);
+    # default props rest naturally on table/floor.
+    has_camera_catch = any(a.action == "catch_from_camera" for a in scene.actors) or any(
+        getattr(p, "entry_motion", "place") == "throw_arc" for p in scene.stage_props
+    )
+    if has_camera_catch:
+        parts.append(
+            "Explicit hand-off/toss beat: Lia leans gracefully forward toward the camera lens with outstretched hand "
+            "to catch or receive the incoming prop from the viewer and interact with it naturally."
+        )
     if scene.environment_notes:
         clean_notes = _milden_safety_phrasing(
             scene.environment_notes.replace("warm_sunlight_streaming", "warm_night_lantern_glow").replace("lush_trees_outside", "dark_night_trees_outside")

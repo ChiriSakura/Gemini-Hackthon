@@ -5,49 +5,19 @@
   "batch_deadline": "16:25",
   "feature_freeze": false,
   "owned_paths": ["backend/media/**", "backend/assets/**", "tasks/status_P2.json"],
-  "note": "PRODUCT FOCUS UPDATE (15:02): User wants minimalist spontaneous creation — NO overdesign or forced BE/HE drama! Keep cached files valid for tests, while focusing P2 upgrades cleanly on: (1) recognizing & cutting out everyday thrown items (drinks/soda cans, snack bags, laptops, mugs) in 30s webm, (2) rendering `"catch_from_camera"` (protagonist reaches toward the camera front to grab/catch the incoming prop and interact with it), (3) 10-20s `fast_live_mode`, and (4) fixed room refs + R-06/R-14/R-18/R-39/R-40 fixes. Pull origin/main FIRST!",
+  "note": "Master merged 3dd0de6 (AWESOME work — all 8 W1-V2 tasks passed! Master fixed Windows Unicode cv2 path I/O in test_v2_infinite_sculpture.py and added conditional catch_from_camera prompt injection in video_renderer.py so default props stay on table/floor). Only 2 focused bonus verification tasks left while P3 finishes:",
   "parallel_tasks": [
     {
-      "task_id": "W1-V2-01",
+      "task_id": "W1-V2-B1",
       "priority": "P0",
-      "title": "30s Throw-In Decoding (1200 Frames) + Everyday Object Motion Peak Detector (`drink`, `snack`, `laptop`) + Degraded Flag",
-      "details": "In `backend/media/prop_maker.py`: (1) Raise `_extract_image_from_bytes()` sequential `.webm` decode cap from 150 frames to `1200` frames (up to 30s @ 30fps) so 30s self-view camera captures work end-to-end; (2) Implement `_detect_throw_peak_frame_idx()` scanning center-region frame diffs + Laplacian sharpness to grab the crispest frame when the user tosses/holds up an everyday item (`soda can / drink`, `snack bag`, `laptop`, `mug`); (3) Support `detect_throw_peak: bool = True` in `create_prop()`, refine SI height table for snacks/drinks/laptops (~0.13m–0.32m), and mark degraded status on failures instead of silent yellow blocks (R-18)."
+      "title": "Measure Live A/B Consistency Score Under Fixed-Room Pipeline (`conservatory_cam_a/b.png`)",
+      "details": "Render 1 live Scene 2/3 pair using the new fixed `conservatory_cam_a.png` + `conservatory_cam_b.png` + isolated `red_umbrella_closed` + `wooden_chair` pipeline (at `CROSS_CAM_THRESHOLD = 0.80`), measure cross-camera consistency via Decisions API, and log real before-vs-after score into `backend/assets/eval_dual_cam_fixed_room.json` & `status_P2.json`."
     },
     {
-      "task_id": "W1-V2-02",
-      "priority": "P0",
-      "title": "Video Renderer Conditional `catch_from_camera` Grab Prompting + `fast_live_mode` (10–20s) + Sculpture End-Freeze",
-      "details": "In `backend/media/video_renderer.py`: (1) Default new props to rest naturally on the table/floor; ONLY inject the forward-camera grab choreography in `_build_shot_prompt()` when an actor explicitly has `action == 'catch_from_camera'` OR a prop explicitly has `entry_motion == 'throw_arc'` ('ONLY when explicitly handed/tossed to her: Lia leans toward the camera to catch the flying item out of mid-air!'); (2) Add `fast_live_mode: bool = False` in `render_scene_media()` / `render_branch_scenes()` (single-take + single quick Decisions QA ~0.8s -> 16–19s live turnaround); (3) Append end-of-shot stillness tableau cues when `scene.end_freeze_mode == 'sculpture'`."
-    },
-    {
-      "task_id": "W1-V2-03",
-      "priority": "P0",
-      "title": "Fixed Empty Room Reference Images (R-09, R-10), Separate Umbrella/Chair Assets, & Black-Border Crop (R-37, R-40)",
-      "details": "To eliminate cross-camera room drift: (1) Generate fixed empty conservatory room refs (`backend/assets/stages/conservatory_cam_a.png` + `conservatory_cam_b.png` generated from A at level 45-degree side angle) plus isolated PNGs (`red_umbrella_closed.png`, `red_umbrella_open.png`, `wooden_chair.png`); (2) Inject `conservatory_cam_a/b.png` cleanly in `_select_scene_ref_images()` & prompt; (3) Restore Cam A full-frame edge-to-edge guard alongside level Cam B AND crop 1-2% dark border pixels from extracted `start_frame` PNGs (R-40)."
-    },
-    {
-      "task_id": "W1-V2-04",
-      "priority": "P0",
-      "title": "Disable Rule Pollution in Renderer (R-14), Cross-Cam Threshold 0.80 (R-13), & Friendly Prompt Guard (`R-39`)",
-      "details": "In `backend/media/video_renderer.py`: (1) Disable `add_rule()` writes during QA retries (fixes R-14); (2) Raise cross-camera threshold to `0.80` with single-condition yes/no checks (R-13); (3) Soften Scene 2/default phrasing and surface clear `content_blocked` error message when safety filter blocks (R-39)."
-    },
-    {
-      "task_id": "W1-V2-05",
-      "priority": "P0",
-      "title": "Sync `build_press_kit.py` TTS Voiceover Numbers with R-06 Live Metrics (`ISSUES.md` R-06)",
-      "details": "Confirm `eval_charts_board.png` and `eval_dashboard_12s.mp4` (`e921f58`) match live computed numbers cleanly, and update `backend/media/build_press_kit.py` + `pitch_voiceover_script.json` so narrated voiceover numbers match verified stats (single-take 81.1%, dual-take 88.7%, post-repair 98.1%)."
-    },
-    {
-      "task_id": "W1-V2-06",
+      "task_id": "W1-V2-B2",
       "priority": "P1",
-      "title": "Add Regression Tests for 30s Throw-Peak (Drink/Snack/Laptop), `catch_from_camera` Prompt, & `fast_live_mode`",
-      "details": "Write/extend automated tests in `backend/media/` verifying: (1) 30s `.webm` motion-peak extraction (`1200`-frame cap), (2) `_build_shot_prompt()` injects the forward camera grab instruction for `action='catch_from_camera'`, and (3) `fast_live_mode=True` executes single-take cleanly."
-    },
-    {
-      "task_id": "W1-V2-07",
-      "priority": "P0",
-      "title": "Run Full P2 Verification Battery (`test_media_smoke`, `preflight_check`, `audit_props`, `test_webm_prop`)",
-      "details": "Remove any untracked temporary `branch_v5.json` (`R-34`), run all verification scripts cleanly, update `ISSUES.md` resolved status rows (`B-`), and update `tasks/status_P2.json`."
+      "title": "Pre-Cache 1 Sample `fast_live_mode=True` Extended Scene 5 Clip (`eval_fast_live_latency.json`)",
+      "details": "Benchmark 1 live `render_scene_media(..., fast_live_mode=True)` call with an everyday desk prop (e.g. coffee cup / soda can) and verify wall-clock latency stays within the 10–20s target budget; save measurement to `backend/assets/eval_fast_live_latency.json`."
     }
   ]
 }

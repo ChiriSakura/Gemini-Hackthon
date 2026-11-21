@@ -1,6 +1,6 @@
 {
   "preflight_passed": true,
-  "elapsed_sec": 7.04,
+  "elapsed_sec": 1.71,
   "api_checks": {
     "health_200": true,
     "branches_200": true,
