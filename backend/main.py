@@ -372,6 +372,10 @@ async def api_director_extend(
 
     updated_registry = dict(parent.props_registry)
     thrown_prop_id: Optional[str] = None
+    explicit_handoff = any(
+        kw in (parsed.instruction or "").lower()
+        for kw in ("hand you", "give you", "toss", "throw", "catch", "pass you", "to lia", "for you", "for lia", "递给", "给你", "扔给", "丢给")
+    )
     if parsed.has_physical_prop and parsed.prop_name:
         thrown_prop_id, prop_item = await _invoke_create_prop(
             name=parsed.prop_name,
@@ -381,6 +385,8 @@ async def api_director_extend(
             detect_throw_peak=detect_throw_peak,
         )
         updated_registry[thrown_prop_id] = prop_item
+        if getattr(prop_item, "appearance_summary", ""):
+            parsed.prop_description = prop_item.appearance_summary
 
     next_scene = await extend_single_scene(
         parsed_input=parsed,
@@ -389,17 +395,23 @@ async def api_director_extend(
         learned_rules=load_general_rules(),
         end_freeze_mode=end_freeze_mode,
     )
-    if thrown_prop_id and not any(p.id == thrown_prop_id for p in next_scene.stage_props):
-        next_scene.stage_props.append(
-            StagePropState(
-                id=thrown_prop_id,
-                grid=[1.05, 1.1],
-                on_floor=False,
-                state="glowing",
-                entry_motion="throw_arc",
-                entry_origin=[1.0, 2.2, 0.8],
+    if thrown_prop_id:
+        prop_app = (getattr(updated_registry[thrown_prop_id], "appearance_summary", "") or "").strip()
+        if prop_app:
+            cue = f"{thrown_prop_id}: {prop_app}"
+            if cue not in (next_scene.environment_notes or ""):
+                next_scene.environment_notes = f"{next_scene.environment_notes} {cue}".strip() if next_scene.environment_notes else cue
+        if not any(p.id == thrown_prop_id for p in next_scene.stage_props):
+            next_scene.stage_props.append(
+                StagePropState(
+                    id=thrown_prop_id,
+                    grid=[1.05, 1.1],
+                    on_floor=False,
+                    state="glowing",
+                    entry_motion="throw_arc" if explicit_handoff else "place",
+                    entry_origin=[1.0, 2.2, 0.8] if explicit_handoff else None,
+                )
             )
-        )
 
     is_rewound = anchor_id < ordered_scenes[-1].scene_id
     # Never mutate immutable cached baseline branches in-place; fork cleanly instead
