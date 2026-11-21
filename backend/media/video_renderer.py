@@ -1759,89 +1759,118 @@ async def render_scene_media(
     preview_a = cam_a_preview_path or scene.media.cam_a_preview_url
     preview_b = cam_b_preview_path or scene.media.cam_b_preview_url
 
-    # Step 1: Render Camera A (front establishing shot)
-    _emit("rendering_cam_a")
-    res_a = await render_single_camera_shot(
-        scene,
-        "cam_a",
-        prev_tail_a,
-        reference_images,
-        preview_path=preview_a,
-        overwrite_canonical=overwrite_canonical,
-        fast_live_mode=fast_live_mode,
-        prop_descriptions=prop_descriptions,
-    )
-
-    # Step 2: Derive Camera B (+45-degree right-side orbit) from Camera A.
-    # In standard quality mode with CAM_B_KEYFRAMES_FROM_A enabled, interpolate strictly between
-    # Camera A's first and last frames re-shot from +45 deg (with same-view crop guard);
-    # otherwise (or on fallback / fast_live_mode), synthesize a single +45 deg tripod start keyframe.
     res_b_keyframed = None
-    if (
-        config.CAM_B_KEYFRAMES_FROM_A
-        and not fast_live_mode
-        and not config.DEMO_MODE
-        and bool(config.GEMINI_API_KEY)
-        and res_a[0]
-    ):
-        _emit("deriving_cam_b_keyframes")
-        try:
-            res_b_keyframed = await _render_cam_b_from_keyframes(scene, res_a[0], res_a[1])
-        except Exception as exc:  # any failure falls back to the single-keyframe/reference path below
-            log_genai_call(
-                model=_resolve_video_model(),
-                prompt={"mode": "cam_b_from_cam_a_keyframes", "scene_id": scene.scene_id},
-                config={},
-                output={"fallback": f"{type(exc).__name__}: {str(exc)[:200]}"},
-            )
-            res_b_keyframed = None
-
-    if res_b_keyframed is not None:
-        res_b = res_b_keyframed
-    else:
-        _emit("rendering_cam_b")
-        cam_b_refs = list(reference_images)
-        cam_b_start_frame = prev_tail_b
-        cam_b_extra = ""
-        derived_keyframe: Optional[Path] = None
-        if res_a[1]:
-            cam_a_local = _resolve_asset_to_local_path(res_a[1])
-            if (not config.DEMO_MODE) and config.GEMINI_API_KEY and cam_a_local is not None:
-                kf_out = config.PREVIEWS_DIR / f"scene_{scene.scene_id}_cam_b_45deg_{uuid.uuid4().hex[:6]}.png"
-                derived_keyframe = await asyncio.to_thread(_synthesize_cam_b_45deg_keyframe_sync, cam_a_local, scene, kf_out)
-                if derived_keyframe is not None:
-                    cam_b_start_frame = str(derived_keyframe)
-            if derived_keyframe is not None:
-                # Do NOT include 0-degree frontal Cam A in cam_b_refs when +45deg start keyframe succeeded,
-                # otherwise Omni Flash drifts back to 0-degree frontal framing!
-                cam_b_extra = (
-                    "LOCKED +45-DEGREE STATIC TRIPOD CAMERA: start directly from the +45-degree diagonal side-angle "
-                    "starting frame (Image 1) and DO NOT pan, orbit, or drift back to a frontal symmetrical view! "
-                    "Keep the exact +45-degree asymmetrical room perspective, level floor/tabletop, vertical window pillars, "
-                    "and exact character positions & 3D facing directions throughout all 4 seconds while animating the scene action."
-                )
-            else:
-                cam_b_refs = [res_a[1]] + cam_b_refs
-                cam_b_extra = (
-                    "GEOMETRIC DERIVATION FROM CAMERA A (+45-DEGREE RIGHT-SIDE ORBIT): keep the EXACT +45-degree diagonal "
-                    "camera perspective matching Camera A's exact room architecture, ceiling arches, lanterns, furniture, "
-                    "table props, lighting, and exact 3D world-space character positions & head/face directions."
-                )
-        try:
-            res_b = await render_single_camera_shot(
+    if fast_live_mode:
+        # Fast Live Demo Mode (~25-30s total): run Camera A (0deg conservatory_cam_a.png) and Camera B
+        # (level asymmetrical +45deg conservatory_cam_b.png) concurrently in parallel, skipping blocking
+        # post-render tail inspection so live presentation turnaround is ~3x faster.
+        _emit("rendering_cam_a")
+        cam_b_fast_constraint = (
+            "LOCKED +45-DEGREE LEVEL RIGHT-SIDE PERSPECTIVE: strictly match the asymmetrical 45-degree diagonal "
+            "conservatory room layout, level floor/tabletop, and vertical window pillars from the Camera B room "
+            "reference image (omit empty wooden chairs around the table unless narration mentions chairs), placing "
+            "Lia on the left facing right and Nyx closer on the right facing left with identical props & action."
+        )
+        res_a, res_b = await asyncio.gather(
+            render_single_camera_shot(
+                scene,
+                "cam_a",
+                prev_tail_a,
+                reference_images,
+                preview_path=preview_a,
+                overwrite_canonical=overwrite_canonical,
+                fast_live_mode=True,
+                prop_descriptions=prop_descriptions,
+            ),
+            render_single_camera_shot(
                 scene,
                 "cam_b",
-                cam_b_start_frame,
-                cam_b_refs,
+                prev_tail_b,
+                reference_images,
                 preview_path=preview_b,
-                extra_constraint=cam_b_extra,
+                extra_constraint=cam_b_fast_constraint,
                 overwrite_canonical=overwrite_canonical,
-                fast_live_mode=fast_live_mode,
+                fast_live_mode=True,
                 prop_descriptions=prop_descriptions,
-            )
-        finally:
-            if derived_keyframe is not None:
-                derived_keyframe.unlink(missing_ok=True)
+            ),
+        )
+    else:
+        # Step 1: Render Camera A (front establishing shot)
+        _emit("rendering_cam_a")
+        res_a = await render_single_camera_shot(
+            scene,
+            "cam_a",
+            prev_tail_a,
+            reference_images,
+            preview_path=preview_a,
+            overwrite_canonical=overwrite_canonical,
+            fast_live_mode=False,
+            prop_descriptions=prop_descriptions,
+        )
+
+        # Step 2: Derive Camera B (+45-degree right-side orbit) from Camera A.
+        if (
+            config.CAM_B_KEYFRAMES_FROM_A
+            and not config.DEMO_MODE
+            and bool(config.GEMINI_API_KEY)
+            and res_a[0]
+        ):
+            _emit("deriving_cam_b_keyframes")
+            try:
+                res_b_keyframed = await _render_cam_b_from_keyframes(scene, res_a[0], res_a[1])
+            except Exception as exc:
+                log_genai_call(
+                    model=_resolve_video_model(),
+                    prompt={"mode": "cam_b_from_cam_a_keyframes", "scene_id": scene.scene_id},
+                    config={},
+                    output={"fallback": f"{type(exc).__name__}: {str(exc)[:200]}"},
+                )
+                res_b_keyframed = None
+
+        if res_b_keyframed is not None:
+            res_b = res_b_keyframed
+        else:
+            _emit("rendering_cam_b")
+            cam_b_refs = list(reference_images)
+            cam_b_start_frame = prev_tail_b
+            cam_b_extra = ""
+            derived_keyframe: Optional[Path] = None
+            if res_a[1]:
+                cam_a_local = _resolve_asset_to_local_path(res_a[1])
+                if (not config.DEMO_MODE) and config.GEMINI_API_KEY and cam_a_local is not None:
+                    kf_out = config.PREVIEWS_DIR / f"scene_{scene.scene_id}_cam_b_45deg_{uuid.uuid4().hex[:6]}.png"
+                    derived_keyframe = await asyncio.to_thread(_synthesize_cam_b_45deg_keyframe_sync, cam_a_local, scene, kf_out)
+                    if derived_keyframe is not None:
+                        cam_b_start_frame = str(derived_keyframe)
+                if derived_keyframe is not None:
+                    cam_b_extra = (
+                        "LOCKED +45-DEGREE STATIC TRIPOD CAMERA: start directly from the +45-degree diagonal side-angle "
+                        "starting frame (Image 1) and DO NOT pan, orbit, or drift back to a frontal symmetrical view! "
+                        "Keep the exact +45-degree asymmetrical room perspective, level floor/tabletop, vertical window pillars, "
+                        "and exact character positions & 3D facing directions throughout all 4 seconds while animating the scene action."
+                    )
+                else:
+                    cam_b_refs = [res_a[1]] + cam_b_refs
+                    cam_b_extra = (
+                        "GEOMETRIC DERIVATION FROM CAMERA A (+45-DEGREE RIGHT-SIDE ORBIT): keep the EXACT +45-degree diagonal "
+                        "camera perspective matching Camera A's exact room architecture, ceiling arches, lanterns, furniture, "
+                        "table props, lighting, and exact 3D world-space character positions & head/face directions."
+                    )
+            try:
+                res_b = await render_single_camera_shot(
+                    scene,
+                    "cam_b",
+                    cam_b_start_frame,
+                    cam_b_refs,
+                    preview_path=preview_b,
+                    extra_constraint=cam_b_extra,
+                    overwrite_canonical=overwrite_canonical,
+                    fast_live_mode=False,
+                    prop_descriptions=prop_descriptions,
+                )
+            finally:
+                if derived_keyframe is not None:
+                    derived_keyframe.unlink(missing_ok=True)
 
     if not fast_live_mode:
         _emit("cross_cam_qa")
@@ -1908,7 +1937,7 @@ async def render_scene_media(
         selected_candidate_index=int(res_a[3]),
         fallback_to_preview=(not both_have_video) or (avg_score < config.QA_PASS_THRESHOLD),
     )
-    if tail_inspector and media.cam_a_tail_frame_url:
+    if (not fast_live_mode) and tail_inspector and media.cam_a_tail_frame_url:
         local_tail = _resolve_asset_to_local_path(media.cam_a_tail_frame_url)
         inspector_arg = str(local_tail) if local_tail else media.cam_a_tail_frame_url
         scene.environment_notes = await tail_inspector(scene.scene_id, inspector_arg)
