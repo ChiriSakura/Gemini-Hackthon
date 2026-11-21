@@ -2,9 +2,28 @@
   "worker": "worker-2 (P3)",
   "branch": "feat/w2-frontend",
   "pull_main_first": true,
-  "batch_deadline": "16:25",
-  "feature_freeze": true,
+  "batch_deadline": "16:10",
+  "feature_freeze": false,
   "owned_paths": ["frontend/**", "tasks/status_P3.json"],
-  "note": "Master merged bc45bde cleanly into origin/main (all 6/6 `npm run verify` gates green!). W2-V3-01..03 are complete. Only stay on standby for final rehearsal tweaks or optional latency/toast polish while P2 lands W1-V3-01..04.",
-  "parallel_tasks": []
+  "note": "Master merged bc45bde (`W2-V3-01..03`) and P2 `f42a106` (`W1-V2-B1/B2`) cleanly into `origin/main` (`1b7566f`+), and added `dual_cam_fixed_room` & `fast_live_latency` to `GET /api/eval/summary`. While P2 completes the V3 color-fidelity + `<0.3s` template-tint speedup (`W1-V3-01..05`), knock out these 3 high-impact live-rehearsal & showcase UX improvements right before user live testing! Pull `origin/main` FIRST.",
+  "parallel_tasks": [
+    {
+      "task_id": "W2-V3-04",
+      "priority": "P0",
+      "title": "Instant Optimistic Captured-Object Preview on 2.5D Stage (`< 100ms` visual response while `/api/media/create-prop` completes)",
+      "details": "USER SPEEDUP REQUEST: In `frontend/src/App.tsx` (`handleSubmitThrow`), as soon as `CameraSelfView` submits `payload.mediaBlob` (if image Blob or quick video frame thumbnail), create a temporary `URL.createObjectURL(...)` preview badge/sprite on the stage immediately (with subtle `Stylizing...` indicator) BEFORE waiting for `/api/media/create-prop` to return, then swap cleanly to the returned transparent PNG (`created.image_url`) + revoke the temporary object URL on completion or cleanup so the user sees instant responsiveness."
+    },
+    {
+      "task_id": "W2-V3-05",
+      "priority": "P0",
+      "title": "1-Click `Retry Render` on Transient Errors & Fast-Mode Status Hint (`R-26`, `R-39`)",
+      "details": "In `frontend/src/App.tsx`: (1) When `/api/director/extend` or `/api/media/render-scene` hits a transient timeout or `content_blocked` warning on a scene, render a clean 1-click `Retry Render` button right inside the `errorNote` banner that retries `requestSceneRender` for the active scene cleanly without disturbing other scenes or frozen props; (2) When `createStageProp` completes quickly (`< 1.5s`), surface a subtle `'Fast matched: <appearance_summary or name>'` confirmation note."
+    },
+    {
+      "task_id": "W2-V3-06",
+      "priority": "P1",
+      "title": "Surface Live V2 Fixed-Room (`5/5 @ 0.80`) & `fast_live` (`2.9x` upload speedup) Metrics in `EvalModal.tsx` + Final `npm run verify`",
+      "details": "In `frontend/src/components/EvalModal.tsx` & `frontend/src/api/stageClient.ts`: read `dual_cam_fixed_room` and `fast_live_latency` returned by `GET /api/eval/summary` alongside `submission_summary` (`81.6% -> 87.8% -> 98.0%`), extend `frontend/scripts/test_stage_helpers.mjs` for any new helper logic, run full `npm run verify` (6/6 gates, 0 CJK leaks), update `tasks/status_P3.json`, and push `feat/w2-frontend`."
+    }
+  ]
 }

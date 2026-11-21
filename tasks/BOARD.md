@@ -1,19 +1,18 @@
 # StageState Hackathon Task Board & Deadlines
 
-> **Start**: 12:10 PM EST | **Feature Freeze**: 15:25 PM EST (Reached early at **14:20 EST!**) | **Hard Submission**: 17:00 PM EST
+> **Start**: 12:10 PM EST | **V2 Core Shipped**: 15:21 EST | **V3 Speed & Fidelity Sprint**: 15:28–16:15 EST | **Hard Submission**: 17:00 PM EST
 
-## Milestone Status (Updated 14:25 EST — P2 & P3 FEATURE FROZEN, 7+6 Gates ALL GREEN!)
+## Milestone Status (Updated 15:28 EST — V3 Speed & Visual Fidelity Sprint ACTIVE)
 
 | Phase | Deadline | Status | Gate / Deliverable | Owner |
 | :--- | :--- | :--- | :--- | :--- |
-| **T0: Setup & Probe** | **12:25** | ✅ DONE | Repo live, `.env` verified, Gemini 4 model IDs + `Decisions API v1beta` (`0.64s`) + Omni Flash (`18.64s`) verified | All |
-| **T1: Module MVP** | **13:15** | ✅ DONE (12:40) | P1 (`Neon` + `Decisions/Hydrogen`), P2 (`prop_maker` + `video_renderer`), P3 (`Three.js` 2.5D stage) merged into `main` | All |
-| **T2: Parallel Batch & Cache** | **14:15** | ✅ DONE (13:38) | 4 cached English branches (`branch_v1..branch_v4`), 28/28 H.264+AAC MP4s, 11/11 zero-halo RGBA props, 26/26 2.5D blueprints, `rule_memory.py` + hard structural invariants + `eval/` | P1 / P2 / P3 |
-| **T3: Trial, Eval & Hardening** | **15:25** | ✅ DONE (14:20) | All live empirical benchmarks published (`README.md` + `metrics_summary_for_submission.json`), 7 backend suites + 6 frontend `npm run verify` gates ALL GREEN (including Windows Node v24 `smoke_preview.mjs` 10/10 HTTP 200 & 4/4 failover rehearsal) | All |
-| **T4: Feature Freeze & Rehearsal** | **16:15** | 🔄 ACTIVE | **P2 & P3 FEATURE FROZEN (`queue_W1.json` & `queue_W2.json` locked).** Live booth rehearsal (physical prop snap + contradiction check + BE vs HE split-screen compare) + fallback recording. Only critical bugfixes if rehearsal uncovers one. | All |
-| **T5: Final Video & Submit** | **17:00** | ⏳ READY (`hook_10s` + `eval_12s` + `50s pitch reel` all H.264+AAC) | Record/assemble final 1-min submission video (0:00-0:10 dual-cam + twist; 0:10-0:48 live rewrite + keepsake + QA; 0:48-1:00 failure curves & baseline table), confirm public repo + all teammates added on submission page. | P3 + All |
+| **T0–T3: MVP, Parallel Cache & Eval** | **14:20** | ✅ DONE | Core Neon + Hydrogen + Decisions + Omni Flash + Three.js 2.5D stage, 4 cached branches, empirical benchmarks (`README.md` + `metrics_summary_for_submission.json`) | All |
+| **V2: Infinite Living Sculpture UI & Fixed Room** | **15:25** | ✅ DONE (`1b7566f`) | Minimalist Home UI (BE/HE removed), bottom-right `CameraSelfView` PiP, `/api/director/perceive` + `/extend`, fixed empty conservatory room refs (`5/5 @ 0.80`), parallel upload (`2.9x`), `catch_from_camera` conditional default `place` | All |
+| **V3: Visual Fidelity & Sub-Second Speedup** | **16:00** | 🔄 ACTIVE | `W1-V3-01..05` (exact captured color/type lock + `< 0.3s` template tint for seen categories + lean `384px` icon mode for unseen objects + `prop_descriptions` video injection); `W2-V3-04..06` (optimistic instant stage prop preview, 1-click Retry Render on transient failures, V2/V3 metrics in `EvalModal`) | P1 / P2 / P3 |
+| **T4: Live Booth Rehearsal & User Test** | **16:40** | ⏳ NEXT | Spin up local `uvicorn` + Vite dev; live test spontaneous voice/text + physical yellow drink can / black smartphone / unseen objects on camera | All |
+| **T5: Final Video & Submit** | **17:00** | ⏳ READY (`hook_10s` + `eval_12s` + `55.5s narrated` all H.264+AAC) | Final preflight check (`preflight_check` + `npm run verify`), public repo & Devpost teammate check, submit before 17:00 EST | P3 + All |
 
-## Task Queues & Status Files
-- Master / P1 Status: `tasks/status_P1.json`
-- Worker-1 (P2) Queue & Status: `tasks/queue_W1.json` (FROZEN) -> `tasks/status_P2.json`
-- Worker-2 (P3) Queue & Status: `tasks/queue_W2.json` (FROZEN) -> `tasks/status_P3.json`
+## Active Task Queues & Status Files
+- Master / P1 Status: `tasks/status_P1.json` (orchestration, `shared/schema.json`, `backend/main.py`, `backend/director/**`, `eval/**`)
+- Worker-1 (P2) Queue & Status: `tasks/queue_W1.json` -> `tasks/status_P2.json` (`W1-V3-01..05`, `W1-V2-B3/B4`)
+- Worker-2 (P3) Queue & Status: `tasks/queue_W2.json` -> `tasks/status_P3.json` (`W2-V3-04..06` optimistic instant preview, retry button, `EvalModal` live V2/V3 hydration)
