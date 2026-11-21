@@ -72,6 +72,11 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
     setFailedVideoUrls((prev) => (prev[url] ? prev : { ...prev, [url]: true }));
   };
 
+  // W2-T6D: Reset transient video error flags cleanly whenever active/compare branch changes
+  useEffect(() => {
+    setFailedVideoUrls({});
+  }, [activeBranch.branch_id, compareBranch?.branch_id]);
+
   useEffect(() => {
     if (!renderingScene) {
       setRenderElapsedSec(0);

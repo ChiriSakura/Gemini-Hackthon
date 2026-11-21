@@ -1,14 +1,24 @@
 /**
- * English Display Localization Helper for StageState Frontend.
+ * English Display Localization & Sanitization Helper for StageState Frontend.
  *
  * Feature & Use Cases:
- * - Maps known Chinese seed strings from locked mock/cached branch JSONs
- *   (`branch_v1`, `branch_v2`, `branch_v2_cached`) into crisp English labels
- *   for NYC Hackathon judges while preserving any custom English text verbatim.
+ * - Maps known Chinese seed strings from cached backend branch JSONs
+ *   (`branch_v1`, `branch_v2`, `branch_v2_cached`, `branch_v3*`) into crisp
+ *   English labels for NYC Hackathon judges while preserving custom English text.
+ * - Provides deep `sanitizeBranchToEn()` and `sanitizeRulesToEn()` guards so no
+ *   CJK text from backend responses, QA tooltips, or contradiction warnings can
+ *   ever leak into the English-only UI.
  */
-import type { BranchState, PropRegistryItem, Scene } from '../types/schema';
+import type {
+  BranchState,
+  GestureIntent,
+  PropRegistryItem,
+  Scene,
+  SceneMedia,
+  VocalEmotion,
+} from '../types/schema';
 
-const HAS_CJK = /[\u4e00-\u9fff]/;
+const HAS_CJK = /[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/;
 
 const PROP_NAME_EN: Record<string, string> = {
   red_umbrella: 'Red Umbrella',
@@ -16,13 +26,28 @@ const PROP_NAME_EN: Record<string, string> = {
   star_token: 'Starlight Token',
 };
 
+const ACTOR_NAME_EN: Record<string, string> = {
+  lia: 'Lia',
+  nyx: 'Nyx',
+};
+
 const BRANCH_LABEL_EN: Record<string, string> = {
   branch_v1: 'BE · Rainy Flight & Shattered Vase (Cached Baseline)',
   branch_v2: 'HE · Starlight Trust & Shared Umbrella (Forked Scene 2)',
   branch_v2_cached: 'HE · Starlight Trust & Shared Umbrella (Cached Fork)',
+  branch_v3_starlight_cached: 'HE · Golden Snow & Starlight Trust (Cached Variant)',
 };
 
-const SCENE_EN_BY_BRANCH: Record<string, Record<number, { title: string; narration: string }>> = {
+const FALLBACK_RULES_EN: string[] = [
+  'Once crystal_vase is broken, shards remain visible on the floor in all subsequent scenes.',
+  'Actors must keep consistent identity, outfit, and spatial left/right placement across Camera A & B.',
+  'Newly introduced props must persist in props_registry and subsequent scenes unless explicitly removed.',
+];
+
+const SCENE_EN_BY_BRANCH: Record<
+  string,
+  Record<number, { title: string; narration: string }>
+> = {
   branch_v1: {
     1: {
       title: 'Rainy Encounter',
@@ -70,6 +95,18 @@ const SCENE_EN_BY_BRANCH: Record<string, Record<number, { title: string; narrati
 };
 
 /**
+ * Ensure an arbitrary UI string is English-only, falling back when CJK appears.
+ */
+export function sanitizeTextToEn(
+  value: string | null | undefined,
+  fallback: string,
+): string {
+  if (!value || !value.trim()) return fallback;
+  if (!HAS_CJK.test(value)) return value;
+  return fallback;
+}
+
+/**
  * Return an English display label for a branch.
  */
 export function getBranchLabelEn(branch: BranchState): string {
@@ -88,13 +125,17 @@ export function getSceneTextEn(
   branchId: string,
   scene: Scene,
 ): { title: string; narration: string } {
-  const key = branchId.startsWith('branch_v2') ? 'branch_v2' : branchId;
+  const key =
+    branchId.startsWith('branch_v2') || branchId.startsWith('branch_v3')
+      ? 'branch_v2'
+      : branchId;
   const preset = SCENE_EN_BY_BRANCH[key]?.[scene.scene_id];
   const title = HAS_CJK.test(scene.title)
     ? (preset?.title ?? `Scene ${scene.scene_id}`)
     : scene.title;
   const narration = HAS_CJK.test(scene.narration)
-    ? (preset?.narration ?? `Scene ${scene.scene_id} (${scene.lighting}, ${scene.vocal_emotion})`)
+    ? (preset?.narration ??
+      `Scene ${scene.scene_id} (${scene.lighting}, ${sanitizeTextToEn(scene.vocal_emotion, 'neutral')})`)
     : scene.narration;
   return { title, narration };
 }
@@ -104,5 +145,115 @@ export function getSceneTextEn(
  */
 export function getPropNameEn(propId: string, item?: PropRegistryItem): string {
   if (item && !HAS_CJK.test(item.name)) return item.name;
-  return PROP_NAME_EN[propId] ?? propId.replace(/_/g, ' ');
+  return (
+    PROP_NAME_EN[propId] ??
+    propId
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (ch) => ch.toUpperCase())
+  );
+}
+
+/**
+ * Normalize a `SceneMedia` payload so QA item tooltips never display CJK.
+ */
+export function sanitizeSceneMediaToEn(
+  media: SceneMedia,
+  sceneId: number,
+): SceneMedia {
+  if (!media.qa_result?.items) return media;
+  return {
+    ...media,
+    qa_result: {
+      ...media.qa_result,
+      items: media.qa_result.items.map((item, idx) => {
+        const camMatch = item.question.match(/^\s*(\[CAM\s+[AB]\])\s*/i);
+        const prefix = camMatch ? `${camMatch[1].toUpperCase()} ` : '';
+        return {
+          ...item,
+          question: HAS_CJK.test(item.question)
+            ? `${prefix}Scene ${sceneId} continuity check #${idx + 1}`
+            : item.question,
+          reason: item.reason
+            ? sanitizeTextToEn(
+                item.reason,
+                item.passed
+                  ? 'Passed multimodal continuity check.'
+                  : 'Failed multimodal continuity check.',
+              )
+            : item.reason,
+        };
+      }),
+    },
+  };
+}
+
+/**
+ * Normalize active continuity rules to English-only text.
+ */
+export function sanitizeRulesToEn(rules: string[]): string[] {
+  return rules.map((rule, idx) =>
+    sanitizeTextToEn(
+      rule,
+      FALLBACK_RULES_EN[idx % FALLBACK_RULES_EN.length],
+    ),
+  );
+}
+
+/**
+ * Deeply normalize an entire `BranchState` returned by the backend so zero CJK
+ * characters leak into any visible label, narration, cue pill, or tooltip.
+ */
+export function sanitizeBranchToEn(branch: BranchState): BranchState {
+  const sanitizedProps: Record<string, PropRegistryItem> = {};
+  for (const [id, item] of Object.entries(branch.props_registry ?? {})) {
+    sanitizedProps[id] = {
+      ...item,
+      name: getPropNameEn(id, item),
+      state: sanitizeTextToEn(item.state, 'intact'),
+    };
+  }
+
+  return {
+    ...branch,
+    branch_label: getBranchLabelEn(branch),
+    rewrite_summary: branch.rewrite_summary
+      ? sanitizeTextToEn(
+          branch.rewrite_summary,
+          branch.forked_from_scene
+            ? `Causal rewrite applied starting at Scene ${branch.forked_from_scene}.`
+            : 'Director rewrite applied.',
+        )
+      : null,
+    contradiction_warning: branch.contradiction_warning
+      ? sanitizeTextToEn(
+          branch.contradiction_warning,
+          'Continuity conflict detected against an earlier scene state. Click "Force Rewrite" to override.',
+        )
+      : null,
+    props_registry: sanitizedProps,
+    scenes: (branch.scenes ?? []).map((scene) => {
+      const { title, narration } = getSceneTextEn(branch.branch_id, scene);
+      return {
+        ...scene,
+        title,
+        narration,
+        vocal_emotion: sanitizeTextToEn(scene.vocal_emotion, 'neutral') as VocalEmotion,
+        gesture_intent: sanitizeTextToEn(scene.gesture_intent, 'none') as GestureIntent,
+        direction_hint: sanitizeTextToEn(scene.direction_hint, 'none'),
+        audio_mood: sanitizeTextToEn(scene.audio_mood, 'ambient_conservatory'),
+        environment_notes: sanitizeTextToEn(scene.environment_notes, 'clean_stage'),
+        actors: (scene.actors ?? []).map((actor) => ({
+          ...actor,
+          name: HAS_CJK.test(actor.name)
+            ? (ACTOR_NAME_EN[actor.id] ??
+              actor.id.replace(/\b\w/g, (c) => c.toUpperCase()))
+            : actor.name,
+        })),
+        qa_questions: (scene.qa_questions ?? []).map((q, idx) =>
+          sanitizeTextToEn(q, `Scene ${scene.scene_id} continuity check #${idx + 1}`),
+        ),
+        media: sanitizeSceneMediaToEn(scene.media, scene.scene_id),
+      };
+    }),
+  };
 }

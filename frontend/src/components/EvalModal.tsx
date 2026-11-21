@@ -4,9 +4,10 @@
  * Feature & Use Cases:
  * - Keeps the main viewport 100% stage-focused while offering judges a 1-click
  *   empirical summary of StageState vs. Stateless Baseline, actor/scene failure
- *   curves, localized rerender savings, and P1/P2 multimodal media benchmarks.
+ *   curves, localized rerender savings, 360p vs 720p cost savings, 5-prop
+ *   transparent cutout showcase, and embedded BE vs. HE comparison reel.
  */
-import React from 'react';
+import React, { useState } from 'react';
 
 interface EvalModalProps {
   open: boolean;
@@ -28,13 +29,27 @@ const SCENE_CURVE = [
 ];
 
 const MEDIA_BENCHMARKS = [
-  { label: 'Cross-Cam Consistency', score: 0.893, detail: '25/28 pass' },
-  { label: 'Decisions Calibration', score: 1.0, detail: '20/20 (TPR=1.0, TNR=1.0)' },
+  { label: 'Cross-Cam Consistency', score: 0.929, detail: '26/28 pass' },
+  { label: 'Prop Persistence', score: 1.0, detail: '1.000 across S2-S4' },
+  { label: 'Decisions Calibration', score: 1.0, detail: '20/20 (TPR=1, TNR=1)' },
+  { label: '360p vs 720p Savings', score: 0.714, detail: '$0.48 vs $1.68 (71.4%)' },
   { label: '3-Prop Stress Test', score: 0.815, detail: '39.33s total' },
-  { label: 'Omni Flash Dual-Take', score: 1.0, detail: '14/14 pass (18.64s gen)' },
+  { label: 'Omni Flash Dual-Take', score: 1.0, detail: '17.1s 360p / 25.8s 720p' },
+];
+
+const SHOWCASE_PROPS = [
+  { label: 'Brass Pocket Watch', url: '/assets/props/showcase_brass_pocket_watch.png' },
+  { label: 'Crystal Shield', url: '/assets/props/showcase_crystal_shield.png' },
+  { label: 'Glowing Quill', url: '/assets/props/showcase_glowing_quill.png' },
+  { label: 'Origami Crane', url: '/assets/props/showcase_origami_crane.png' },
+  { label: 'Star Lantern', url: '/assets/props/showcase_star_lantern.png' },
 ];
 
 export const EvalModal: React.FC<EvalModalProps> = ({ open, onClose }) => {
+  const [reelOpen, setReelOpen] = useState(false);
+  const [reelError, setReelError] = useState(false);
+  const [failedProps, setFailedProps] = useState<Record<string, boolean>>({});
+
   if (!open) return null;
 
   return (
@@ -46,11 +61,12 @@ export const EvalModal: React.FC<EvalModalProps> = ({ open, onClose }) => {
             justifyContent: 'space-between',
             alignItems: 'center',
             marginBottom: 12,
+            gap: 10,
           }}
         >
           <div>
             <strong style={{ fontSize: '1.02rem' }}>
-              📊 Empirical Benchmark &amp; Failure Curves
+              📊 Empirical Benchmark, Cutout Props &amp; BE/HE Reel
             </strong>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
               Gemini 4 Neon + Hydrogen + Decisions API v1beta + Omni Flash (live verified)
@@ -65,26 +81,26 @@ export const EvalModal: React.FC<EvalModalProps> = ({ open, onClose }) => {
         <div className="eval-kpi-row">
           <div className="eval-kpi">
             <span className="eval-kpi-label">Stateless Baseline</span>
-            <strong style={{ color: '#fda4af', fontSize: '1.1rem' }}>
-              0.564 <span style={{ fontSize: '0.73rem' }}>(29.16s · FAIL)</span>
+            <strong style={{ color: '#fda4af', fontSize: '1.06rem' }}>
+              0.564 <span style={{ fontSize: '0.72rem' }}>(29.16s · FAIL)</span>
             </strong>
           </div>
           <div className="eval-kpi">
             <span className="eval-kpi-label">StageState (WorldState)</span>
-            <strong style={{ color: '#6ee7b7', fontSize: '1.1rem' }}>
-              0.951 <span style={{ fontSize: '0.73rem' }}>(6.90s–9.65s · PASS)</span>
+            <strong style={{ color: '#6ee7b7', fontSize: '1.06rem' }}>
+              0.951 <span style={{ fontSize: '0.72rem' }}>(6.90s–9.65s · PASS)</span>
             </strong>
           </div>
           <div className="eval-kpi">
-            <span className="eval-kpi-label">Localized Rewrite Savings</span>
-            <strong style={{ color: '#fde68a', fontSize: '1.1rem' }}>
-              66.7% <span style={{ fontSize: '0.73rem' }}>scenes skipped</span>
+            <span className="eval-kpi-label">360p Cost &amp; Rerender</span>
+            <strong style={{ color: '#fde68a', fontSize: '1.06rem' }}>
+              71.4% <span style={{ fontSize: '0.72rem' }}>cheaper · 66.7% skip</span>
             </strong>
           </div>
           <div className="eval-kpi">
-            <span className="eval-kpi-label">Decisions Calibration</span>
-            <strong style={{ color: '#7dd3fc', fontSize: '1.1rem' }}>
-              1.000 <span style={{ fontSize: '0.73rem' }}>(20/20 · 0.93–1.54s)</span>
+            <span className="eval-kpi-label">Cross-Cam &amp; Props</span>
+            <strong style={{ color: '#7dd3fc', fontSize: '1.06rem' }}>
+              0.929 <span style={{ fontSize: '0.72rem' }}>(26/28) · 1.000 prop</span>
             </strong>
           </div>
         </div>
@@ -133,13 +149,17 @@ export const EvalModal: React.FC<EvalModalProps> = ({ open, onClose }) => {
         </div>
 
         {/* P2 Verified Multimodal & Media Benchmarks */}
-        <div className="eval-box" style={{ marginTop: 12 }}>
+        <div className="eval-box" style={{ marginTop: 10 }}>
           <div className="eval-box-title">
-            Verified Multimodal &amp; Dual-Camera Media Benchmarks
+            Verified Multimodal, Dual-Cam &amp; 360p/720p Media Benchmarks
           </div>
           <div className="eval-two-col" style={{ gap: 8 }}>
             {MEDIA_BENCHMARKS.map((m) => (
-              <div key={m.label} className="bar-row" style={{ gridTemplateColumns: '140px 1fr 125px' }}>
+              <div
+                key={m.label}
+                className="bar-row"
+                style={{ gridTemplateColumns: '132px 1fr 136px' }}
+              >
                 <span className="bar-label">{m.label}</span>
                 <div className="bar-track">
                   <div
@@ -155,10 +175,87 @@ export const EvalModal: React.FC<EvalModalProps> = ({ open, onClose }) => {
           </div>
         </div>
 
-        <div style={{ marginTop: 10, fontSize: '0.73rem', color: 'var(--text-muted)' }}>
-          Sources: <code>eval/run_eval.py</code>, <code>eval/stress_report.json</code>, and{' '}
-          <code>backend/assets/eval_media_stats.jsonl</code>. Decisions API v1beta:{' '}
-          <code>0.93s–1.54s</code>/call · Omni Flash 360p/4s: <code>18.64s</code> gen.
+        {/* 5-Prop Cutout Showcase Strip */}
+        <div className="eval-box" style={{ marginTop: 10 }}>
+          <div className="eval-box-title">
+            Live Cutout Prop Showcase (Zero Green Halo · Persistent Registry)
+          </div>
+          <div className="showcase-prop-strip">
+            {SHOWCASE_PROPS.map((prop) => (
+              <div key={prop.label} className="showcase-prop-card">
+                <div className="checkerboard-thumb">
+                  {!failedProps[prop.url] ? (
+                    <img
+                      src={prop.url}
+                      alt={prop.label}
+                      onError={() =>
+                        setFailedProps((prev) => ({ ...prev, [prop.url]: true }))
+                      }
+                    />
+                  ) : (
+                    <span style={{ fontSize: '1.1rem' }}>✨</span>
+                  )}
+                </div>
+                <span className="showcase-prop-label">{prop.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Collapsible Side-by-Side Comparison Reel */}
+        <div className="eval-box" style={{ marginTop: 10 }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 8,
+            }}
+          >
+            <span className="eval-box-title" style={{ margin: 0 }}>
+              🎬 Stitched BE vs. HE Side-by-Side Comparison Reel
+            </span>
+            <button
+              type="button"
+              className={`pill-btn ${reelOpen ? 'active' : 'blue'}`}
+              onClick={() => {
+                setReelError(false);
+                setReelOpen((v) => !v);
+              }}
+            >
+              {reelOpen ? 'Hide Reel' : '▶ Watch BE vs. HE Reel'}
+            </button>
+          </div>
+          {reelOpen && (
+            <div style={{ marginTop: 8 }}>
+              {!reelError ? (
+                <video
+                  src="/assets/finals/demo_comparison_be_vs_he.mp4"
+                  controls
+                  autoPlay
+                  playsInline
+                  onError={() => setReelError(true)}
+                  style={{
+                    width: '100%',
+                    maxHeight: 260,
+                    borderRadius: 10,
+                    background: '#000',
+                  }}
+                />
+              ) : (
+                <div className="warning-banner">
+                  Comparison reel requires the FastAPI static server on port 8000 (
+                  <code>/assets/finals/demo_comparison_be_vs_he.mp4</code>).
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div style={{ marginTop: 10, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+          Sources: <code>eval/stress_report.json</code>,{' '}
+          <code>backend/assets/eval_720p_vs_360p.json</code> ($0.48 vs $1.68 per 6-clip branch),{' '}
+          <code>eval_dual_cam_stats.json</code>, <code>eval_prop_persistence.json</code>.
         </div>
       </div>
     </div>
