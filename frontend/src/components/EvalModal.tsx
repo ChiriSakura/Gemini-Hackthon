@@ -3,41 +3,54 @@
  *
  * Feature & Use Cases:
  * - Keeps the main viewport 100% stage-focused while offering judges a 1-click
- *   empirical summary of StageState vs. Stateless Baseline, actor/scene failure
- *   curves, localized rerender savings, 360p vs 720p cost savings, 5-prop
- *   transparent cutout showcase, and embedded BE vs. HE comparison reel.
+ *   summary of offline evaluation results. Every number is read from the
+ *   repo's report files (`eval/stress_report.json`, `eval/latest_report.json`,
+ *   `backend/assets/calibration_20_clips.json`, `eval_dual_cam_stats.json`,
+ *   `eval_prop_persistence.json`, `eval_720p_vs_360p.json`) or recomputed from
+ *   the backend take log `eval_media_stats.jsonl` when the modal opens.
+ * - The booth checklist reports the real API, microphone and camera state.
  */
 import React, { useEffect, useState } from 'react';
+import calibration from '../../../backend/assets/calibration_20_clips.json';
+import res720 from '../../../backend/assets/eval_720p_vs_360p.json';
+import dualCam from '../../../backend/assets/eval_dual_cam_stats.json';
+import propPersistence from '../../../backend/assets/eval_prop_persistence.json';
+import latestReport from '../../../eval/latest_report.json';
+import stressReport from '../../../eval/stress_report.json';
 
 interface EvalModalProps {
   open: boolean;
   onClose: () => void;
   isMockMode?: boolean;
+  /** `null` while the health check is still running. */
+  apiLive?: boolean | null;
+  backendReachable?: boolean | null;
   branchCount?: number;
 }
 
-const ACTOR_CURVE = [
-  { actors: '1 Actor (Lia)', score: 0.885, latency: '11.65s' },
-  { actors: '2 Actors (Lia + Nyx)', score: 0.855, latency: '11.04s' },
-  { actors: '3 Actors (+ Owl Keeper)', score: 0.82, latency: '10.08s' },
-  { actors: '4 Actors (+ Clockmaker)', score: 0.82, latency: '10.67s' },
-];
+type DeviceState = 'granted' | 'denied' | 'prompt' | 'missing' | 'unknown';
 
-const SCENE_CURVE = [
-  { scenes: '2 Scenes', noRules: 0.951, withRules: 0.947 },
-  { scenes: '4 Scenes', noRules: 0.952, withRules: 0.901 },
-  { scenes: '6 Scenes', noRules: 0.937, withRules: 0.699 },
-  { scenes: '8 Scenes', noRules: 0.95, withRules: 0.946 },
-];
+interface TakeStats {
+  shots: number;
+  singleTakePass: number;
+  bestOfTwoPass: number;
+  afterRetriesPass: number;
+  asOf: string;
+  fromBackend: boolean;
+}
 
-const MEDIA_BENCHMARKS = [
-  { label: 'Cross-Cam Consistency', score: 0.929, detail: '26/28 pass' },
-  { label: 'Prop Persistence', score: 1.0, detail: '1.000 across S2-S4' },
-  { label: 'Decisions Calibration', score: 1.0, detail: '20/20 (TPR=1, TNR=1)' },
-  { label: '360p vs 720p Savings', score: 0.714, detail: '$0.48 vs $1.68 (71.4%)' },
-  { label: '3-Prop Stress Test', score: 0.815, detail: '39.33s total' },
-  { label: 'Omni Flash Dual-Take', score: 1.0, detail: '17.1s 360p / 25.8s 720p' },
-];
+/** Judge score a take must reach to count as a pass (backend `QA_PASS_THRESHOLD`). */
+const TAKE_PASS_THRESHOLD = 0.75;
+
+/** Counts from `backend/assets/eval_media_stats.jsonl` at the time of writing; replaced by a live read when available. */
+const TAKE_STATS_SNAPSHOT: TakeStats = {
+  shots: 54,
+  singleTakePass: 44,
+  bestOfTwoPass: 48,
+  afterRetriesPass: 53,
+  asOf: 'snapshot Nov 21 14:33',
+  fromBackend: false,
+};
 
 const SHOWCASE_PROPS = [
   { label: 'Brass Pocket Watch', url: '/assets/props/showcase_brass_pocket_watch.png' },
@@ -50,34 +63,193 @@ const SHOWCASE_PROPS = [
   { label: 'Desk: Paper Heart', url: '/assets/props/showcase_desk_paper_heart.png' },
 ];
 
+const baseline = stressReport.stateless_baseline;
+const withoutRules = stressReport.scene_scaling_without_rules;
+const withRules = stressReport.scene_scaling_with_rule_memory;
+const sameSizeWithoutRules = withoutRules.find((r) => r.num_scenes === baseline.scenes);
+const sameSizeWithRules = withRules.find((r) => r.num_scenes === baseline.scenes);
+
+const SCENE_CURVE = withRules.map((row) => ({
+  scenes: `${row.num_scenes} Scenes`,
+  withRules: row.judge_score,
+  withRulesPassed: row.judge_all_passed,
+  noRules: withoutRules.find((r) => r.num_scenes === row.num_scenes)?.judge_score ?? null,
+}));
+
+const calibrationCorrect = Math.round(calibration.accuracy * calibration.total_clips);
+const propRun = propPersistence.branch_v3_prop_persistence;
+const propRate = Math.min(
+  propRun.star_token_persistence_rate,
+  propRun.crystal_vase_intact_persistence_rate,
+);
+const cost360 = res720.clip_360p.branch_6_clips_cost_usd;
+const cost720 = res720.clip_720p.branch_6_clips_cost_usd;
+const costSavingsPct = res720.comparison.cost_savings_pct_using_360p;
+const latency360 = res720.clip_360p.total_wall_clock_sec;
+const latency720 = res720.clip_720p.total_wall_clock_sec;
+const rerenderSkipPct = latestReport.localized_rewrite_skip_savings_pct;
+
+const MEDIA_BENCHMARKS: Array<{ label: string; fill: number; text: string }> = [
+  {
+    label: 'Cross-Cam Consistency',
+    fill: dualCam.cross_camera_consistency_rate,
+    text: `${dualCam.cross_camera_consistency_rate.toFixed(3)} · ${dualCam.passed_checks}/${dualCam.total_checks} checks`,
+  },
+  {
+    label: 'Prop Persistence',
+    fill: propRate,
+    text: `${propRate.toFixed(3)} · ${propRun.clips_audited} clips (1 branch)`,
+  },
+  {
+    label: 'Decisions Calibration',
+    fill: calibration.accuracy,
+    text: `${calibration.accuracy.toFixed(2)} · ${calibrationCorrect}/${calibration.total_clips} · TPR ${calibration.true_positive_rate.toFixed(3)} · TNR ${calibration.true_negative_rate.toFixed(3)}`,
+  },
+  {
+    label: '360p vs 720p Cost',
+    fill: costSavingsPct / 100,
+    text: `${costSavingsPct.toFixed(1)}% cheaper · $${cost360.toFixed(2)} vs $${cost720.toFixed(2)} (estimated)`,
+  },
+  {
+    label: '360p vs 720p Latency',
+    fill: latency360 / latency720,
+    text: `${latency360.toFixed(1)}s vs ${latency720.toFixed(1)}s per 4s clip (n=1)`,
+  },
+];
+
+function pct(part: number, whole: number): string {
+  return whole > 0 ? `${((part / whole) * 100).toFixed(1)}%` : '—';
+}
+
+/**
+ * Recompute single-take / best-of-two / after-retries pass counts from the
+ * backend take log (one JSON object per line).
+ */
+function parseTakeLog(text: string): TakeStats | null {
+  let shots = 0;
+  let single = 0;
+  let bestOfTwo = 0;
+  let afterRetries = 0;
+  let lastTimestamp = '';
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try {
+      const row = JSON.parse(trimmed) as {
+        take_0_score?: number | null;
+        take_1_score?: number | null;
+        passed?: boolean;
+        timestamp?: string;
+      };
+      const t0 = row.take_0_score ?? 0;
+      const t1 = row.take_1_score ?? 0;
+      shots += 1;
+      if (t0 >= TAKE_PASS_THRESHOLD) single += 1;
+      if (Math.max(t0, t1) >= TAKE_PASS_THRESHOLD) bestOfTwo += 1;
+      if (row.passed === true) afterRetries += 1;
+      if (row.timestamp) lastTimestamp = row.timestamp;
+    } catch {
+      // Skip malformed lines
+    }
+  }
+  if (shots === 0) return null;
+  return {
+    shots,
+    singleTakePass: single,
+    bestOfTwoPass: bestOfTwo,
+    afterRetriesPass: afterRetries,
+    asOf: lastTimestamp
+      ? `backend log, last entry ${lastTimestamp.replace('T', ' ')}`
+      : 'backend log',
+    fromBackend: true,
+  };
+}
+
+async function queryDeviceState(
+  permissionName: 'microphone' | 'camera',
+  deviceKind: 'audioinput' | 'videoinput',
+): Promise<DeviceState> {
+  try {
+    if (navigator.mediaDevices?.enumerateDevices) {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      if (!devices.some((d) => d.kind === deviceKind)) return 'missing';
+    }
+  } catch {
+    // Fall through to the permission query
+  }
+  try {
+    if (!navigator.permissions?.query) return 'unknown';
+    const status = await navigator.permissions.query({
+      name: permissionName as PermissionName,
+    });
+    return status.state as DeviceState;
+  } catch {
+    return 'unknown';
+  }
+}
+
+function devicePill(label: string, state: DeviceState): { className: string; text: string } {
+  switch (state) {
+    case 'granted':
+      return { className: 'qa-pill pass', text: `✓ ${label} allowed` };
+    case 'denied':
+      return { className: 'qa-pill fail', text: `✗ ${label} blocked` };
+    case 'missing':
+      return { className: 'qa-pill fail', text: `✗ No ${label.toLowerCase()} found` };
+    case 'prompt':
+      return { className: 'qa-pill', text: `${label}: permission not granted yet` };
+    default:
+      return { className: 'qa-pill', text: `${label}: not checked` };
+  }
+}
+
 export const EvalModal: React.FC<EvalModalProps> = ({
   open,
   onClose,
   isMockMode = false,
-  branchCount = 4,
+  apiLive = null,
+  backendReachable = null,
+  branchCount = 0,
 }) => {
   const [reelOpen, setReelOpen] = useState(false);
   const [reelError, setReelError] = useState(false);
   const [pitchSectionOpen, setPitchSectionOpen] = useState(false);
   const [missingMedia, setMissingMedia] = useState<Record<string, boolean>>({});
   const [failedProps, setFailedProps] = useState<Record<string, boolean>>({});
-  const [micReady, setMicReady] = useState<boolean | null>(null);
-  const [camReady, setCamReady] = useState<boolean | null>(null);
+  const [micState, setMicState] = useState<DeviceState>('unknown');
+  const [camState, setCamState] = useState<DeviceState>('unknown');
+  const [takeStats, setTakeStats] = useState<TakeStats>(TAKE_STATS_SNAPSHOT);
 
   useEffect(() => {
-    if (!open || typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) {
-      return;
-    }
-    navigator.mediaDevices
-      .enumerateDevices()
-      .then((devices) => {
-        setMicReady(devices.some((d) => d.kind === 'audioinput'));
-        setCamReady(devices.some((d) => d.kind === 'videoinput'));
+    if (!open || typeof navigator === 'undefined') return;
+    let cancelled = false;
+    queryDeviceState('microphone', 'audioinput').then((state) => {
+      if (!cancelled) setMicState(state);
+    });
+    queryDeviceState('camera', 'videoinput').then((state) => {
+      if (!cancelled) setCamState(state);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  // Recompute take pass rates from the backend's own log each time the modal opens
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    fetch('/assets/eval_media_stats.jsonl', { signal: AbortSignal.timeout(3000) })
+      .then((res) => (res.ok ? res.text() : Promise.reject(new Error(`HTTP ${res.status}`))))
+      .then((text) => {
+        const parsed = parseTakeLog(text);
+        if (!cancelled && parsed) setTakeStats(parsed);
       })
       .catch(() => {
-        setMicReady(false);
-        setCamReady(false);
+        // Keep the labelled snapshot when the log is unreachable
       });
+    return () => {
+      cancelled = true;
+    };
   }, [open]);
 
   const markMediaMissing = (key: string) => {
@@ -85,6 +257,23 @@ export const EvalModal: React.FC<EvalModalProps> = ({
   };
 
   if (!open) return null;
+
+  const micPill = devicePill('Mic', micState);
+  const camPill = devicePill('Cam', camState);
+  const apiPill =
+    apiLive === null
+      ? { className: 'qa-pill', text: 'API: checking…' }
+      : apiLive
+        ? { className: 'qa-pill pass', text: '✓ API live (models on)' }
+        : backendReachable
+          ? { className: 'qa-pill fail', text: '✗ API canned (no model key / demo mode)' }
+          : { className: 'qa-pill fail', text: '✗ API offline (mock data)' };
+
+  const TAKE_ROWS = [
+    { label: 'Single take', passed: takeStats.singleTakePass },
+    { label: 'Best of 2 takes', passed: takeStats.bestOfTwoPass },
+    { label: 'After retries', passed: takeStats.afterRetriesPass },
+  ];
 
   return (
     <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
@@ -103,7 +292,7 @@ export const EvalModal: React.FC<EvalModalProps> = ({
               📊 Empirical Benchmark, Cutout Props &amp; BE/HE Reel
             </strong>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Gemini 4 Neon + Hydrogen + Decisions API v1beta + Omni Flash (live verified)
+              Gemini 4 Neon + Hydrogen + Decisions API v1beta + Omni Flash · Offline eval · Nov 21
             </div>
           </div>
           <button type="button" className="pill-btn" onClick={onClose}>
@@ -128,113 +317,144 @@ export const EvalModal: React.FC<EvalModalProps> = ({
           <span style={{ fontSize: '0.73rem', fontWeight: 700, color: '#fde68a' }}>
             Live Booth Checklist:
           </span>
-          <span className={`qa-pill ${micReady === false ? 'fail' : 'pass'}`}>
-            {micReady === false ? '✗ Mic Missing' : '✓ Mic Ready'}
-          </span>
-          <span className={`qa-pill ${camReady === false ? 'fail' : 'pass'}`}>
-            {camReady === false ? '✗ Cam Missing' : '✓ Cam Ready'}
-          </span>
-          <span className={`qa-pill ${isMockMode ? '' : 'pass'}`}>
-            {isMockMode ? '⚠ Mock Fallback' : '✓ API Live'}
-          </span>
-          <span className="qa-pill pass">
-            ✓ {branchCount} {branchCount === 1 ? 'Branch' : 'Branches'} Loaded
+          <span className={micPill.className}>{micPill.text}</span>
+          <span className={camPill.className}>{camPill.text}</span>
+          <span className={apiPill.className}>{apiPill.text}</span>
+          <span className="qa-pill">
+            {branchCount} {branchCount === 1 ? 'branch' : 'branches'} loaded
+            {isMockMode ? ' (mock data)' : ''}
           </span>
         </div>
 
         {/* Highlight KPIs */}
         <div className="eval-kpi-row">
           <div className="eval-kpi">
-            <span className="eval-kpi-label">Stateless Baseline</span>
+            <span className="eval-kpi-label">
+              Stateless Baseline · {baseline.scenes} scenes (plan-level, n=1)
+            </span>
             <strong style={{ color: '#fda4af', fontSize: '1.06rem' }}>
-              0.564 <span style={{ fontSize: '0.72rem' }}>(29.16s · FAIL)</span>
+              {baseline.judge_score.toFixed(3)}{' '}
+              <span style={{ fontSize: '0.72rem' }}>
+                ({baseline.latency_sec.toFixed(2)}s · {baseline.all_passed ? 'PASS' : 'FAIL'})
+              </span>
             </strong>
           </div>
           <div className="eval-kpi">
-            <span className="eval-kpi-label">StageState (WorldState)</span>
-            <strong style={{ color: '#6ee7b7', fontSize: '1.06rem' }}>
-              0.951 <span style={{ fontSize: '0.72rem' }}>(6.90s–9.65s · PASS)</span>
-            </strong>
+            <span className="eval-kpi-label">
+              StageState (WorldState) · {baseline.scenes} scenes (plan-level, n=1)
+            </span>
+            {sameSizeWithoutRules && (
+              <strong style={{ color: '#6ee7b7', fontSize: '1.06rem' }}>
+                {sameSizeWithoutRules.judge_score.toFixed(3)}{' '}
+                <span style={{ fontSize: '0.72rem' }}>
+                  ({sameSizeWithoutRules.latency_sec.toFixed(2)}s ·{' '}
+                  {sameSizeWithoutRules.judge_all_passed ? 'PASS' : 'FAIL'})
+                </span>
+              </strong>
+            )}
+            {sameSizeWithRules && (
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                with rule memory: {sameSizeWithRules.judge_score.toFixed(3)} (
+                {sameSizeWithRules.latency_sec.toFixed(2)}s)
+              </span>
+            )}
           </div>
           <div className="eval-kpi">
-            <span className="eval-kpi-label">360p Cost &amp; Rerender</span>
+            <span className="eval-kpi-label">360p Cost (estimated) &amp; Rerender Skip</span>
             <strong style={{ color: '#fde68a', fontSize: '1.06rem' }}>
-              71.4% <span style={{ fontSize: '0.72rem' }}>cheaper · 66.7% skip</span>
+              {costSavingsPct.toFixed(1)}%{' '}
+              <span style={{ fontSize: '0.72rem' }}>
+                cheaper (est.) · {rerenderSkipPct.toFixed(1)}% skip
+              </span>
             </strong>
           </div>
           <div className="eval-kpi">
             <span className="eval-kpi-label">Cross-Cam &amp; Props</span>
             <strong style={{ color: '#7dd3fc', fontSize: '1.06rem' }}>
-              0.929 <span style={{ fontSize: '0.72rem' }}>(26/28) · 1.000 prop</span>
+              {dualCam.cross_camera_consistency_rate.toFixed(3)}{' '}
+              <span style={{ fontSize: '0.72rem' }}>
+                ({dualCam.passed_checks}/{dualCam.total_checks}) · {propRate.toFixed(3)} prop
+              </span>
             </strong>
           </div>
         </div>
 
         <div className="eval-two-col">
-          {/* 1->4 Actor Curve */}
+          {/* Omni Flash take pass rates recomputed from the backend take log */}
           <div className="eval-box">
-            <div className="eval-box-title">Actor Scaling Curve (1 → 4 Actors)</div>
-            {ACTOR_CURVE.map((row) => (
-              <div key={row.actors} className="bar-row">
-                <span className="bar-label">{row.actors}</span>
+            <div className="eval-box-title">
+              Omni Flash Take Pass Rates (judge ≥ {TAKE_PASS_THRESHOLD.toFixed(2)} · {takeStats.shots}{' '}
+              camera shots)
+            </div>
+            {TAKE_ROWS.map((row) => (
+              <div key={row.label} className="bar-row">
+                <span className="bar-label">{row.label}</span>
                 <div className="bar-track">
                   <div
                     className="bar-fill blue"
-                    style={{ width: `${Math.round(row.score * 100)}%` }}
+                    style={{
+                      width: `${Math.round((row.passed / Math.max(1, takeStats.shots)) * 100)}%`,
+                    }}
                   />
                 </div>
                 <span className="bar-val">
-                  {row.score.toFixed(3)} ({row.latency})
+                  {pct(row.passed, takeStats.shots)} ({row.passed}/{takeStats.shots})
                 </span>
               </div>
             ))}
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 4 }}>
+              Source: <code>eval_media_stats.jsonl</code> · {takeStats.asOf}
+            </div>
           </div>
 
           {/* 2->8 Scene Curve */}
           <div className="eval-box">
             <div className="eval-box-title">
-              Scene Scaling Curve (2 → 8 Scenes · Honest Regressions)
+              Scene Scaling 2 → 8 (plan-level, n=1) · with rule memory vs without
             </div>
             {SCENE_CURVE.map((row) => (
-              <div key={row.scenes} className="bar-row">
+              <div
+                key={row.scenes}
+                className="bar-row"
+                style={{ gridTemplateColumns: '64px 1fr 176px' }}
+              >
                 <span className="bar-label">{row.scenes}</span>
                 <div className="bar-track">
                   <div
-                    className={`bar-fill ${row.withRules < 0.75 ? 'warn' : 'green'}`}
+                    className={`bar-fill ${row.withRulesPassed ? 'green' : 'warn'}`}
                     style={{ width: `${Math.round(row.withRules * 100)}%` }}
                   />
                 </div>
                 <span className="bar-val">
-                  {row.withRules.toFixed(3)}{' '}
-                  {row.withRules < 0.75 ? '⚠ caught' : '✓'}
+                  {row.withRules.toFixed(3)} vs{' '}
+                  {row.noRules !== null ? row.noRules.toFixed(3) : '—'}{' '}
+                  {row.withRulesPassed ? '✓' : '⚠ judge fail'}
                 </span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* P2 Verified Multimodal & Media Benchmarks */}
+        {/* Media benchmarks read from backend/assets report files */}
         <div className="eval-box" style={{ marginTop: 10 }}>
           <div className="eval-box-title">
-            Verified Multimodal, Dual-Cam &amp; 360p/720p Media Benchmarks
+            Dual-Cam, Prop, Calibration &amp; 360p/720p Media Benchmarks (offline runs)
           </div>
           <div className="eval-two-col" style={{ gap: 8 }}>
             {MEDIA_BENCHMARKS.map((m) => (
               <div
                 key={m.label}
                 className="bar-row"
-                style={{ gridTemplateColumns: '132px 1fr 136px' }}
+                style={{ gridTemplateColumns: '132px 1fr 230px' }}
               >
                 <span className="bar-label">{m.label}</span>
                 <div className="bar-track">
                   <div
                     className="bar-fill green"
-                    style={{ width: `${Math.round(m.score * 100)}%` }}
+                    style={{ width: `${Math.round(m.fill * 100)}%` }}
                   />
                 </div>
-                <span className="bar-val">
-                  {m.score.toFixed(3)} · {m.detail}
-                </span>
+                <span className="bar-val">{m.text}</span>
               </div>
             ))}
           </div>
@@ -243,7 +463,8 @@ export const EvalModal: React.FC<EvalModalProps> = ({
         {/* 5-Prop Cutout Showcase Strip */}
         <div className="eval-box" style={{ marginTop: 10 }}>
           <div className="eval-box-title">
-            Live Cutout Prop Showcase (Zero Green Halo · Persistent Registry)
+            Cutout Prop Showcase (pre-generated · {propPersistence.prop_png_audits.length} PNGs
+            audited{propPersistence.all_props_zero_green_spill ? ', zero green spill' : ''})
           </div>
           <div className="showcase-prop-strip">
             {SHOWCASE_PROPS.map((prop) => (
@@ -309,7 +530,7 @@ export const EvalModal: React.FC<EvalModalProps> = ({
                 />
               ) : (
                 <div className="warning-banner">
-                  Comparison reel requires the FastAPI static server on port 8000 (
+                  Comparison reel requires the FastAPI static server (
                   <code>/assets/finals/demo_comparison_be_vs_he.mp4</code>).
                 </div>
               )}
@@ -433,7 +654,7 @@ export const EvalModal: React.FC<EvalModalProps> = ({
                 missingMedia.storyboard &&
                 missingMedia.pitchReel && (
                   <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                    Submission media gallery requires FastAPI static assets on port 8000.
+                    Submission media gallery requires FastAPI static assets.
                   </div>
                 )}
             </div>
@@ -441,9 +662,12 @@ export const EvalModal: React.FC<EvalModalProps> = ({
         </div>
 
         <div style={{ marginTop: 10, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-          Sources: <code>eval/stress_report.json</code>,{' '}
-          <code>backend/assets/eval_720p_vs_360p.json</code> ($0.48 vs $1.68 per 6-clip branch),{' '}
-          <code>eval_dual_cam_stats.json</code>, <code>eval_prop_persistence.json</code>.
+          Sources: <code>eval/stress_report.json</code> (plan-level judge, one run per point),{' '}
+          <code>eval/latest_report.json</code>,{' '}
+          <code>backend/assets/calibration_20_clips.json</code>,{' '}
+          <code>eval_dual_cam_stats.json</code>, <code>eval_prop_persistence.json</code>,{' '}
+          <code>eval_720p_vs_360p.json</code> (list-price estimate per 6-clip branch),{' '}
+          <code>eval_media_stats.jsonl</code>.
         </div>
       </div>
     </div>

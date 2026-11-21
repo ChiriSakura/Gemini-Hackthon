@@ -5,9 +5,11 @@
  * - Connects the frontend to P1 (`GET /api/branches`, `POST /api/director/fork`)
  *   and P2 (`POST /api/media/render-scene`, `POST /api/media/create-prop`)
  *   via Vite's `/api` proxy (http://localhost:8000).
- * - Provides graceful fallback to local mock branches when backend is offline.
+ * - Falls back to local mock branches only for the initial branch list when the
+ *   backend is offline; a failed fork is reported to the caller as an error.
+ * - Reads `GET /api/health` so the UI can tell live models from canned answers.
  */
-import { INITIAL_MOCK_BRANCHES, MOCK_BRANCH_2 } from '../data/mockBranches';
+import { INITIAL_MOCK_BRANCHES } from '../data/mockBranches';
 import type { BranchState, PropRegistryItem, Scene, SceneMedia } from '../types/schema';
 import {
   getPropNameEn,
@@ -102,13 +104,78 @@ export async function fetchBranches(): Promise<{
   }
 }
 
+export interface BackendHealth {
+  reachable: boolean;
+  live: boolean;
+  demoMode: boolean;
+}
+
+/**
+ * Read `GET /api/health`. `live` is true only when the backend answers and
+ * reports real model access; otherwise every backend answer is canned.
+ */
+export async function fetchHealth(): Promise<BackendHealth> {
+  try {
+    const res = await fetch('/api/health', { signal: AbortSignal.timeout(2500) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return {
+      reachable: true,
+      live: data?.live === true,
+      demoMode: data?.demo_mode === true,
+    };
+  } catch {
+    return { reachable: false, live: false, demoMode: false };
+  }
+}
+
+const FORK_TIMEOUT_MS = 120000;
+
+/**
+ * Turn a failed request into a short human-readable reason.
+ */
+function describeRequestError(err: unknown, timeoutMs: number): string {
+  if (err instanceof DOMException && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+    return `timed out after ${Math.round(timeoutMs / 1000)}s`;
+  }
+  if (err instanceof TypeError) {
+    return 'network error (backend unreachable)';
+  }
+  if (err instanceof Error && err.message) {
+    return err.message.length > 180 ? `${err.message.slice(0, 180)}…` : err.message;
+  }
+  return 'unknown error';
+}
+
+/**
+ * Read an error body from FastAPI (`{"detail": ...}`) or plain text.
+ */
+async function readErrorDetail(res: Response): Promise<string> {
+  let detail = '';
+  try {
+    const raw = await res.text();
+    try {
+      const parsed = JSON.parse(raw);
+      const d = parsed?.detail;
+      detail = typeof d === 'string' ? d : d ? JSON.stringify(d) : raw;
+    } catch {
+      detail = raw;
+    }
+  } catch {
+    detail = '';
+  }
+  const cleaned = sanitizeTextToEn(detail.replace(/\s+/g, ' ').trim(), '');
+  return cleaned ? `HTTP ${res.status} — ${cleaned}` : `HTTP ${res.status}`;
+}
+
 /**
  * Submit a 3s webcam+mic `.webm` clip or text rewrite to `POST /api/director/fork`.
- * Returns the newly forked `BranchState` (or simulated `branch_v2` in offline mode).
+ * Returns the newly forked `BranchState`, or `branch: null` plus a reason when the
+ * request fails (HTTP status, network error, or timeout). Never fabricates a branch.
  */
 export async function submitDirectorFork(
   payload: ForkRequestPayload,
-): Promise<{ branch: BranchState; simulated: boolean }> {
+): Promise<{ branch: BranchState | null; error: string | null }> {
   const formData = new FormData();
   formData.append('parent_branch_id', payload.parentBranchId);
   formData.append('target_scene_id', String(payload.targetSceneId));
@@ -126,25 +193,18 @@ export async function submitDirectorFork(
     const res = await fetch('/api/director/fork', {
       method: 'POST',
       body: formData,
+      signal: AbortSignal.timeout(FORK_TIMEOUT_MS),
     });
     if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(errText || `HTTP ${res.status}`);
+      return { branch: null, error: await readErrorDetail(res) };
     }
-    const branch = sanitizeBranchToEn((await res.json()) as BranchState);
-    return { branch, simulated: false };
-  } catch {
-    // Offline/pre-integration simulation using locked mock_branch_2
-    const simulatedBranch: BranchState = sanitizeBranchToEn({
-      ...MOCK_BRANCH_2,
-      branch_id: `branch_sim_${Date.now().toString().slice(-4)}`,
-      parent_branch_id: payload.parentBranchId,
-      forked_from_scene: payload.targetSceneId,
-      rewrite_summary: payload.text?.trim()
-        ? `Simulated Scene ${payload.targetSceneId} rewrite: "${sanitizeTextToEn(payload.text.trim(), 'Custom rewrite')}"`
-        : MOCK_BRANCH_2.rewrite_summary,
-    });
-    return { branch: simulatedBranch, simulated: true };
+    const raw = (await res.json()) as BranchState;
+    if (!raw || !Array.isArray(raw.scenes) || raw.scenes.length === 0) {
+      return { branch: null, error: 'backend returned a branch with no scenes' };
+    }
+    return { branch: sanitizeBranchToEn(raw), error: null };
+  } catch (err) {
+    return { branch: null, error: describeRequestError(err, FORK_TIMEOUT_MS) };
   }
 }
 

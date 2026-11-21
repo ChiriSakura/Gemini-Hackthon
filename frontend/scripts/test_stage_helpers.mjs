@@ -7,8 +7,9 @@
  *   1) `soundCue.ts` safety in headless / muted / unmuted environments.
  *   2) `mockBranches.ts` structural invariants (4 unique branches, scene_ids
  *      [1,2,3,4], valid 3x3 grids [0..2], valid lighting presets, 0 CJK).
- *   3) `stageClient.ts` FormData + offline fallback edge cases (blank prop name,
- *      custom sceneId, simulated fork, progress null fallback).
+ *   3) `stageClient.ts` FormData + offline edge cases (blank prop name, custom
+ *      sceneId, failed fork reported as an error with no fabricated branch,
+ *      health check reporting not-live, progress null fallback).
  */
 import assert from 'node:assert/strict';
 import path from 'node:path';
@@ -101,8 +102,8 @@ try {
     text: 'Lia shields the crystal vase.',
     confirmContradiction: true,
   });
-  assert.equal(forkRes.simulated, true);
-  assert.equal(forkRes.branch.forked_from_scene, 2);
+  assert.equal(forkRes.branch, null, 'A failed fork must never fabricate a branch');
+  assert.match(forkRes.error, /Simulated offline backend/);
   const forkReq = capturedRequests.find((r) => r.url === '/api/director/fork');
   assert.ok(forkReq && forkReq.init?.body instanceof FormData);
   assert.equal(forkReq.init.body.get('confirm_contradiction'), 'true');
@@ -121,10 +122,36 @@ try {
 
   const prog = await client.fetchRenderProgress('branch_v1');
   assert.equal(prog, null);
+
+  const offlineHealth = await client.fetchHealth();
+  assert.deepEqual(offlineHealth, { reachable: false, live: false, demoMode: false });
+
+  // HTTP errors must surface the status and FastAPI detail, still with no branch
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({ detail: 'Parent branch branch_x not found' }), {
+      status: 404,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  const httpFork = await client.submitDirectorFork({
+    parentBranchId: 'branch_x',
+    targetSceneId: 2,
+    text: 'Lia shields the crystal vase.',
+  });
+  assert.equal(httpFork.branch, null);
+  assert.match(httpFork.error, /^HTTP 404 — Parent branch branch_x not found$/);
+
+  // Health reports canned mode when the backend answers with live=false
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({ status: 'ok', demo_mode: true, live: false }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  const cannedHealth = await client.fetchHealth();
+  assert.deepEqual(cannedHealth, { reachable: true, live: false, demoMode: true });
 } finally {
   globalThis.fetch = originalFetch;
 }
 
 console.log(
-  '[test-stage-helpers] PASS: soundCue, 4-branch mock invariants (grids/lighting/0-CJK), and stageClient FormData edge cases all passed!',
+  '[test-stage-helpers] PASS: soundCue, 4-branch mock invariants (grids/lighting/0-CJK), and stageClient FormData / fork-error / health edge cases all passed!',
 );

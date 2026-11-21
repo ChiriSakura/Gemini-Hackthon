@@ -14,6 +14,7 @@ import {
   createStageProp,
   fetchBranches,
   fetchDirectorRules,
+  fetchHealth,
   fetchRenderProgress,
   requestBranchRender,
   requestSceneRender,
@@ -32,6 +33,12 @@ import { INITIAL_MOCK_BRANCHES } from './data/mockBranches';
 import type { PreviewExportResult } from './stage/ThreeStageManager';
 import type { BranchState, Scene } from './types/schema';
 import { getBranchLabelEn } from './utils/displayLocale';
+import {
+  findParentScene,
+  hasOwnFinalMedia,
+  sceneKey,
+  summarizeJudge,
+} from './utils/sceneMedia';
 import { playCompletionChime } from './utils/soundCue';
 
 interface PendingForkInput {
@@ -42,9 +49,17 @@ interface PendingForkInput {
   warning: string;
 }
 
+type ApiStatus = 'checking' | 'live' | 'mock';
+
 export default function App(): React.ReactElement {
   const [branches, setBranches] = useState<BranchState[]>(INITIAL_MOCK_BRANCHES);
   const [isMockMode, setIsMockMode] = useState(true);
+  const [apiStatus, setApiStatus] = useState<ApiStatus>('checking');
+  const [backendReachable, setBackendReachable] = useState<boolean | null>(null);
+  const [errorNote, setErrorNote] = useState<string | null>(null);
+  const [renderedSceneKeys, setRenderedSceneKeys] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [reconnectingApi, setReconnectingApi] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [activeBranchId, setActiveBranchId] = useState<string>('branch_v1');
@@ -72,11 +87,24 @@ export default function App(): React.ReactElement {
   );
   const [statusNote, setStatusNote] = useState<string | null>(null);
 
+  // Re-read /api/health so the header badge reflects whether models are really live
+  const refreshHealth = async (branchesFromMock: boolean) => {
+    const health = await fetchHealth();
+    setBackendReachable(health.reachable);
+    setApiStatus(health.reachable && health.live && !branchesFromMock ? 'live' : 'mock');
+    return health;
+  };
+
   const loadBackendState = async (showFeedback = false) => {
     setReconnectingApi(true);
-    const { branches: loaded, fromMock } = await fetchBranches();
+    const [{ branches: loaded, fromMock }, health] = await Promise.all([
+      fetchBranches(),
+      fetchHealth(),
+    ]);
     setBranches(loaded);
     setIsMockMode(fromMock);
+    setBackendReachable(health.reachable);
+    setApiStatus(health.reachable && health.live && !fromMock ? 'live' : 'mock');
     if (loaded.length > 0) {
       setActiveBranchId((curr) =>
         loaded.some((b) => b.branch_id === curr) ? curr : loaded[0].branch_id,
@@ -91,8 +119,10 @@ export default function App(): React.ReactElement {
     if (showFeedback) {
       setStatusNote(
         fromMock
-          ? 'Backend still offline — staying in Mock Fallback Mode.'
-          : `Connected to Live FastAPI (${loaded.length} branches loaded)!`,
+          ? 'Backend still offline — staying in Mock Mode (canned data).'
+          : health.live
+            ? `Connected to Live FastAPI (${loaded.length} branches loaded)!`
+            : `Backend reachable (${loaded.length} branches) but no model key / demo mode — answers are canned.`,
       );
     }
   };
@@ -235,6 +265,7 @@ export default function App(): React.ReactElement {
     setRenderProgress(null);
     setPipelineStage(0);
     setStatusNote(null);
+    setErrorNote(null);
     setCompareBranchId(null);
     if (baseBranch) {
       setActiveBranchId(baseBranch.branch_id);
@@ -264,13 +295,14 @@ export default function App(): React.ReactElement {
     setSubmitting(true);
     setPipelineStage(1);
     setPendingConflict(null);
+    setErrorNote(null);
     setStatusNote('Step 1/4: Hydrogen parsing multimodal input…');
     const stepTimer = window.setTimeout(() => {
       setPipelineStage(2);
       setStatusNote('Step 2/4: Gemini 4 Neon simulating causal world state…');
     }, 1800);
 
-    const { branch: newBranch, simulated } = await submitDirectorFork({
+    const { branch: newBranch, error: forkError } = await submitDirectorFork({
       parentBranchId: effectiveParentBranchId,
       targetSceneId: effectiveTargetSceneId,
       clip: opts.clip,
@@ -280,6 +312,13 @@ export default function App(): React.ReactElement {
     window.clearTimeout(stepTimer);
     setSubmitting(false);
     setPipelineStage(0);
+
+    if (!newBranch) {
+      setStatusNote(null);
+      setErrorNote(`Rewrite failed: ${forkError ?? 'unknown error'}. No branch was added.`);
+      void refreshHealth(isMockMode);
+      return;
+    }
 
     if (newBranch.contradiction_warning) {
       setPendingConflict({
@@ -298,11 +337,15 @@ export default function App(): React.ReactElement {
     setActiveSceneIndex(Math.max(0, effectiveTargetSceneId - 1));
     setTargetSceneId(effectiveTargetSceneId);
     setCompareEnabled(true);
+    // A fresh fork has no rendered clips of its own yet: show the 2.5D preview
+    setViewMode('preview');
     playCompletionChime(soundEnabled);
+    const pendingCount = newBranch.scenes.filter(
+      (s) =>
+        !hasOwnFinalMedia(s, findParentScene(newBranch, branches, s.scene_id)),
+    ).length;
     setStatusNote(
-      simulated
-        ? 'Offline mock simulation: forked new timeline on 2.5D stage.'
-        : `Forked "${getBranchLabelEn(newBranch)}" — 2.5D stage synced (<1s).`,
+      `Forked "${getBranchLabelEn(newBranch)}" — 2.5D preview updated; ${pendingCount} scene${pendingCount === 1 ? '' : 's'} not rendered yet.`,
     );
   };
 
@@ -322,6 +365,7 @@ export default function App(): React.ReactElement {
     preview: PreviewExportResult,
   ) => {
     if (renderingScene) return;
+    setErrorNote(null);
     setRenderingScene(true);
     setPipelineStage(3);
     setStatusNote(`Step 3/4: Uploading Scene ${scene.scene_id} 2.5D preview…`);
@@ -345,8 +389,14 @@ export default function App(): React.ReactElement {
 
     if (!result) {
       setStatusNote('Render API unreachable — staying on live 2.5D preview.');
+      void refreshHealth(isMockMode);
       return;
     }
+
+    const renderedBranchId = activeBranch.branch_id;
+    const hasClip = Boolean(
+      result.media.cam_a_final_url || result.media.cam_b_final_url,
+    );
 
     setBranches((prev) =>
       prev.map((b) =>
@@ -367,33 +417,89 @@ export default function App(): React.ReactElement {
             },
       ),
     );
+
+    if (result.media.fallback_to_preview) {
+      setStatusNote(`Scene ${scene.scene_id} degraded to 2.5D preview after QA retries.`);
+      return;
+    }
+    if (!hasClip) {
+      setStatusNote(`Scene ${scene.scene_id} render returned no clip — staying on 2.5D preview.`);
+      return;
+    }
+
+    setRenderedSceneKeys((prev) => {
+      const next = new Set(prev);
+      next.add(sceneKey(renderedBranchId, result.scene_id));
+      return next;
+    });
     setViewMode('final');
     playCompletionChime(soundEnabled);
+    const judge = summarizeJudge({ ...scene, media: result.media }, true);
     setStatusNote(
-      result.media.fallback_to_preview
-        ? `Scene ${scene.scene_id} degraded to 2.5D preview after QA retries.`
-        : `Scene ${scene.scene_id} Omni Flash render passed QA!`,
+      !judge.judged
+        ? `Scene ${scene.scene_id} rendered — no QA result returned.`
+        : judge.allPassed
+          ? `Scene ${scene.scene_id} rendered — QA passed ${judge.passedCount}/${judge.total} checks (judge ${judge.scorePct}%).`
+          : `Scene ${scene.scene_id} rendered — QA failed ${judge.total - judge.passedCount} of ${judge.total} checks (judge ${judge.scorePct}%).`,
     );
   };
 
   const handleRenderWholeBranch = async () => {
     if (renderingScene) return;
+    setErrorNote(null);
     setRenderingScene(true);
     setPipelineStage(4);
     setStatusNote(`Step 4/4: Concurrent Omni Flash dual-take + Decision-1 QA for ${getBranchLabelEn(activeBranch)}…`);
-    const updated = await requestBranchRender(activeBranch.branch_id);
+    const before = activeBranch;
+    const updated = await requestBranchRender(before.branch_id);
     setRenderingScene(false);
     setPipelineStage(0);
     if (!updated) {
       setStatusNote('Batch render failed — verify FastAPI backend is running.');
+      void refreshHealth(isMockMode);
       return;
     }
     setBranches((prev) =>
       prev.map((b) => (b.branch_id === updated.branch_id ? updated : b)),
     );
-    setViewMode('final');
-    playCompletionChime(soundEnabled);
-    setStatusNote(`All affected scenes rendered for ${getBranchLabelEn(updated)}!`);
+
+    // Scenes whose final clip changed in this call were really rendered just now
+    const newlyRendered = updated.scenes.filter((s) => {
+      const old = before.scenes.find((o) => o.scene_id === s.scene_id);
+      const hasClip = Boolean(s.media.cam_a_final_url || s.media.cam_b_final_url);
+      return (
+        hasClip &&
+        !s.media.fallback_to_preview &&
+        (!old ||
+          old.media.cam_a_final_url !== s.media.cam_a_final_url ||
+          old.media.cam_b_final_url !== s.media.cam_b_final_url)
+      );
+    });
+    const degraded = updated.scenes.filter((s) => s.media.fallback_to_preview);
+    if (newlyRendered.length > 0) {
+      setRenderedSceneKeys((prev) => {
+        const next = new Set(prev);
+        for (const s of newlyRendered) {
+          next.add(sceneKey(updated.branch_id, s.scene_id));
+        }
+        return next;
+      });
+      setViewMode('final');
+      playCompletionChime(soundEnabled);
+    }
+    const failedQa = newlyRendered.filter((s) => {
+      const j = summarizeJudge(s, true);
+      return j.judged && !j.allPassed;
+    });
+    setStatusNote(
+      newlyRendered.length === 0
+        ? `No new clips were rendered for ${getBranchLabelEn(updated)}${degraded.length > 0 ? ` (${degraded.length} degraded to 2.5D preview)` : ''}.`
+        : `Rendered ${newlyRendered.length} scene${newlyRendered.length === 1 ? '' : 's'} for ${getBranchLabelEn(updated)}` +
+            (failedQa.length > 0
+              ? ` — QA failed on Scene ${failedQa.map((s) => s.scene_id).join(', ')}.`
+              : '.') +
+            (degraded.length > 0 ? ` ${degraded.length} degraded to 2.5D preview.` : ''),
+    );
   };
 
   // W2-T7C: Non-blocking demo safety escape to cached Starlight branch if live render > 35s
@@ -418,6 +524,7 @@ export default function App(): React.ReactElement {
     placement: PropPlacement;
   }) => {
     const currentSceneId = activeScene.scene_id;
+    setErrorNote(null);
     setCreatingProp(true);
     setStatusNote(`Generating transparent stage prop "${opts.name}" (${opts.placement})…`);
     const created = await createStageProp({
@@ -428,6 +535,9 @@ export default function App(): React.ReactElement {
       imageBlob: opts.imageBlob,
     });
     setCreatingProp(false);
+    if (created.simulated) {
+      void refreshHealth(isMockMode);
+    }
 
     const onFloor = opts.placement === 'floor';
     const propState: 'held' | 'glowing' = opts.placement === 'held' ? 'held' : 'glowing';
@@ -510,23 +620,38 @@ export default function App(): React.ReactElement {
           <span className="brand-subtitle">
             One-Sentence Dual-Camera 2.5D Stage Director
           </span>
-          {!cleanCaptureMode &&
-            (isMockMode ? (
-              <button
-                type="button"
-                className="pill-btn subtle"
-                style={{ fontSize: '0.7rem', padding: '3px 9px' }}
-                onClick={() => loadBackendState(true)}
-                disabled={reconnectingApi}
-                title="Re-ping FastAPI backend without reloading the page"
-              >
-                {reconnectingApi ? '⏳ Reconnecting…' : 'Mock Fallback Mode · ↻ Retry API'}
-              </button>
-            ) : (
-              <span className="cam-tag ai-ready" style={{ fontSize: '0.7rem' }}>
-                Live FastAPI
-              </span>
-            ))}
+          {apiStatus === 'mock' && (
+            <span
+              className="cam-tag fallback"
+              role="status"
+              style={{ fontSize: '0.82rem', fontWeight: 800, letterSpacing: '0.06em' }}
+              title="No model key / backend offline — canned data"
+            >
+              MOCK MODE
+            </span>
+          )}
+          {!cleanCaptureMode && apiStatus === 'checking' && (
+            <span className="cam-tag" style={{ fontSize: '0.7rem' }}>
+              Checking API…
+            </span>
+          )}
+          {!cleanCaptureMode && apiStatus === 'live' && (
+            <span className="cam-tag ai-ready" style={{ fontSize: '0.7rem' }}>
+              Live FastAPI
+            </span>
+          )}
+          {!cleanCaptureMode && apiStatus === 'mock' && (
+            <button
+              type="button"
+              className="pill-btn subtle"
+              style={{ fontSize: '0.7rem', padding: '3px 9px' }}
+              onClick={() => loadBackendState(true)}
+              disabled={reconnectingApi}
+              title="Re-ping FastAPI backend without reloading the page"
+            >
+              {reconnectingApi ? '⏳ Reconnecting…' : '↻ Retry API'}
+            </button>
+          )}
         </div>
 
         <div className="toolbar-actions">
@@ -642,6 +767,21 @@ export default function App(): React.ReactElement {
         </div>
       )}
 
+      {errorNote && (
+        <div
+          className="warning-banner"
+          role="alert"
+          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}
+        >
+          <span>
+            <strong>{errorNote}</strong>
+          </span>
+          <button type="button" className="pill-btn" onClick={() => setErrorNote(null)}>
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {!cleanCaptureMode && statusNote && pipelineStage === 0 && (
         <div className="status-banner gold" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
           <span>{statusNote}</span>
@@ -675,6 +815,10 @@ export default function App(): React.ReactElement {
 
       <ClapperboardQA
         scene={activeScene}
+        hasOwnRender={hasOwnFinalMedia(
+          activeScene,
+          findParentScene(activeBranch, branches, activeScene.scene_id),
+        )}
         rules={rules}
         propsRegistry={activeBranch.props_registry}
         cleanCaptureMode={cleanCaptureMode}
@@ -684,6 +828,7 @@ export default function App(): React.ReactElement {
         branches={branches}
         activeBranchId={activeBranch.branch_id}
         activeSceneIndex={activeSceneIndex}
+        renderedSceneKeys={renderedSceneKeys}
         onSelectScene={handleSelectScene}
       />
 
@@ -706,6 +851,8 @@ export default function App(): React.ReactElement {
         open={evalModalOpen}
         onClose={() => setEvalModalOpen(false)}
         isMockMode={isMockMode}
+        apiLive={apiStatus === 'checking' ? null : apiStatus === 'live'}
+        backendReachable={backendReachable}
         branchCount={branches.length}
       />
     </div>

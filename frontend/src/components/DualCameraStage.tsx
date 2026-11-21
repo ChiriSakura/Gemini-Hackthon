@@ -17,6 +17,7 @@ import {
 } from '../stage/ThreeStageManager';
 import type { BranchState, Scene } from '../types/schema';
 import { getBranchLabelEn, getSceneTextEn } from '../utils/displayLocale';
+import { findParentScene, hasOwnFinalMedia } from '../utils/sceneMedia';
 
 interface DualCameraStageProps {
   activeBranch: BranchState;
@@ -243,12 +244,34 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
     }
   };
 
-  const camAUrl = scene?.media.cam_a_final_url ?? null;
-  const camBUrl = scene?.media.cam_b_final_url ?? null;
-  const camAPoster = scene?.media.cam_a_tail_frame_url ?? undefined;
-  const camBPoster = scene?.media.cam_b_tail_frame_url ?? undefined;
-  const compareCamAUrl = compareScene?.media.cam_a_final_url ?? null;
-  const compareCamAPoster = compareScene?.media.cam_a_tail_frame_url ?? undefined;
+  // Only treat final clips as this scene's own when they were rendered for (or
+  // explicitly reused by) this branch, never when merely copied from the parent.
+  const sceneOwnsFinal = hasOwnFinalMedia(
+    scene,
+    findParentScene(activeBranch, allBranches, scene.scene_id),
+  );
+  const compareOwnsFinal =
+    compareBranch && compareScene
+      ? hasOwnFinalMedia(
+          compareScene,
+          findParentScene(compareBranch, allBranches, compareScene.scene_id),
+        )
+      : false;
+
+  const camAUrl = sceneOwnsFinal ? (scene.media.cam_a_final_url ?? null) : null;
+  const camBUrl = sceneOwnsFinal ? (scene.media.cam_b_final_url ?? null) : null;
+  const camAPoster = sceneOwnsFinal
+    ? (scene.media.cam_a_tail_frame_url ?? undefined)
+    : undefined;
+  const camBPoster = sceneOwnsFinal
+    ? (scene.media.cam_b_tail_frame_url ?? undefined)
+    : undefined;
+  const compareCamAUrl = compareOwnsFinal
+    ? (compareScene?.media.cam_a_final_url ?? null)
+    : null;
+  const compareCamAPoster = compareOwnsFinal
+    ? (compareScene?.media.cam_a_tail_frame_url ?? undefined)
+    : undefined;
 
   // W2-T6E: Preload adjacent scene MP4 metadata during AI Render / Play 1->4 to avoid black transition flashes
   useEffect(() => {
@@ -285,8 +308,9 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
     !scene?.media.fallback_to_preview &&
     !(camBUrl && failedVideoUrls[camBUrl]);
 
-  const isDegradedA = viewMode === 'final' && !showFinalA;
-  const isDegradedB = viewMode === 'final' && !showFinalB;
+  const notRenderedYet = !sceneOwnsFinal && !scene.media.fallback_to_preview;
+  const isDegradedA = viewMode === 'final' && !showFinalA && !notRenderedYet;
+  const isDegradedB = viewMode === 'final' && !showFinalB && !notRenderedYet;
   const hasAnyLiveVideo = showFinalA || showFinalB;
 
   const showCompareOldVideo =
@@ -503,6 +527,8 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
               <span className="cam-tag ai-ready">Omni Flash Render</span>
             ) : isDegradedA ? (
               <span className="cam-tag fallback">Degraded (2.5D Preview)</span>
+            ) : notRenderedYet ? (
+              <span className="cam-tag">2.5D Preview · not rendered yet</span>
             ) : (
               <span className="cam-tag">
                 {pixelArtMode ? 'Pixel-Art 2.5D Preview' : '2.5D Live Preview (<1s)'}
@@ -554,6 +580,8 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
               <span className="cam-tag ai-ready">Omni Flash Render</span>
             ) : isDegradedB ? (
               <span className="cam-tag fallback">Degraded (2.5D Preview)</span>
+            ) : notRenderedYet ? (
+              <span className="cam-tag">2.5D Preview · not rendered yet</span>
             ) : (
               <span className="cam-tag">Synced World Coordinates</span>
             )}
@@ -683,6 +711,16 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
                 onError={() => markVideoFailed(camAUrl)}
                 style={{ width: '100%', maxHeight: 148, borderRadius: 8, background: '#000' }}
               />
+            )}
+            {notRenderedYet && (
+              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                Not rendered yet — no clip for this branch; see the 2.5D preview above.
+              </div>
+            )}
+            {sceneOwnsFinal && scene.reused_from_branch && (
+              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                Reused from {scene.reused_from_branch} — same clip as the parent scene.
+              </div>
             )}
             <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
               {sceneText.narration}
