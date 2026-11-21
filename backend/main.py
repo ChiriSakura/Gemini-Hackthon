@@ -191,8 +191,9 @@ async def _invoke_render_scene_media(
     cam_a_preview_path: Optional[str],
     cam_b_preview_path: Optional[str],
     fast_live_mode: bool = False,
+    prop_descriptions: Optional[dict[str, str]] = None,
 ):
-    """Call `render_scene_media` while safely forwarding optional `fast_live_mode` across P2 updates."""
+    """Call `render_scene_media` while safely forwarding optional `fast_live_mode` and `prop_descriptions` across P2 updates."""
     sig = inspect.signature(render_scene_media)
     kwargs: dict = {
         "cam_a_preview_path": cam_a_preview_path,
@@ -201,6 +202,8 @@ async def _invoke_render_scene_media(
     }
     if "fast_live_mode" in sig.parameters:
         kwargs["fast_live_mode"] = fast_live_mode
+    if "prop_descriptions" in sig.parameters and prop_descriptions:
+        kwargs["prop_descriptions"] = prop_descriptions
     return await render_scene_media(scene, refs, **kwargs)
 
 
@@ -456,6 +459,7 @@ async def api_media_create_prop(
     item.state = prop_state
 
     branch = get_branch(branch_id)
+    appearance_summary = (getattr(item, "appearance_summary", "") or "").strip()
     if branch:
         branch.props_registry[prop_id] = item
         for s in branch.scenes:
@@ -482,9 +486,20 @@ async def api_media_create_prop(
                                 entry_motion=norm_motion,  # type: ignore[assignment]
                             )
                         )
+                if appearance_summary:
+                    cue = f"{prop_id}: {appearance_summary}"
+                    if cue not in (s.environment_notes or ""):
+                        s.environment_notes = f"{s.environment_notes} {cue}".strip() if s.environment_notes else cue
                 s.needs_rerender = True
         save_branch(branch)
-    return {"prop_id": prop_id, "image_url": item.image_url, "item": item, "placement": norm_placement, "entry_motion": norm_motion}
+    return {
+        "prop_id": prop_id,
+        "image_url": item.image_url,
+        "item": item,
+        "placement": norm_placement,
+        "entry_motion": norm_motion,
+        "appearance_summary": appearance_summary,
+    }
 
 
 async def _save_preview_file(
@@ -558,6 +573,10 @@ async def api_media_render_scene(
         refs = [str(config.SHARED_ASSETS_DIR / "lia.png"), str(config.SHARED_ASSETS_DIR / "nyx.png")] + [
             p.image_url for p in branch.props_registry.values()
         ]
+        prop_descriptions = {
+            pid: ((getattr(p, "appearance_summary", "") or "").strip() or p.name)
+            for pid, p in branch.props_registry.items()
+        }
         # R-15: Enforce hard 95s per-scene timeout with graceful 2.5D preview fallback
         try:
             rendered_media = await asyncio.wait_for(
@@ -567,6 +586,7 @@ async def api_media_render_scene(
                     cam_a_preview_path=target.media.cam_a_preview_url,
                     cam_b_preview_path=target.media.cam_b_preview_url,
                     fast_live_mode=fast_live_mode,
+                    prop_descriptions=prop_descriptions,
                 ),
                 timeout=95.0,
             )
