@@ -9,6 +9,13 @@
  */
 import { INITIAL_MOCK_BRANCHES, MOCK_BRANCH_2 } from '../data/mockBranches';
 import type { BranchState, PropRegistryItem, Scene, SceneMedia } from '../types/schema';
+import {
+  getPropNameEn,
+  sanitizeBranchToEn,
+  sanitizeRulesToEn,
+  sanitizeSceneMediaToEn,
+  sanitizeTextToEn,
+} from '../utils/displayLocale';
 
 export interface CreatePropPayload {
   name: string;
@@ -81,11 +88,17 @@ export async function fetchBranches(): Promise<{
     const data = await res.json();
     const branches: BranchState[] = Array.isArray(data) ? data : data.branches ?? [];
     if (branches.length === 0) {
-      return { branches: INITIAL_MOCK_BRANCHES, fromMock: true };
+      return {
+        branches: INITIAL_MOCK_BRANCHES.map(sanitizeBranchToEn),
+        fromMock: true,
+      };
     }
-    return { branches, fromMock: false };
+    return { branches: branches.map(sanitizeBranchToEn), fromMock: false };
   } catch {
-    return { branches: INITIAL_MOCK_BRANCHES, fromMock: true };
+    return {
+      branches: INITIAL_MOCK_BRANCHES.map(sanitizeBranchToEn),
+      fromMock: true,
+    };
   }
 }
 
@@ -118,19 +131,19 @@ export async function submitDirectorFork(
       const errText = await res.text();
       throw new Error(errText || `HTTP ${res.status}`);
     }
-    const branch = (await res.json()) as BranchState;
+    const branch = sanitizeBranchToEn((await res.json()) as BranchState);
     return { branch, simulated: false };
   } catch {
     // Offline/pre-integration simulation using locked mock_branch_2
-    const simulatedBranch: BranchState = {
+    const simulatedBranch: BranchState = sanitizeBranchToEn({
       ...MOCK_BRANCH_2,
       branch_id: `branch_sim_${Date.now().toString().slice(-4)}`,
       parent_branch_id: payload.parentBranchId,
       forked_from_scene: payload.targetSceneId,
       rewrite_summary: payload.text?.trim()
-        ? `Simulated Scene ${payload.targetSceneId} rewrite: "${payload.text.trim()}"`
+        ? `Simulated Scene ${payload.targetSceneId} rewrite: "${sanitizeTextToEn(payload.text.trim(), 'Custom rewrite')}"`
         : MOCK_BRANCH_2.rewrite_summary,
-    };
+    });
     return { branch: simulatedBranch, simulated: true };
   }
 }
@@ -173,10 +186,13 @@ export async function requestSceneRender(
     });
     if (!res.ok) return null;
     const data = await res.json();
+    const resolvedSceneId = data.scene_id ?? payload.scene.scene_id;
     return {
-      scene_id: data.scene_id ?? payload.scene.scene_id,
-      media: (data.media ?? data) as SceneMedia,
-      environment_notes: data.environment_notes,
+      scene_id: resolvedSceneId,
+      media: sanitizeSceneMediaToEn((data.media ?? data) as SceneMedia, resolvedSceneId),
+      environment_notes: data.environment_notes
+        ? sanitizeTextToEn(data.environment_notes, 'clean_stage')
+        : undefined,
     };
   } catch {
     return null;
@@ -194,7 +210,7 @@ export async function fetchDirectorRules(): Promise<string[]> {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const rules: string[] = Array.isArray(data?.rules) ? data.rules : [];
-    return rules.length > 0 ? rules : DEFAULT_FALLBACK_RULES;
+    return rules.length > 0 ? sanitizeRulesToEn(rules) : DEFAULT_FALLBACK_RULES;
   } catch {
     return DEFAULT_FALLBACK_RULES;
   }
@@ -223,10 +239,15 @@ export async function createStageProp(
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
+    const rawItem = data.item as PropRegistryItem;
     return {
       prop_id: data.prop_id,
       image_url: data.image_url,
-      item: data.item as PropRegistryItem,
+      item: {
+        ...rawItem,
+        name: getPropNameEn(data.prop_id, rawItem),
+        state: sanitizeTextToEn(rawItem?.state, 'glowing'),
+      },
       simulated: false,
     };
   } catch {
@@ -285,7 +306,7 @@ export async function requestBranchRender(
       body: formData,
     });
     if (!res.ok) return null;
-    return (await res.json()) as BranchState;
+    return sanitizeBranchToEn((await res.json()) as BranchState);
   } catch {
     return null;
   }

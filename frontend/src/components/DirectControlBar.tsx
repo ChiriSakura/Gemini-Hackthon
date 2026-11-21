@@ -65,6 +65,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
   const [text, setText] = useState('');
   const [recording, setRecording] = useState(false);
   const [remainingMs, setRemainingMs] = useState(3000);
+  const [audioLevel, setAudioLevel] = useState(0);
   const [camError, setCamError] = useState<string | null>(null);
   const [propPanelOpen, setPropPanelOpen] = useState(false);
   const [propName, setPropName] = useState('Starlight Shield');
@@ -77,6 +78,8 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<number | null>(null);
   const countdownIntervalRef = useRef<number | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const meterRafRef = useRef<number | null>(null);
 
   const clearCapturedProp = () => {
     if (capturedPropPreviewUrl) {
@@ -182,6 +185,15 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
       window.clearInterval(countdownIntervalRef.current);
       countdownIntervalRef.current = null;
     }
+    if (meterRafRef.current !== null) {
+      cancelAnimationFrame(meterRafRef.current);
+      meterRafRef.current = null;
+    }
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close().catch(() => {});
+      audioCtxRef.current = null;
+    }
+    setAudioLevel(0);
     setRemainingMs(3000);
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
@@ -189,6 +201,38 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
     }
     if (videoRef.current) {
       videoRef.current.srcObject = null;
+    }
+  };
+
+  const startAudioMeter = (stream: MediaStream) => {
+    try {
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx || stream.getAudioTracks().length === 0) return;
+      const ctx = new AudioCtx();
+      audioCtxRef.current = ctx;
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      const data = new Uint8Array(analyser.fftSize);
+
+      const sample = () => {
+        if (!audioCtxRef.current) return;
+        analyser.getByteTimeDomainData(data);
+        let sumSq = 0;
+        for (let i = 0; i < data.length; i++) {
+          const norm = (data[i] - 128) / 128;
+          sumSq += norm * norm;
+        }
+        const rms = Math.sqrt(sumSq / data.length);
+        setAudioLevel(Math.min(1, rms * 3.8));
+        meterRafRef.current = requestAnimationFrame(sample);
+      };
+      sample();
+    } catch {
+      // Ignore Web Audio API restrictions gracefully
     }
   };
 
@@ -204,6 +248,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
+      startAudioMeter(stream);
 
       const chunks: BlobPart[] = [];
       const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
@@ -329,7 +374,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <video
               ref={videoRef}
-              className="webcam-pip"
+              className="webcam-pip mirrored"
               autoPlay
               muted
               playsInline
@@ -343,6 +388,15 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
                   className="countdown-fill"
                   style={{ width: `${Math.round((remainingMs / 3000) * 100)}%` }}
                 />
+              </div>
+              <div className="rms-row" title="Live microphone input RMS level">
+                <span style={{ fontSize: '0.66rem', color: '#94a3b8' }}>🎙️</span>
+                <div className="rms-track">
+                  <div
+                    className="rms-fill"
+                    style={{ width: `${Math.round(audioLevel * 100)}%` }}
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -392,7 +446,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
         >
           <video
             ref={propVideoRef}
-            className="webcam-pip"
+            className="webcam-pip mirrored"
             style={{ display: capturedPropPreviewUrl ? 'none' : 'block' }}
             autoPlay
             muted

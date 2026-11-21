@@ -194,6 +194,31 @@ export default function App(): React.ReactElement {
     setTargetSceneId(sceneIndex + 1);
   };
 
+  // W2-T6B: One-click booth reset back to branch_v1 Scene 1 without page reload
+  const handleResetDemo = () => {
+    const baseBranch =
+      branches.find((b) => b.branch_id === 'branch_v1') ?? branches[0];
+    setIsPlayingStory(false);
+    setCompareEnabled(false);
+    setEvalModalOpen(false);
+    setPixelArtMode(false);
+    setPendingConflict(null);
+    setRenderProgress(null);
+    setPipelineStage(0);
+    setStatusNote(null);
+    setCompareBranchId(null);
+    if (baseBranch) {
+      setActiveBranchId(baseBranch.branch_id);
+      setActiveSceneIndex(0);
+      setTargetSceneId(2);
+      setViewMode(
+        !isMockMode && baseBranch.scenes[0]?.media.cam_a_final_url
+          ? 'final'
+          : 'preview',
+      );
+    }
+  };
+
   const handleSubmitFork = async (opts: {
     clip?: Blob | null;
     text?: string;
@@ -466,6 +491,14 @@ export default function App(): React.ReactElement {
             onClick={() => setCleanCaptureMode((v) => !v)}
           >
             🎥 Clean View
+          </button>
+          <button
+            type="button"
+            className="pill-btn subtle"
+            onClick={handleResetDemo}
+            title="Reset stage cleanly to branch_v1 Scene 1 for the next judge"
+          >
+            ↺ Reset Demo
           </button>
         </div>
       </header>
