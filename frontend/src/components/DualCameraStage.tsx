@@ -43,6 +43,16 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
   const managerRef = useRef<ThreeStageManager | null>(null);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [autoCutEnabled, setAutoCutEnabled] = useState(false);
+  const [activeCutCam, setActiveCutCam] = useState<'A' | 'B'>('A');
+
+  useEffect(() => {
+    if (!autoCutEnabled) return;
+    const timer = window.setInterval(() => {
+      setActiveCutCam((prev) => (prev === 'A' ? 'B' : 'A'));
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [autoCutEnabled]);
 
   const scene: Scene =
     activeBranch.scenes[activeSceneIndex] ?? activeBranch.scenes[0];
@@ -130,6 +140,13 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
         <div className="toolbar-actions">
           <button
             type="button"
+            className={`pill-btn ${autoCutEnabled ? 'active' : ''}`}
+            onClick={() => setAutoCutEnabled((v) => !v)}
+          >
+            {autoCutEnabled ? `🎞️ Auto-Cut: CAM ${activeCutCam}` : '🎞️ Auto-Cut A/B'}
+          </button>
+          <button
+            type="button"
             className="pill-btn"
             onClick={() => handleExportPreview(false)}
             disabled={exporting || renderingScene}
@@ -167,13 +184,28 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
 
       {/* Dual-Camera 2.5D Stage (Always mounted so Three.js loop stays live) */}
       <div className="dual-cam-grid">
-        <div className="cam-frame">
+        <div
+          className="cam-frame"
+          style={{
+            borderColor:
+              autoCutEnabled && activeCutCam === 'A'
+                ? 'var(--accent-gold)'
+                : undefined,
+            boxShadow:
+              autoCutEnabled && activeCutCam === 'A'
+                ? '0 0 0 2px rgba(251, 191, 36, 0.55)'
+                : undefined,
+            opacity: autoCutEnabled && activeCutCam !== 'A' ? 0.62 : 1,
+            transition: 'all 0.35s ease',
+          }}
+        >
           <canvas
             ref={canvasARef}
             style={{ display: showFinalA ? 'none' : 'block' }}
           />
           {showFinalA && scene.media.cam_a_final_url && (
             <video
+              key={scene.media.cam_a_final_url}
               src={scene.media.cam_a_final_url}
               controls
               autoPlay
@@ -183,7 +215,10 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
             />
           )}
           <div className="cam-badge-top">
-            <span className="cam-tag">CAM A · 正面全景</span>
+            <span className="cam-tag">
+              {autoCutEnabled && activeCutCam === 'A' ? '🔴 ON AIR · ' : ''}
+              CAM A · 正面全景
+            </span>
             {showFinalA ? (
               <span className="cam-tag ai-ready">Omni Flash 成片</span>
             ) : isDegraded ? (
@@ -196,13 +231,28 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
           </div>
         </div>
 
-        <div className="cam-frame">
+        <div
+          className="cam-frame"
+          style={{
+            borderColor:
+              autoCutEnabled && activeCutCam === 'B'
+                ? 'var(--accent-gold)'
+                : undefined,
+            boxShadow:
+              autoCutEnabled && activeCutCam === 'B'
+                ? '0 0 0 2px rgba(251, 191, 36, 0.55)'
+                : undefined,
+            opacity: autoCutEnabled && activeCutCam !== 'B' ? 0.62 : 1,
+            transition: 'all 0.35s ease',
+          }}
+        >
           <canvas
             ref={canvasBRef}
             style={{ display: showFinalB ? 'none' : 'block' }}
           />
           {showFinalB && scene.media.cam_b_final_url && (
             <video
+              key={scene.media.cam_b_final_url}
               src={scene.media.cam_b_final_url}
               controls
               autoPlay
@@ -212,7 +262,10 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
             />
           )}
           <div className="cam-badge-top">
-            <span className="cam-tag">CAM B · 45° 斜侧特写</span>
+            <span className="cam-tag">
+              {autoCutEnabled && activeCutCam === 'B' ? '🔴 ON AIR · ' : ''}
+              CAM B · 45° 斜侧特写
+            </span>
             {showFinalB ? (
               <span className="cam-tag ai-ready">Omni Flash 成片</span>
             ) : isDegraded ? (
@@ -231,11 +284,23 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
             <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fda4af' }}>
               旧分支：{compareBranch.branch_label}（第 {compareScene.scene_id} 幕）
             </div>
-            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+            {viewMode === 'final' && compareScene.media.cam_a_final_url && (
+              <video
+                key={compareScene.media.cam_a_final_url}
+                src={compareScene.media.cam_a_final_url}
+                controls
+                autoPlay
+                loop
+                muted
+                playsInline
+                style={{ width: '100%', maxHeight: 160, borderRadius: 8, background: '#000' }}
+              />
+            )}
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
               {compareScene.narration}
             </div>
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-              灯光: {compareScene.lighting} · 道具状态:{' '}
+            <div style={{ fontSize: '0.73rem', color: '#94a3b8' }}>
+              灯光: {compareScene.lighting} · 道具:{' '}
               {compareScene.stage_props
                 .map((p) => `${p.id}=${p.state}`)
                 .join(', ')}
@@ -246,11 +311,23 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
             <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#6ee7b7' }}>
               当前分支：{activeBranch.branch_label}（第 {scene.scene_id} 幕）
             </div>
-            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+            {viewMode === 'final' && scene.media.cam_a_final_url && (
+              <video
+                key={scene.media.cam_a_final_url}
+                src={scene.media.cam_a_final_url}
+                controls
+                autoPlay
+                loop
+                muted
+                playsInline
+                style={{ width: '100%', maxHeight: 160, borderRadius: 8, background: '#000' }}
+              />
+            )}
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
               {scene.narration}
             </div>
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-              灯光: {scene.lighting} · 道具状态:{' '}
+            <div style={{ fontSize: '0.73rem', color: '#94a3b8' }}>
+              灯光: {scene.lighting} · 道具:{' '}
               {scene.stage_props.map((p) => `${p.id}=${p.state}`).join(', ')}
             </div>
           </div>
