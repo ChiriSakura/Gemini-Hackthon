@@ -48,6 +48,7 @@ interface TreeNode {
   title: string;
   narration: string;
   tilt: number;
+  onPath: boolean;
   endTag: 'BE' | 'HE' | null;
   branchTag: 'Saved' | 'Live' | null;
 }
@@ -64,8 +65,8 @@ interface TreeSegment {
 // stretched to the grid, so strokes use `vector-effect: non-scaling-stroke`.
 const COL_UNITS = 100;
 const ROW_UNITS = 100;
-const HANG_X = 22;
-const HANG_Y = 20;
+const HANG_X = 30;
+const HANG_Y = 12;
 const SEGMENT_WIDTHS = [3.6, 3, 2.4, 1.9];
 
 function hashString(value: string): number {
@@ -129,9 +130,15 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
       to: { x: number; y: number },
       seed: string,
     ): string => {
-      const dx = (to.x - from.x) * 0.55;
-      const wobble = from.y === to.y ? (hashString(seed) % 2 === 0 ? 9 : -9) : 0;
-      return `C ${from.x + dx} ${from.y + wobble}, ${to.x - dx} ${to.y - wobble}, ${to.x} ${to.y}`;
+      const dx = to.x - from.x;
+      if (from.y !== to.y) {
+        // A fork leaves the parent at an angle and settles onto its own row,
+        // so sibling branches fan out from the same point like boughs
+        const dy = to.y - from.y;
+        return `C ${from.x + dx * 0.3} ${from.y + dy * 0.62}, ${to.x - dx * 0.5} ${to.y}, ${to.x} ${to.y}`;
+      }
+      const wobble = hashString(seed) % 2 === 0 ? 7 : -7;
+      return `C ${from.x + dx * 0.5} ${from.y + wobble}, ${to.x - dx * 0.5} ${to.y - wobble}, ${to.x} ${to.y}`;
     };
     const startPoint = (b: BranchState, sceneId: number) => {
       if (sceneId <= 1) {
@@ -200,6 +207,7 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
           title: text.title,
           narration: text.narration,
           tilt: tiltFor(key),
+          onPath: litKeys.has(key),
           endTag: scene === lastScene ? endingTag(branch, lastScene) : null,
           branchTag,
         });
@@ -228,12 +236,12 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
   useEffect(() => {
     const own = layout.nodes.find((n) => n.branch.branch_id === activeBranchId);
     const el = own ? nodeRefs.current.get(own.key) : null;
-    el?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    el?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
   }, [activeBranchId, layout.nodes]);
 
   const showTip = (node: TreeNode, el: HTMLElement) => {
     const rect = el.getBoundingClientRect();
-    const x = Math.min(Math.max(rect.left + 30, 160), window.innerWidth - 160);
+    const x = Math.min(Math.max(rect.left + rect.width / 2, 160), window.innerWidth - 160);
     setTip({ key: node.key, x, y: rect.top - 10 });
   };
 
@@ -319,7 +327,7 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
                   }}
                   className={`snap ${isActive ? 'active' : ''} ${
                     onActiveBranch ? 'on-branch' : ''
-                  } ${node.ownMedia ? '' : 'ghost'} ${node.badge === 'Degraded' ? 'degraded' : ''}`}
+                  } ${node.onPath ? 'on-path' : ''} ${node.ownMedia ? '' : 'ghost'} ${node.badge === 'Degraded' ? 'degraded' : ''}`}
                   style={
                     {
                       gridColumn: node.col,
@@ -357,15 +365,13 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
                         {node.endTag}
                       </span>
                     )}
-                  </span>
-                  <span className="snap-text">
-                    <span className="snap-title">{node.title}</span>
                     {node.branchTag && (
                       <span className={`snap-tag ${node.branchTag === 'Live' ? 'live' : ''}`}>
                         {node.branchTag}
                       </span>
                     )}
                   </span>
+                  <span className="snap-title">{node.title}</span>
                 </button>
               );
             })}
