@@ -64,15 +64,27 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
 }) => {
   const [text, setText] = useState('');
   const [recording, setRecording] = useState(false);
+  const [remainingMs, setRemainingMs] = useState(3000);
   const [camError, setCamError] = useState<string | null>(null);
   const [propPanelOpen, setPropPanelOpen] = useState(false);
   const [propName, setPropName] = useState('Starlight Shield');
+  const [capturedPropBlob, setCapturedPropBlob] = useState<Blob | null>(null);
+  const [capturedPropPreviewUrl, setCapturedPropPreviewUrl] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const propVideoRef = useRef<HTMLVideoElement | null>(null);
   const propStreamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<number | null>(null);
+  const countdownIntervalRef = useRef<number | null>(null);
+
+  const clearCapturedProp = () => {
+    if (capturedPropPreviewUrl) {
+      URL.revokeObjectURL(capturedPropPreviewUrl);
+    }
+    setCapturedPropBlob(null);
+    setCapturedPropPreviewUrl(null);
+  };
 
   const stopPropCam = () => {
     if (propStreamRef.current) {
@@ -84,13 +96,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
     }
   };
 
-  const handleTogglePropPanel = async () => {
-    if (propPanelOpen) {
-      stopPropCam();
-      setPropPanelOpen(false);
-      return;
-    }
-    setPropPanelOpen(true);
+  const startPropCam = async () => {
     setCamError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -108,8 +114,44 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
     }
   };
 
-  const handleCaptureProp = () => {
+  const handleTogglePropPanel = async () => {
+    if (propPanelOpen) {
+      stopPropCam();
+      clearCapturedProp();
+      setPropPanelOpen(false);
+      return;
+    }
+    setPropPanelOpen(true);
+    clearCapturedProp();
+    await startPropCam();
+  };
+
+  const handleSnapPropPreview = () => {
+    const videoEl = propVideoRef.current;
+    if (videoEl && videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
+      const canvas = document.createElement('canvas');
+      canvas.width = videoEl.videoWidth;
+      canvas.height = videoEl.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        clearCapturedProp();
+        setCapturedPropBlob(blob);
+        setCapturedPropPreviewUrl(URL.createObjectURL(blob));
+      }, 'image/png');
+    }
+  };
+
+  const handleSubmitProp = () => {
     if (!onCreateProp || !propName.trim() || creatingProp) return;
+    if (capturedPropBlob) {
+      onCreateProp({ name: propName.trim(), imageBlob: capturedPropBlob });
+      stopPropCam();
+      clearCapturedProp();
+      setPropPanelOpen(false);
+      return;
+    }
     const videoEl = propVideoRef.current;
     if (videoEl && videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
       const canvas = document.createElement('canvas');
@@ -120,11 +162,13 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
       canvas.toBlob((blob) => {
         onCreateProp({ name: propName.trim(), imageBlob: blob });
         stopPropCam();
+        clearCapturedProp();
         setPropPanelOpen(false);
       }, 'image/png');
     } else {
       onCreateProp({ name: propName.trim(), imageBlob: null });
       stopPropCam();
+      clearCapturedProp();
       setPropPanelOpen(false);
     }
   };
@@ -134,6 +178,11 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
       window.clearTimeout(timerRef.current);
       timerRef.current = null;
     }
+    if (countdownIntervalRef.current !== null) {
+      window.clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    setRemainingMs(3000);
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
@@ -175,8 +224,14 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
         }
       };
 
+      const startedAt = Date.now();
+      setRemainingMs(3000);
       recorder.start();
       setRecording(true);
+      countdownIntervalRef.current = window.setInterval(() => {
+        const left = Math.max(0, 3000 - (Date.now() - startedAt));
+        setRemainingMs(left);
+      }, 50);
       timerRef.current = window.setTimeout(() => {
         if (recorder.state === 'recording') {
           recorder.stop();
@@ -254,7 +309,9 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
           onTouchEnd={handleStopHold}
           disabled={submitting}
         >
-          {recording ? '🔴 Recording 3s Cam+Mic…' : '🎥 Hold to Direct (3s Cam+Mic)'}
+          {recording
+            ? `🔴 Recording (${(remainingMs / 1000).toFixed(1)}s left)`
+            : '🎥 Hold to Direct (3s Cam+Mic)'}
         </button>
 
         {onCreateProp && (
@@ -269,13 +326,26 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
         )}
 
         {recording && (
-          <video
-            ref={videoRef}
-            className="webcam-pip"
-            autoPlay
-            muted
-            playsInline
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <video
+              ref={videoRef}
+              className="webcam-pip"
+              autoPlay
+              muted
+              playsInline
+            />
+            <div className="countdown-meter">
+              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#fde68a' }}>
+                {(remainingMs / 1000).toFixed(1)}s / 3.0s
+              </div>
+              <div className="countdown-track">
+                <div
+                  className="countdown-fill"
+                  style={{ width: `${Math.round((remainingMs / 3000) * 100)}%` }}
+                />
+              </div>
+            </div>
+          </div>
         )}
 
         <select
@@ -323,25 +393,59 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
           <video
             ref={propVideoRef}
             className="webcam-pip"
+            style={{ display: capturedPropPreviewUrl ? 'none' : 'block' }}
             autoPlay
             muted
             playsInline
           />
+          {capturedPropPreviewUrl && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <img
+                src={capturedPropPreviewUrl}
+                alt="Captured prop snapshot"
+                className="webcam-pip"
+              />
+              <span className="qa-pill pass">Snapshot Ready</span>
+            </div>
+          )}
           <input
             type="text"
             className="text-input"
-            style={{ maxWidth: 240 }}
+            style={{ maxWidth: 220 }}
             value={propName}
             onChange={(e) => setPropName(e.target.value)}
             placeholder="Prop name (e.g. Starlight Shield)"
           />
+          {!capturedPropPreviewUrl ? (
+            <button
+              type="button"
+              className="pill-btn blue"
+              onClick={handleSnapPropPreview}
+              disabled={creatingProp}
+            >
+              📸 Snap Preview
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="pill-btn"
+              onClick={clearCapturedProp}
+              disabled={creatingProp}
+            >
+              🔄 Retake
+            </button>
+          )}
           <button
             type="button"
             className="send-btn"
-            onClick={handleCaptureProp}
+            onClick={handleSubmitProp}
             disabled={creatingProp || !propName.trim()}
           >
-            {creatingProp ? 'Generating…' : '📸 Capture & Place on Stage'}
+            {creatingProp
+              ? 'Generating…'
+              : capturedPropPreviewUrl
+                ? '✨ Place Snapshot on Stage'
+                : '📸 Capture & Place on Stage'}
           </button>
           <button
             type="button"

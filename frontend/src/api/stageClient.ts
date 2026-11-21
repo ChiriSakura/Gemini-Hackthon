@@ -14,7 +14,22 @@ export interface CreatePropPayload {
   name: string;
   description?: string;
   branchId: string;
+  sceneId?: number;
   imageBlob?: Blob | null;
+}
+
+export interface SceneRenderProgress {
+  scene_id: number;
+  status: string;
+  qa_score?: number;
+  fallback_to_preview?: boolean;
+}
+
+export interface RenderProgressSnapshot {
+  branch_id: string;
+  status: string;
+  updated_at?: number;
+  scenes: Record<string, SceneRenderProgress>;
 }
 
 export interface CreatePropResponse {
@@ -196,6 +211,7 @@ export async function createStageProp(
   formData.append('name', payload.name.trim());
   formData.append('description', (payload.description ?? payload.name).trim());
   formData.append('branch_id', payload.branchId);
+  formData.append('scene_id', String(payload.sceneId ?? 1));
   if (payload.imageBlob) {
     formData.append('image', payload.imageBlob, 'webcam_prop.png');
   }
@@ -234,6 +250,24 @@ export async function createStageProp(
       },
       simulated: true,
     };
+  }
+}
+
+/**
+ * Poll live per-scene parallel render progress from `GET /api/media/progress/{branch_id}`.
+ */
+export async function fetchRenderProgress(
+  branchId: string,
+): Promise<RenderProgressSnapshot | null> {
+  try {
+    const res = await fetch(
+      `/api/media/progress/${encodeURIComponent(branchId)}`,
+      { signal: AbortSignal.timeout(2000) },
+    );
+    if (!res.ok) return null;
+    return (await res.json()) as RenderProgressSnapshot;
+  } catch {
+    return null;
   }
 }
 

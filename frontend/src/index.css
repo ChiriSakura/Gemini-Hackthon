@@ -614,3 +614,43 @@ button {
   border-color: var(--accent-gold);
   background: rgba(251, 191, 36, 0.14);
 }
+
+.cam-mini-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 4px;
+  letter-spacing: 0.03em;
+}
+
+.cam-mini-badge.cam-a {
+  background: rgba(56, 189, 248, 0.2);
+  color: #7dd3fc;
+}
+
+.cam-mini-badge.cam-b {
+  background: rgba(251, 191, 36, 0.22);
+  color: #fde68a;
+}
+
+.countdown-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 96px;
+}
+
+.countdown-track {
+  width: 96px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.24);
+  overflow: hidden;
+}
+
+.countdown-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #f59e0b, #ef4444);
+  transition: width 50ms linear;
+}

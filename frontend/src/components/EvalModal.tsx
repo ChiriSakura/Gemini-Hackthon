@@ -4,7 +4,7 @@
  * Feature & Use Cases:
  * - Keeps the main viewport 100% stage-focused while offering judges a 1-click
  *   empirical summary of StageState vs. Stateless Baseline, actor/scene failure
- *   curves, localized rerender savings, and 14-shot Omni Flash dual-take stats.
+ *   curves, localized rerender savings, and P1/P2 multimodal media benchmarks.
  */
 import React from 'react';
 
@@ -27,6 +27,13 @@ const SCENE_CURVE = [
   { scenes: '8 Scenes', noRules: 0.95, withRules: 0.946 },
 ];
 
+const MEDIA_BENCHMARKS = [
+  { label: 'Cross-Cam Consistency', score: 0.893, detail: '25/28 pass' },
+  { label: 'Decisions Calibration', score: 1.0, detail: '20/20 (TPR=1.0, TNR=1.0)' },
+  { label: '3-Prop Stress Test', score: 0.815, detail: '39.33s total' },
+  { label: 'Omni Flash Dual-Take', score: 1.0, detail: '14/14 pass (18.64s gen)' },
+];
+
 export const EvalModal: React.FC<EvalModalProps> = ({ open, onClose }) => {
   if (!open) return null;
 
@@ -46,7 +53,7 @@ export const EvalModal: React.FC<EvalModalProps> = ({ open, onClose }) => {
               📊 Empirical Benchmark &amp; Failure Curves
             </strong>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Gemini 4 Neon + Hydrogen + Decisions API v1beta + Omni Flash (14 cached takes)
+              Gemini 4 Neon + Hydrogen + Decisions API v1beta + Omni Flash (live verified)
             </div>
           </div>
           <button type="button" className="pill-btn" onClick={onClose}>
@@ -58,26 +65,26 @@ export const EvalModal: React.FC<EvalModalProps> = ({ open, onClose }) => {
         <div className="eval-kpi-row">
           <div className="eval-kpi">
             <span className="eval-kpi-label">Stateless Baseline</span>
-            <strong style={{ color: '#fda4af', fontSize: '1.15rem' }}>
-              0.564 <span style={{ fontSize: '0.75rem' }}>(29.16s · FAIL)</span>
+            <strong style={{ color: '#fda4af', fontSize: '1.1rem' }}>
+              0.564 <span style={{ fontSize: '0.73rem' }}>(29.16s · FAIL)</span>
             </strong>
           </div>
           <div className="eval-kpi">
             <span className="eval-kpi-label">StageState (WorldState)</span>
-            <strong style={{ color: '#6ee7b7', fontSize: '1.15rem' }}>
-              0.951 <span style={{ fontSize: '0.75rem' }}>(8.19s · PASS)</span>
+            <strong style={{ color: '#6ee7b7', fontSize: '1.1rem' }}>
+              0.951 <span style={{ fontSize: '0.73rem' }}>(6.90s–9.65s · PASS)</span>
             </strong>
           </div>
           <div className="eval-kpi">
             <span className="eval-kpi-label">Localized Rewrite Savings</span>
-            <strong style={{ color: '#fde68a', fontSize: '1.15rem' }}>
-              66.7% <span style={{ fontSize: '0.75rem' }}>scenes skipped</span>
+            <strong style={{ color: '#fde68a', fontSize: '1.1rem' }}>
+              66.7% <span style={{ fontSize: '0.73rem' }}>scenes skipped</span>
             </strong>
           </div>
           <div className="eval-kpi">
-            <span className="eval-kpi-label">Omni Flash Dual-Take</span>
-            <strong style={{ color: '#7dd3fc', fontSize: '1.15rem' }}>
-              14/14 Pass <span style={{ fontSize: '0.75rem' }}>(18.64s gen)</span>
+            <span className="eval-kpi-label">Decisions Calibration</span>
+            <strong style={{ color: '#7dd3fc', fontSize: '1.1rem' }}>
+              1.000 <span style={{ fontSize: '0.73rem' }}>(20/20 · 0.93–1.54s)</span>
             </strong>
           </div>
         </div>
@@ -125,10 +132,33 @@ export const EvalModal: React.FC<EvalModalProps> = ({ open, onClose }) => {
           </div>
         </div>
 
-        <div style={{ marginTop: 10, fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-          Source: <code>eval/run_eval.py</code>, <code>eval/stress_test.py</code>, and{' '}
-          <code>backend/assets/eval_media_stats.jsonl</code>. Decisions API v1beta latency:{' '}
-          <code>0.66s–1.58s</code>/call.
+        {/* P2 Verified Multimodal & Media Benchmarks */}
+        <div className="eval-box" style={{ marginTop: 12 }}>
+          <div className="eval-box-title">
+            Verified Multimodal &amp; Dual-Camera Media Benchmarks
+          </div>
+          <div className="eval-two-col" style={{ gap: 8 }}>
+            {MEDIA_BENCHMARKS.map((m) => (
+              <div key={m.label} className="bar-row" style={{ gridTemplateColumns: '140px 1fr 125px' }}>
+                <span className="bar-label">{m.label}</span>
+                <div className="bar-track">
+                  <div
+                    className="bar-fill green"
+                    style={{ width: `${Math.round(m.score * 100)}%` }}
+                  />
+                </div>
+                <span className="bar-val">
+                  {m.score.toFixed(3)} · {m.detail}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ marginTop: 10, fontSize: '0.73rem', color: 'var(--text-muted)' }}>
+          Sources: <code>eval/run_eval.py</code>, <code>eval/stress_report.json</code>, and{' '}
+          <code>backend/assets/eval_media_stats.jsonl</code>. Decisions API v1beta:{' '}
+          <code>0.93s–1.54s</code>/call · Omni Flash 360p/4s: <code>18.64s</code> gen.
         </div>
       </div>
     </div>

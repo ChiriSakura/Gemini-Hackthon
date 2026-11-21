@@ -14,9 +14,11 @@ import {
   createStageProp,
   fetchBranches,
   fetchDirectorRules,
+  fetchRenderProgress,
   requestBranchRender,
   requestSceneRender,
   submitDirectorFork,
+  type RenderProgressSnapshot,
 } from './api/stageClient';
 import { ClapperboardQA } from './components/ClapperboardQA';
 import { DirectControlBar } from './components/DirectControlBar';
@@ -40,6 +42,7 @@ export default function App(): React.ReactElement {
   const [branches, setBranches] = useState<BranchState[]>(INITIAL_MOCK_BRANCHES);
   const [isMockMode, setIsMockMode] = useState(true);
   const [activeBranchId, setActiveBranchId] = useState<string>('branch_v1');
+  const [compareBranchId, setCompareBranchId] = useState<string | null>(null);
   const [activeSceneIndex, setActiveSceneIndex] = useState<number>(0);
   const [viewMode, setViewMode] = useState<'preview' | 'final'>('preview');
   const [compareEnabled, setCompareEnabled] = useState<boolean>(true);
@@ -50,6 +53,7 @@ export default function App(): React.ReactElement {
   const [targetSceneId, setTargetSceneId] = useState<number>(2);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [renderingScene, setRenderingScene] = useState<boolean>(false);
+  const [renderProgress, setRenderProgress] = useState<RenderProgressSnapshot | null>(null);
   const [creatingProp, setCreatingProp] = useState<boolean>(false);
   const [pipelineStage, setPipelineStage] = useState<number>(0); // 0=idle, 1..4=active step
   const [rules, setRules] = useState<string[]>([]);
@@ -80,6 +84,10 @@ export default function App(): React.ReactElement {
 
   const compareBranch = useMemo(() => {
     if (branches.length < 2) return null;
+    if (compareBranchId && compareBranchId !== activeBranch.branch_id) {
+      const explicit = branches.find((b) => b.branch_id === compareBranchId);
+      if (explicit) return explicit;
+    }
     if (activeBranch.parent_branch_id) {
       return (
         branches.find((b) => b.branch_id === activeBranch.parent_branch_id) ??
@@ -87,7 +95,28 @@ export default function App(): React.ReactElement {
       );
     }
     return branches.find((b) => b.branch_id !== activeBranch.branch_id) ?? null;
-  }, [branches, activeBranch]);
+  }, [branches, activeBranch, compareBranchId]);
+
+  // W2-T5A: Poll GET /api/media/progress/{branch_id} every 1.2s while rendering
+  useEffect(() => {
+    if (!renderingScene || isMockMode) {
+      setRenderProgress(null);
+      return;
+    }
+    let cancelled = false;
+    const poll = async () => {
+      const snap = await fetchRenderProgress(activeBranch.branch_id);
+      if (!cancelled && snap) {
+        setRenderProgress(snap);
+      }
+    };
+    poll();
+    const timer = window.setInterval(poll, 1200);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [renderingScene, isMockMode, activeBranch.branch_id]);
 
   const activeScene =
     activeBranch.scenes[activeSceneIndex] ?? activeBranch.scenes[0];
@@ -169,7 +198,14 @@ export default function App(): React.ReactElement {
     clip?: Blob | null;
     text?: string;
     confirmContradiction?: boolean;
+    parentBranchIdOverride?: string;
+    targetSceneIdOverride?: number;
   }) => {
+    const effectiveParentBranchId =
+      opts.parentBranchIdOverride ?? activeBranch.branch_id;
+    const effectiveTargetSceneId =
+      opts.targetSceneIdOverride ?? targetSceneId;
+
     setIsPlayingStory(false);
     setSubmitting(true);
     setPipelineStage(1);
@@ -181,8 +217,8 @@ export default function App(): React.ReactElement {
     }, 1800);
 
     const { branch: newBranch, simulated } = await submitDirectorFork({
-      parentBranchId: activeBranch.branch_id,
-      targetSceneId,
+      parentBranchId: effectiveParentBranchId,
+      targetSceneId: effectiveTargetSceneId,
       clip: opts.clip,
       text: opts.text,
       confirmContradiction: opts.confirmContradiction,
@@ -193,8 +229,8 @@ export default function App(): React.ReactElement {
 
     if (newBranch.contradiction_warning) {
       setPendingConflict({
-        parentBranchId: activeBranch.branch_id,
-        targetSceneId,
+        parentBranchId: effectiveParentBranchId,
+        targetSceneId: effectiveTargetSceneId,
         clip: opts.clip,
         text: opts.text,
         warning: newBranch.contradiction_warning,
@@ -205,7 +241,8 @@ export default function App(): React.ReactElement {
 
     setBranches((prev) => [...prev, newBranch]);
     setActiveBranchId(newBranch.branch_id);
-    setActiveSceneIndex(Math.max(0, targetSceneId - 1));
+    setActiveSceneIndex(Math.max(0, effectiveTargetSceneId - 1));
+    setTargetSceneId(effectiveTargetSceneId);
     setCompareEnabled(true);
     setStatusNote(
       simulated
@@ -220,6 +257,8 @@ export default function App(): React.ReactElement {
       clip: pendingConflict.clip,
       text: pendingConflict.text,
       confirmContradiction: true,
+      parentBranchIdOverride: pendingConflict.parentBranchId,
+      targetSceneIdOverride: pendingConflict.targetSceneId,
     });
   };
 
@@ -304,17 +343,17 @@ export default function App(): React.ReactElement {
     name: string;
     imageBlob?: Blob | null;
   }) => {
+    const currentSceneId = activeScene.scene_id;
     setCreatingProp(true);
     setStatusNote(`Generating transparent stage prop "${opts.name}"…`);
     const created = await createStageProp({
       name: opts.name,
       description: opts.name,
       branchId: activeBranch.branch_id,
+      sceneId: currentSceneId,
       imageBlob: opts.imageBlob,
     });
     setCreatingProp(false);
-
-    const currentSceneId = activeScene.scene_id;
     setBranches((prev) =>
       prev.map((b) => {
         if (b.branch_id !== activeBranch.branch_id) return b;
@@ -468,13 +507,16 @@ export default function App(): React.ReactElement {
       <DualCameraStage
         activeBranch={activeBranch}
         compareBranch={compareBranch}
+        allBranches={branches}
         activeSceneIndex={activeSceneIndex}
         viewMode={viewMode}
         compareEnabled={compareEnabled}
         pixelArtMode={pixelArtMode}
         renderingScene={renderingScene}
+        renderProgress={renderProgress}
         isPlayingStory={isPlayingStory}
         cleanCaptureMode={cleanCaptureMode}
+        onSelectCompareBranch={setCompareBranchId}
         onTogglePlayStory={handleTogglePlayStory}
         onExportComplete={handleExportComplete}
         onRenderScene={handleRenderScene}
@@ -484,6 +526,7 @@ export default function App(): React.ReactElement {
         scene={activeScene}
         rules={rules}
         propsRegistry={activeBranch.props_registry}
+        cleanCaptureMode={cleanCaptureMode}
       />
 
       <StoryBranchTree

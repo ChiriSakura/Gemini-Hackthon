@@ -10,6 +10,7 @@
  *   `environment_notes`), and side-by-side Old vs. New Branch comparison.
  */
 import React, { useEffect, useRef, useState } from 'react';
+import type { RenderProgressSnapshot } from '../api/stageClient';
 import {
   ThreeStageManager,
   type PreviewExportResult,
@@ -20,13 +21,16 @@ import { getBranchLabelEn, getSceneTextEn } from '../utils/displayLocale';
 interface DualCameraStageProps {
   activeBranch: BranchState;
   compareBranch: BranchState | null;
+  allBranches: BranchState[];
   activeSceneIndex: number;
   viewMode: 'preview' | 'final';
   compareEnabled: boolean;
   pixelArtMode: boolean;
   renderingScene: boolean;
+  renderProgress?: RenderProgressSnapshot | null;
   isPlayingStory: boolean;
   cleanCaptureMode?: boolean;
+  onSelectCompareBranch?: (branchId: string) => void;
   onTogglePlayStory: () => void;
   onExportComplete?: (result: PreviewExportResult) => void;
   onRenderScene?: (scene: Scene, preview: PreviewExportResult) => void;
@@ -35,13 +39,16 @@ interface DualCameraStageProps {
 export const DualCameraStage: React.FC<DualCameraStageProps> = ({
   activeBranch,
   compareBranch,
+  allBranches,
   activeSceneIndex,
   viewMode,
   compareEnabled,
   pixelArtMode,
   renderingScene,
+  renderProgress = null,
   isPlayingStory,
   cleanCaptureMode = false,
+  onSelectCompareBranch,
   onTogglePlayStory,
   onExportComplete,
   onRenderScene,
@@ -286,6 +293,31 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
         <div className="status-banner blue">{exportStatus}</div>
       )}
 
+      {renderingScene && renderProgress && Object.keys(renderProgress.scenes).length > 0 && (
+        <div className="pipeline-stepper" role="status" aria-live="polite">
+          <span style={{ fontSize: '0.73rem', fontWeight: 700, color: '#7dd3fc' }}>
+            Live Per-Scene Progress:
+          </span>
+          {Object.values(renderProgress.scenes)
+            .sort((a, b) => a.scene_id - b.scene_id)
+            .map((sc) => {
+              const lower = sc.status.toLowerCase();
+              const isDone = lower.includes('done') || lower.includes('complete') || lower.includes('reused');
+              const isActive = lower.includes('render') || lower.includes('run');
+              const pillClass = isDone ? 'done' : isActive ? 'active' : '';
+              const scoreText =
+                typeof sc.qa_score === 'number' ? ` ${sc.qa_score.toFixed(2)}` : '';
+              return (
+                <span key={sc.scene_id} className={`pipeline-step ${pillClass}`}>
+                  S{sc.scene_id} {sc.status}
+                  {scoreText}
+                  {sc.fallback_to_preview ? ' (2.5D)' : ''}
+                </span>
+              );
+            })}
+        </div>
+      )}
+
       {/* Dual-Camera 2.5D Stage (Always mounted so Three.js loop stays live) */}
       <div className="dual-cam-grid">
         <div
@@ -389,8 +421,35 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
       {compareEnabled && compareBranch && compareScene && compareSceneText && (
         <div className="compare-grid">
           <div className="compare-card">
-            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fda4af' }}>
-              Baseline: {getBranchLabelEn(compareBranch)} (Scene {compareScene.scene_id})
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 8,
+                flexWrap: 'wrap',
+              }}
+            >
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fda4af' }}>
+                Baseline: {getBranchLabelEn(compareBranch)} (Scene {compareScene.scene_id})
+              </span>
+              {allBranches.length > 2 && onSelectCompareBranch && !cleanCaptureMode && (
+                <select
+                  className="select-input"
+                  style={{ padding: '3px 8px', fontSize: '0.72rem', maxWidth: 220 }}
+                  value={compareBranch.branch_id}
+                  onChange={(e) => onSelectCompareBranch(e.target.value)}
+                  aria-label="Select baseline branch for left comparison slot"
+                >
+                  {allBranches
+                    .filter((b) => b.branch_id !== activeBranch.branch_id)
+                    .map((b) => (
+                      <option key={b.branch_id} value={b.branch_id}>
+                        Compare: {getBranchLabelEn(b)}
+                      </option>
+                    ))}
+                </select>
+              )}
             </div>
             {showCompareOldVideo && compareCamAUrl && (
               <video
