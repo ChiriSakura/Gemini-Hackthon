@@ -17,6 +17,7 @@ Feature & Use Cases:
 """
 
 import asyncio
+import base64
 import copy
 import json
 import re
@@ -36,7 +37,7 @@ from backend import config
 from backend.director.genai_client import build_decision_input, create_decision
 from backend.director.hydrogen_judge import judge, score_clip_alignment, write_repair_constraint
 from backend.logger import log_function_call, log_genai_call
-from backend.media.prop_maker import estimate_prop_height_m
+from backend.media.prop_maker import _resolve_image_model, estimate_prop_height_m
 from backend.schemas import BranchState, JudgeItem, JudgeResult, Scene, SceneMedia
 
 _VIDEO_MODEL_ALIASES = {
@@ -645,13 +646,14 @@ def _select_scene_ref_images(
             seen_paths.add(resolved_key)
             companion_refs.append(p)
 
-    # When Camera B is geometrically derived from Camera A's actual rendered frame (in companion_refs),
-    # anchor Camera B FIRST on Camera A's rendered frame and OMIT conservatory_cam_b.png so there is
-    # zero conflicting room geometry!
+    # When Camera B starts from a pre-synthesized +45deg geometric keyframe (start_frame_path),
+    # omit room refs & frontal Cam A frames so Omni Flash stays locked strictly to the +45deg start frame.
     has_cam_a_anchor = cam_id == "cam_b" and any(
         "cam_a" in p.name.lower() for p in companion_refs
     )
-    if has_cam_a_anchor:
+    if cam_id == "cam_b" and not stage_refs:
+        selected = companion_refs + prioritized_actors + prioritized_props
+    elif has_cam_a_anchor:
         selected = companion_refs + prioritized_actors + prioritized_props
     else:
         # Actors + fixed room ref first (never evicted by extra props), then active props, then companion frames.
@@ -852,6 +854,7 @@ async def _run_candidate_take(
     extra_constraint: str,
     job_uid: str = "",
     fast_live_mode: bool = False,
+    prop_descriptions: Optional[dict[str, str]] = None,
 ) -> tuple[Optional[Path], Optional[Path], JudgeResult, float]:
     """Generate one candidate take (60s timeout guard), extract tail frame, and score via Decisions API."""
     uid_part = f"_{job_uid}" if job_uid else f"_{uuid.uuid4().hex[:6]}"
@@ -863,6 +866,7 @@ async def _run_candidate_take(
         has_first_frame=uploaded_prev_tail is not None,
         has_preview_video=uploaded_preview is not None,
         extra_constraint=extra_constraint,
+        prop_descriptions=prop_descriptions,
     )
 
     input_parts: list[dict] = []
@@ -1048,7 +1052,10 @@ async def render_single_camera_shot(
         elif local_preview_any.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}:
             local_preview_img = local_preview_any
 
-    start_frame_path = local_preview_img or local_prev_tail
+    if local_prev_tail is not None and "cam_b_45deg" in local_prev_tail.name.lower():
+        start_frame_path = local_prev_tail
+    else:
+        start_frame_path = local_preview_img or local_prev_tail
     trimmed_start_artifact: Optional[Path] = None
     if start_frame_path is not None and start_frame_path.is_file():
         start_frame_path, was_trimmed = await asyncio.to_thread(_trim_dark_borders_sync, start_frame_path)
@@ -1056,7 +1063,8 @@ async def render_single_camera_shot(
             trimmed_start_artifact = start_frame_path
 
     max_refs = 5 if start_frame_path else 6
-    local_refs = _select_scene_ref_images(scene, reference_images, max_refs=max_refs, cam_id=cam_id)
+    ref_cam_id = None if (start_frame_path and "cam_b_45deg" in start_frame_path.name.lower()) else cam_id
+    local_refs = _select_scene_ref_images(scene, reference_images, max_refs=max_refs, cam_id=ref_cam_id)
 
     uploaded_prev_tail = await _get_or_upload_uri(start_frame_path, use_cache=False) if start_frame_path else None
     uploaded_refs = list(await asyncio.gather(*(_get_or_upload_uri(p, use_cache=True) for p in local_refs)))
@@ -1100,6 +1108,7 @@ async def render_single_camera_shot(
                         extra_constraint=current_constraint,
                         job_uid=job_uid,
                         fast_live_mode=fast_live_mode,
+                        prop_descriptions=prop_descriptions,
                     )
                     for idx in range(takes_per_attempt)
                 )
@@ -1272,6 +1281,97 @@ def _merge_dual_cam_qa(
     )
 
 
+def _synthesize_cam_b_45deg_keyframe_sync(
+    cam_a_frame_path: Path,
+    scene: Scene,
+    out_path: Path,
+) -> Optional[Path]:
+    """
+    Geometrically derive a true level +45-degree front-right novel-view keyframe for Camera B by combining
+    the asymmetrical 45-degree conservatory perspective anchor (`conservatory_cam_b.png`) with Camera A's
+    actual rendered frame (`cam_a_frame_path`) via `config.MODEL_IMAGE` (`gemini-nano-banana-2.1`).
+    """
+    if not cam_a_frame_path.is_file():
+        return None
+    try:
+        raw_a = cam_a_frame_path.read_bytes()
+        mime_a = "image/png" if cam_a_frame_path.suffix.lower() == ".png" else "image/jpeg"
+        room_b_path = config.ASSETS_DIR / "stages" / "conservatory_cam_b.png"
+        img_model = _resolve_image_model()
+        client = genai.Client(http_options=types.HttpOptions(timeout=60_000))
+
+        input_parts: list[dict] = []
+        if room_b_path.is_file():
+            raw_room_b = room_b_path.read_bytes()
+            input_parts.append({"type": "image", "data": base64.b64encode(raw_room_b).decode("ascii"), "mime_type": "image/jpeg"})
+            input_parts.append({"type": "image", "data": base64.b64encode(raw_a).decode("ascii"), "mime_type": mime_a})
+            prompt = (
+                "MULTI-VIEW 45-DEGREE CAMERA SYNTHESIS: "
+                "Use IMAGE 1 strictly as the EXACT 45-DEGREE SIDE-ANGLE CAMERA PERSPECTIVE, level horizontal floor, "
+                "vertical window pillars, and diagonal glass conservatory room layout (REMOVE the two empty wooden chairs "
+                "from Image 1 unless chairs appear in Image 2). "
+                "Place the EXACT characters, outfits, props, table items, lighting, and physical action from IMAGE 2 "
+                "(Camera A front view) into IMAGE 1's exact 45-degree right-side perspective! "
+                "STRICT 3D WORLD-SPACE POSITION & FACING LOCK: "
+                "1) Because Image 1's camera stands +45 degrees to the front-right of Image 2's camera: "
+                "silver-haired Lia stands on the LEFT side of the round table (matching her exact outfit, pose, held item, "
+                "and rightward 3D facing direction from Image 2 — looking across the table toward the cat/prop, NOT staring "
+                "into Camera B); the round wooden table in the center carries EVERY exact prop from Image 2 (identical vase, "
+                "identical beverage/snack/phone/etc.); and small black cat Nyx sits CLOSER on the RIGHT side of the table "
+                "(seen from a rear-right / side three-quarter angle facing left toward the table & Lia, matching Image 2's 3D gaze). "
+                "2) Keep floor, tabletop, and all vertical mullions 100% level/vertical like Image 1 (ZERO tilt, ZERO extra chairs, "
+                "full-bleed 16:9 anime frame). "
+                f"Exact action shown: {scene.narration}"
+            )
+        else:
+            input_parts.append({"type": "image", "data": base64.b64encode(raw_a).decode("ascii"), "mime_type": mime_a})
+            prompt = (
+                "Re-photograph this exact anime conservatory moment from a level 45-degree front-right side camera angle "
+                "(right glass wall close on right, left glass wall receding diagonally left, perfectly flat horizontal floor "
+                "and tabletop, vertical window pillars, Nyx closer on right foreground facing left, Lia on left facing right). "
+                f"Scene: {scene.narration}"
+            )
+        input_parts.append({"type": "text", "text": prompt})
+
+        interaction = client.interactions.create(
+            model=img_model,
+            input=input_parts,
+            response_format={"type": "image", "aspect_ratio": "16:9"},
+        )
+        img_data = None
+        output_image = getattr(interaction, "output_image", None)
+        if output_image and getattr(output_image, "data", None):
+            img_data = base64.b64decode(output_image.data)
+        else:
+            for step in getattr(interaction, "steps", []) or []:
+                if getattr(step, "type", None) == "model_output":
+                    for block in getattr(step, "content", []) or []:
+                        if getattr(block, "type", None) == "image" and getattr(block, "data", None):
+                            img_data = base64.b64decode(block.data)
+                            break
+                if img_data:
+                    break
+        if not img_data:
+            return None
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_bytes(img_data)
+        log_genai_call(
+            img_model,
+            {"task": "cam_b_45deg_geometric_keyframe", "scene_id": scene.scene_id, "source_cam_a": str(cam_a_frame_path)},
+            {"aspect_ratio": "16:9"},
+            {"saved_path": str(out_path), "bytes": len(img_data)},
+        )
+        return out_path
+    except Exception as exc:
+        log_genai_call(
+            _resolve_image_model(),
+            {"task": "cam_b_45deg_geometric_keyframe", "scene_id": scene.scene_id},
+            {"fallback": True},
+            {"error": f"{type(exc).__name__}: {exc}"},
+        )
+        return None
+
+
 @log_function_call
 async def render_scene_media(
     scene: Scene,
@@ -1285,13 +1385,11 @@ async def render_scene_media(
     fast_live_mode: bool = False,
     prop_descriptions: Optional[dict[str, str]] = None,
 ) -> SceneMedia:
-    """Concurrently render Camera A and Camera B (1-take ~16-19s when `fast_live_mode=True`), run cross-camera QA, and update tail notes."""
+    """Render Camera A first, then geometrically derive Camera B (+45deg right-side orbit) anchored on Camera A."""
     preview_a = cam_a_preview_path or scene.media.cam_a_preview_url
     preview_b = cam_b_preview_path or scene.media.cam_b_preview_url
 
-    # Sequential geometric derivation: ALWAYS render Camera A first, then geometrically derive
-    # Camera B (+45-degree right-side orbit) strictly anchored on Camera A's actual rendered frame
-    # so room architecture, furniture, props, and 3D character facing directions match 1:1.
+    # Step 1: Render Camera A (front establishing shot)
     res_a = await render_single_camera_shot(
         scene,
         "cam_a",
@@ -1303,28 +1401,50 @@ async def render_scene_media(
         prop_descriptions=prop_descriptions,
     )
 
+    # Step 2: Geometrically synthesize true +45deg Camera B start keyframe directly from Camera A's rendered frame
     cam_b_refs = list(reference_images)
+    cam_b_start_frame = prev_tail_b
     cam_b_extra = ""
+    derived_keyframe: Optional[Path] = None
     if res_a[1]:
-        cam_b_refs = [res_a[1]] + cam_b_refs
-        cam_b_extra = (
-            "GEOMETRIC DERIVATION FROM CAMERA A (Reference Image 1): reproduce the EXACT SAME room background, "
-            "ceiling arches, lanterns, furniture (do not add or remove chairs), table props, lighting, and exact 3D "
-            "world-space character positions & head/face directions from Reference Image 1, viewed ONLY from a "
-            "+45-degree clockwise camera orbit to the front-right around the central table."
-        )
+        cam_a_local = _resolve_asset_to_local_path(res_a[1])
+        if (not config.DEMO_MODE) and config.GEMINI_API_KEY and cam_a_local is not None:
+            kf_out = config.PREVIEWS_DIR / f"scene_{scene.scene_id}_cam_b_45deg_{uuid.uuid4().hex[:6]}.png"
+            derived_keyframe = await asyncio.to_thread(_synthesize_cam_b_45deg_keyframe_sync, cam_a_local, scene, kf_out)
+            if derived_keyframe is not None:
+                cam_b_start_frame = str(derived_keyframe)
+        if derived_keyframe is not None:
+            # Do NOT include 0-degree frontal Cam A in cam_b_refs when +45deg start keyframe succeeded,
+            # otherwise Omni Flash drifts back to 0-degree frontal framing!
+            cam_b_extra = (
+                "LOCKED +45-DEGREE STATIC TRIPOD CAMERA: start directly from the +45-degree diagonal side-angle "
+                "starting frame (Image 1) and DO NOT pan, orbit, or drift back to a frontal symmetrical view! "
+                "Keep the exact +45-degree asymmetrical room perspective, level floor/tabletop, vertical window pillars, "
+                "and exact character positions & 3D facing directions throughout all 4 seconds while animating the scene action."
+            )
+        else:
+            cam_b_refs = [res_a[1]] + cam_b_refs
+            cam_b_extra = (
+                "GEOMETRIC DERIVATION FROM CAMERA A (+45-DEGREE RIGHT-SIDE ORBIT): keep the EXACT +45-degree diagonal "
+                "camera perspective matching Camera A's exact room architecture, ceiling arches, lanterns, furniture, "
+                "table props, lighting, and exact 3D world-space character positions & head/face directions."
+            )
 
-    res_b = await render_single_camera_shot(
-        scene,
-        "cam_b",
-        prev_tail_b,
-        cam_b_refs,
-        preview_path=preview_b,
-        extra_constraint=cam_b_extra,
-        overwrite_canonical=overwrite_canonical,
-        fast_live_mode=fast_live_mode,
-        prop_descriptions=prop_descriptions,
-    )
+    try:
+        res_b = await render_single_camera_shot(
+            scene,
+            "cam_b",
+            cam_b_start_frame,
+            cam_b_refs,
+            preview_path=preview_b,
+            extra_constraint=cam_b_extra,
+            overwrite_canonical=overwrite_canonical,
+            fast_live_mode=fast_live_mode,
+            prop_descriptions=prop_descriptions,
+        )
+    finally:
+        if derived_keyframe is not None:
+            derived_keyframe.unlink(missing_ok=True)
 
     cross_item = None if fast_live_mode else await _check_cross_camera_consistency(scene, res_a[1], res_b[1])
     # If cameras contradict each other (< CROSS_CAM_THRESHOLD=0.80 on any check in standard quality mode),
