@@ -1,0 +1,256 @@
+{
+  "benchmark": "Decisions API choice + score Multimodal Calibration",
+  "model": "models/gemini-decision-1",
+  "choice_routing": {
+    "total_cases": 15,
+    "correct": 15,
+    "accuracy": 1.0,
+    "avg_latency_sec": 1.31,
+    "items": [
+      {
+        "id": 1,
+        "directive": "Move Lia to the far right corner beside the glass window while Nyx stays near the back.",
+        "expected": "move_position",
+        "predicted": "move_position",
+        "confidence": 0.981,
+        "correct": true,
+        "elapsed_sec": 4.07
+      },
+      {
+        "id": 2,
+        "directive": "Have the black cat walk from the right corner over to the center table.",
+        "expected": "move_position",
+        "predicted": "move_position",
+        "confidence": 0.992,
+        "correct": true,
+        "elapsed_sec": 2.97
+      },
+      {
+        "id": 3,
+        "directive": "让莉亚走到右侧玻璃窗前，诺克斯往左侧移动一步。",
+        "expected": "move_position",
+        "predicted": "move_position",
+        "confidence": 0.989,
+        "correct": true,
+        "elapsed_sec": 3.05
+      },
+      {
+        "id": 4,
+        "directive": "Lia puts her red umbrella down on the floor and catches the crystal vase before it breaks.",
+        "expected": "prop_change",
+        "predicted": "prop_change",
+        "confidence": 0.844,
+        "correct": true,
+        "elapsed_sec": 3.01
+      },
+      {
+        "id": 5,
+        "directive": "Drop the red umbrella onto the floor so her hands are free to protect the vase.",
+        "expected": "prop_change",
+        "predicted": "prop_change",
+        "confidence": 0.979,
+        "correct": true,
+        "elapsed_sec": 3.13
+      },
+      {
+        "id": 6,
+        "directive": "第2幕把红伞放到地上，扶住桌上的水晶花瓶不要摔碎。",
+        "expected": "prop_change",
+        "predicted": "prop_change",
+        "confidence": 0.944,
+        "correct": true,
+        "elapsed_sec": 0.24
+      },
+      {
+        "id": 7,
+        "directive": "Introduce a glowing golden star lantern that the judge holds up to the camera.",
+        "expected": "new_prop",
+        "predicted": "new_prop",
+        "confidence": 0.973,
+        "correct": true,
+        "elapsed_sec": 0.5
+      },
+      {
+        "id": 8,
+        "directive": "Add a brand new antique brass pocket watch onto the center table as a magical gift.",
+        "expected": "new_prop",
+        "predicted": "new_prop",
+        "confidence": 0.983,
+        "correct": true,
+        "elapsed_sec": 0.4
+      },
+      {
+        "id": 9,
+        "directive": "我举起桌上的折纸千纸鹤，把它变成舞台里的全新道具放进第2幕。",
+        "expected": "new_prop",
+        "predicted": "new_prop",
+        "confidence": 0.767,
+        "correct": true,
+        "elapsed_sec": 0.46
+      },
+      {
+        "id": 10,
+        "directive": "Shift the stage lighting from cold blue rain to warm golden starlight with a joyful smile.",
+        "expected": "emotion_lighting",
+        "predicted": "emotion_lighting",
+        "confidence": 0.934,
+        "correct": true,
+        "elapsed_sec": 0.27
+      },
+      {
+        "id": 11,
+        "directive": "Make the atmosphere dramatic stormy blue with somber sad lighting and thunder.",
+        "expected": "emotion_lighting",
+        "predicted": "emotion_lighting",
+        "confidence": 0.964,
+        "correct": true,
+        "elapsed_sec": 0.3
+      },
+      {
+        "id": 12,
+        "directive": "把第4幕改成温暖金色星雪灯光，角色露出温柔开心的神情。",
+        "expected": "emotion_lighting",
+        "predicted": "emotion_lighting",
+        "confidence": 0.978,
+        "correct": true,
+        "elapsed_sec": 0.28
+      },
+      {
+        "id": 13,
+        "directive": "Rewrite the entire ending into a time-loop where Scene 2 never happened and both characters vanish into space.",
+        "expected": "other",
+        "predicted": "other",
+        "confidence": 0.964,
+        "correct": true,
+        "elapsed_sec": 0.43
+      },
+      {
+        "id": 14,
+        "directive": "Change the genre to a comedy heist while rearranging props, lighting, positions, and backstory all at once.",
+        "expected": "other",
+        "predicted": "other",
+        "confidence": 0.986,
+        "correct": true,
+        "elapsed_sec": 0.33
+      },
+      {
+        "id": 15,
+        "directive": "全面重构第2到第4幕的剧情设定，同时改动道具、走位、情绪与结局走向。",
+        "expected": "other",
+        "predicted": "other",
+        "confidence": 0.965,
+        "correct": true,
+        "elapsed_sec": 0.26
+      }
+    ]
+  },
+  "score_clip_alignment": {
+    "total_clips": 12,
+    "matched_count": 6,
+    "mismatched_count": 6,
+    "mean_matched_score": 0.874,
+    "mean_mismatched_score": 0.088,
+    "score_separation_margin": 0.786,
+    "pairwise_ranking_auc": 1.0,
+    "avg_latency_sec": 0.66,
+    "items": [
+      {
+        "id": 1,
+        "clip_url": "/assets/finals/scene_1_cam_a.mp4",
+        "target_description": "Wide front shot of silver-haired girl on left holding red umbrella, intact blue-rose crystal vase on round table, small black cat on right in rainy night glass conservatory.",
+        "is_match": true,
+        "alignment_score": 0.926,
+        "elapsed_sec": 0.85
+      },
+      {
+        "id": 2,
+        "clip_url": "/assets/finals/scene_2_cam_a.mp4",
+        "target_description": "Cold stormy blue rainy night inside glass conservatory as crystal vase shatters on wet floor with scattered blue petals and startled black cat.",
+        "is_match": true,
+        "alignment_score": 0.923,
+        "elapsed_sec": 0.88
+      },
+      {
+        "id": 3,
+        "clip_url": "/assets/finals/scene_4_cam_a.mp4",
+        "target_description": "Melancholic cold blue rainy conservatory with silver-haired girl standing alone under red umbrella beside shattered crystal vase shards on floor.",
+        "is_match": true,
+        "alignment_score": 0.815,
+        "elapsed_sec": 0.69
+      },
+      {
+        "id": 4,
+        "clip_url": "/assets/finals/branch_v2_scene_2_cam_a.mp4",
+        "target_description": "Warm conservatory scene where silver-haired girl kneels gently offering a glowing golden star token to small black cat while blue-rose crystal vase stays intact on round table.",
+        "is_match": true,
+        "alignment_score": 0.886,
+        "elapsed_sec": 0.66
+      },
+      {
+        "id": 5,
+        "clip_url": "/assets/finals/branch_v2_scene_3_cam_a.mp4",
+        "target_description": "Clean conservatory floor with zero broken glass as silver-haired girl and black cat bond warmly near glowing star token and intact blue-rose vase on table.",
+        "is_match": true,
+        "alignment_score": 0.922,
+        "elapsed_sec": 0.66
+      },
+      {
+        "id": 6,
+        "clip_url": "/assets/finals/branch_v2_scene_4_cam_b.mp4",
+        "target_description": "Warm golden starlight and falling snow close-up of smiling silver-haired girl sheltering small black cat under open red umbrella with intact crystal vase on table.",
+        "is_match": true,
+        "alignment_score": 0.771,
+        "elapsed_sec": 0.5
+      },
+      {
+        "id": 7,
+        "clip_url": "/assets/finals/scene_4_cam_a.mp4",
+        "target_description": "Joyful warm golden starlight snowfall with girl smiling happily and intact unbroken vase sitting on center table.",
+        "is_match": false,
+        "alignment_score": 0.156,
+        "elapsed_sec": 0.51
+      },
+      {
+        "id": 8,
+        "clip_url": "/assets/finals/scene_2_cam_b.mp4",
+        "target_description": "Peaceful sunny beach picnic at noon with bright orange surfboard and palm trees.",
+        "is_match": false,
+        "alignment_score": 0.022,
+        "elapsed_sec": 0.76
+      },
+      {
+        "id": 9,
+        "clip_url": "/assets/finals/branch_v2_scene_4_cam_a.mp4",
+        "target_description": "Dark cold stormy blue rainstorm with shattered crystal vase shards across wet floor and girl crying alone.",
+        "is_match": false,
+        "alignment_score": 0.162,
+        "elapsed_sec": 0.63
+      },
+      {
+        "id": 10,
+        "clip_url": "/assets/finals/scene_3_cam_a.mp4",
+        "target_description": "Intact unbroken crystal vase standing neatly on dry floor under warm golden sunshine with glowing yellow star.",
+        "is_match": false,
+        "alignment_score": 0.155,
+        "elapsed_sec": 0.55
+      },
+      {
+        "id": 11,
+        "clip_url": "/assets/finals/branch_v2_scene_2_cam_b.mp4",
+        "target_description": "Red fire truck speeding across a busy downtown highway in daylight.",
+        "is_match": false,
+        "alignment_score": 0.015,
+        "elapsed_sec": 0.57
+      },
+      {
+        "id": 12,
+        "clip_url": "/assets/finals/scene_1_cam_b.mp4",
+        "target_description": "Two astronauts floating inside a white spaceship cockpit orbiting Mars.",
+        "is_match": false,
+        "alignment_score": 0.017,
+        "elapsed_sec": 0.64
+      }
+    ]
+  },
+  "wall_clock_sec": 6.61
+}

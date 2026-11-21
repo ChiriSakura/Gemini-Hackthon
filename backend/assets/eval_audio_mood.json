@@ -1,0 +1,429 @@
+{
+  "benchmark": "Omni Flash Native Audio-Visual Alignment via Decisions API",
+  "model": "models/gemini-decision-1",
+  "positive_clips_evaluated": 14,
+  "negative_controls_evaluated": 4,
+  "audio_mood_match_rate": 1.0,
+  "audio_visual_sync_rate": 1.0,
+  "clean_audio_rate": 1.0,
+  "overall_positive_alignment_rate": 1.0,
+  "negative_control_tnr": 1.0,
+  "avg_latency_sec": 1.51,
+  "wall_clock_sec": 6.68,
+  "positive_items": [
+    {
+      "branch_id": "branch_v1",
+      "scene_id": 1,
+      "cam_id": "cam_a",
+      "clip_url": "/assets/finals/scene_1_cam_a.mp4",
+      "audio_mood": "soft_rain_and_quiet_glasshouse_ambience",
+      "mood_desc": "soft gentle nighttime rain against glass conservatory windows with quiet melancholic ambience",
+      "elapsed_sec": 4.92,
+      "checks": {
+        "audio_matches_mood": {
+          "p_true": 0.791,
+          "confidence": 0.791,
+          "passed": true
+        },
+        "audio_visual_sync": {
+          "p_true": 0.815,
+          "confidence": 0.815,
+          "passed": true
+        },
+        "clean_audio_no_glitches": {
+          "p_true": 0.837,
+          "confidence": 0.837,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v1",
+      "scene_id": 1,
+      "cam_id": "cam_b",
+      "clip_url": "/assets/finals/scene_1_cam_b.mp4",
+      "audio_mood": "soft_rain_and_quiet_glasshouse_ambience",
+      "mood_desc": "soft gentle nighttime rain against glass conservatory windows with quiet melancholic ambience",
+      "elapsed_sec": 3.47,
+      "checks": {
+        "audio_matches_mood": {
+          "p_true": 0.672,
+          "confidence": 0.672,
+          "passed": true
+        },
+        "audio_visual_sync": {
+          "p_true": 0.783,
+          "confidence": 0.783,
+          "passed": true
+        },
+        "clean_audio_no_glitches": {
+          "p_true": 0.609,
+          "confidence": 0.609,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v1",
+      "scene_id": 2,
+      "cam_id": "cam_a",
+      "clip_url": "/assets/finals/scene_2_cam_a.mp4",
+      "audio_mood": "sudden_thunderclap_and_shattering_crystal_glass",
+      "mood_desc": "dramatic rainy storm with thunderclap or shattering glass / tense startled impact sound",
+      "elapsed_sec": 3.46,
+      "checks": {
+        "audio_matches_mood": {
+          "p_true": 0.676,
+          "confidence": 0.676,
+          "passed": true
+        },
+        "audio_visual_sync": {
+          "p_true": 0.709,
+          "confidence": 0.709,
+          "passed": true
+        },
+        "clean_audio_no_glitches": {
+          "p_true": 0.724,
+          "confidence": 0.724,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v1",
+      "scene_id": 2,
+      "cam_id": "cam_b",
+      "clip_url": "/assets/finals/scene_2_cam_b.mp4",
+      "audio_mood": "sudden_thunderclap_and_shattering_crystal_glass",
+      "mood_desc": "dramatic rainy storm with thunderclap or shattering glass / tense startled impact sound",
+      "elapsed_sec": 3.14,
+      "checks": {
+        "audio_matches_mood": {
+          "p_true": 0.542,
+          "confidence": 0.542,
+          "passed": true
+        },
+        "audio_visual_sync": {
+          "p_true": 0.811,
+          "confidence": 0.811,
+          "passed": true
+        },
+        "clean_audio_no_glitches": {
+          "p_true": 0.697,
+          "confidence": 0.697,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v1",
+      "scene_id": 3,
+      "cam_id": "cam_a",
+      "clip_url": "/assets/finals/scene_3_cam_a.mp4",
+      "audio_mood": "steady_heavy_rain_melancholic_piano",
+      "mood_desc": "steady nighttime rainstorm with quiet melancholic or somber atmospheric music",
+      "elapsed_sec": 3.34,
+      "checks": {
+        "audio_matches_mood": {
+          "p_true": 0.789,
+          "confidence": 0.789,
+          "passed": true
+        },
+        "audio_visual_sync": {
+          "p_true": 0.813,
+          "confidence": 0.813,
+          "passed": true
+        },
+        "clean_audio_no_glitches": {
+          "p_true": 0.702,
+          "confidence": 0.702,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v1",
+      "scene_id": 3,
+      "cam_id": "cam_b",
+      "clip_url": "/assets/finals/scene_3_cam_b.mp4",
+      "audio_mood": "steady_heavy_rain_melancholic_piano",
+      "mood_desc": "steady nighttime rainstorm with quiet melancholic or somber atmospheric music",
+      "elapsed_sec": 0.62,
+      "checks": {
+        "audio_matches_mood": {
+          "p_true": 0.68,
+          "confidence": 0.68,
+          "passed": true
+        },
+        "audio_visual_sync": {
+          "p_true": 0.824,
+          "confidence": 0.824,
+          "passed": true
+        },
+        "clean_audio_no_glitches": {
+          "p_true": 0.733,
+          "confidence": 0.733,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v1",
+      "scene_id": 4,
+      "cam_id": "cam_a",
+      "clip_url": "/assets/finals/scene_4_cam_a.mp4",
+      "audio_mood": "heavy_rainstorm_fading_footsteps_sad_cello",
+      "mood_desc": "heavy rainstorm ambience with sad, wistful, or quiet melancholic instrumental mood",
+      "elapsed_sec": 0.71,
+      "checks": {
+        "audio_matches_mood": {
+          "p_true": 0.809,
+          "confidence": 0.809,
+          "passed": true
+        },
+        "audio_visual_sync": {
+          "p_true": 0.811,
+          "confidence": 0.811,
+          "passed": true
+        },
+        "clean_audio_no_glitches": {
+          "p_true": 0.816,
+          "confidence": 0.816,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v1",
+      "scene_id": 4,
+      "cam_id": "cam_b",
+      "clip_url": "/assets/finals/scene_4_cam_b.mp4",
+      "audio_mood": "heavy_rainstorm_fading_footsteps_sad_cello",
+      "mood_desc": "heavy rainstorm ambience with sad, wistful, or quiet melancholic instrumental mood",
+      "elapsed_sec": 0.75,
+      "checks": {
+        "audio_matches_mood": {
+          "p_true": 0.76,
+          "confidence": 0.76,
+          "passed": true
+        },
+        "audio_visual_sync": {
+          "p_true": 0.786,
+          "confidence": 0.786,
+          "passed": true
+        },
+        "clean_audio_no_glitches": {
+          "p_true": 0.816,
+          "confidence": 0.816,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v2_cached",
+      "scene_id": 2,
+      "cam_id": "cam_a",
+      "clip_url": "/assets/finals/branch_v2_scene_2_cam_a.mp4",
+      "audio_mood": "gentle_windchime_soft_purring_rain_easing",
+      "mood_desc": "gentle soothing magical chimes, easing rain, or calm warm atmospheric music",
+      "elapsed_sec": 0.7,
+      "checks": {
+        "audio_matches_mood": {
+          "p_true": 0.696,
+          "confidence": 0.696,
+          "passed": true
+        },
+        "audio_visual_sync": {
+          "p_true": 0.679,
+          "confidence": 0.679,
+          "passed": true
+        },
+        "clean_audio_no_glitches": {
+          "p_true": 0.688,
+          "confidence": 0.688,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v2_cached",
+      "scene_id": 2,
+      "cam_id": "cam_b",
+      "clip_url": "/assets/finals/branch_v2_scene_2_cam_b.mp4",
+      "audio_mood": "gentle_windchime_soft_purring_rain_easing",
+      "mood_desc": "gentle soothing magical chimes, easing rain, or calm warm atmospheric music",
+      "elapsed_sec": 0.65,
+      "checks": {
+        "audio_matches_mood": {
+          "p_true": 0.818,
+          "confidence": 0.818,
+          "passed": true
+        },
+        "audio_visual_sync": {
+          "p_true": 0.811,
+          "confidence": 0.811,
+          "passed": true
+        },
+        "clean_audio_no_glitches": {
+          "p_true": 0.818,
+          "confidence": 0.818,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v2_cached",
+      "scene_id": 3,
+      "cam_id": "cam_a",
+      "clip_url": "/assets/finals/branch_v2_scene_3_cam_a.mp4",
+      "audio_mood": "warm_music_box_soft_cat_purr",
+      "mood_desc": "warm gentle music-box or soft calming chimes with peaceful atmosphere",
+      "elapsed_sec": 0.74,
+      "checks": {
+        "audio_matches_mood": {
+          "p_true": 0.663,
+          "confidence": 0.663,
+          "passed": true
+        },
+        "audio_visual_sync": {
+          "p_true": 0.704,
+          "confidence": 0.704,
+          "passed": true
+        },
+        "clean_audio_no_glitches": {
+          "p_true": 0.678,
+          "confidence": 0.678,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v2_cached",
+      "scene_id": 3,
+      "cam_id": "cam_b",
+      "clip_url": "/assets/finals/branch_v2_scene_3_cam_b.mp4",
+      "audio_mood": "warm_music_box_soft_cat_purr",
+      "mood_desc": "warm gentle music-box or soft calming chimes with peaceful atmosphere",
+      "elapsed_sec": 0.54,
+      "checks": {
+        "audio_matches_mood": {
+          "p_true": 0.782,
+          "confidence": 0.782,
+          "passed": true
+        },
+        "audio_visual_sync": {
+          "p_true": 0.699,
+          "confidence": 0.699,
+          "passed": true
+        },
+        "clean_audio_no_glitches": {
+          "p_true": 0.725,
+          "confidence": 0.725,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v2_cached",
+      "scene_id": 4,
+      "cam_id": "cam_a",
+      "clip_url": "/assets/finals/branch_v2_scene_4_cam_a.mp4",
+      "audio_mood": "magical_warm_chimes_gentle_winter_snow_romantic_strings",
+      "mood_desc": "warm magical winter starlight chimes, soft strings, or peaceful snowfall ambience",
+      "elapsed_sec": 0.72,
+      "checks": {
+        "audio_matches_mood": {
+          "p_true": 0.804,
+          "confidence": 0.804,
+          "passed": true
+        },
+        "audio_visual_sync": {
+          "p_true": 0.752,
+          "confidence": 0.752,
+          "passed": true
+        },
+        "clean_audio_no_glitches": {
+          "p_true": 0.84,
+          "confidence": 0.84,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v2_cached",
+      "scene_id": 4,
+      "cam_id": "cam_b",
+      "clip_url": "/assets/finals/branch_v2_scene_4_cam_b.mp4",
+      "audio_mood": "magical_warm_chimes_gentle_winter_snow_romantic_strings",
+      "mood_desc": "warm magical winter starlight chimes, soft strings, or peaceful snowfall ambience",
+      "elapsed_sec": 0.76,
+      "checks": {
+        "audio_matches_mood": {
+          "p_true": 0.786,
+          "confidence": 0.786,
+          "passed": true
+        },
+        "audio_visual_sync": {
+          "p_true": 0.789,
+          "confidence": 0.789,
+          "passed": true
+        },
+        "clean_audio_no_glitches": {
+          "p_true": 0.808,
+          "confidence": 0.808,
+          "passed": true
+        }
+      }
+    }
+  ],
+  "negative_controls": [
+    {
+      "branch_id": "branch_v1",
+      "scene_id": 4,
+      "cam_id": "cam_a",
+      "clip_url": "/assets/finals/scene_4_cam_a.mp4",
+      "question": "Does the audio feature loud upbeat rock electric guitars, cheering stadium crowds, and party horns?",
+      "p_true": 0.108,
+      "predicted_label": false,
+      "expected_label": false,
+      "correct_rejection": true,
+      "elapsed_sec": 0.9
+    },
+    {
+      "branch_id": "branch_v1",
+      "scene_id": 2,
+      "cam_id": "cam_a",
+      "clip_url": "/assets/finals/scene_2_cam_a.mp4",
+      "question": "Does the audio consist solely of cheerful sunny beach seagulls, ocean surf, and ukulele music?",
+      "p_true": 0.093,
+      "predicted_label": false,
+      "expected_label": false,
+      "correct_rejection": true,
+      "elapsed_sec": 0.59
+    },
+    {
+      "branch_id": "branch_v2_cached",
+      "scene_id": 4,
+      "cam_id": "cam_a",
+      "clip_url": "/assets/finals/branch_v2_scene_4_cam_a.mp4",
+      "question": "Does the audio feature aggressive heavy-metal screaming, sirens, and loud explosions?",
+      "p_true": 0.116,
+      "predicted_label": false,
+      "expected_label": false,
+      "correct_rejection": true,
+      "elapsed_sec": 0.64
+    },
+    {
+      "branch_id": "branch_v2_cached",
+      "scene_id": 3,
+      "cam_id": "cam_b",
+      "clip_url": "/assets/finals/branch_v2_scene_3_cam_b.mp4",
+      "question": "Does the audio feature loud construction jackhammers and honking city traffic rush-hour noise?",
+      "p_true": 0.121,
+      "predicted_label": false,
+      "expected_label": false,
+      "correct_rejection": true,
+      "elapsed_sec": 0.48
+    }
+  ]
+}
