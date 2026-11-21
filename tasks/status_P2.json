@@ -1,8 +1,8 @@
 {
   "agent": "P2_media",
-  "branch": "feat/w1-media",
-  "current_milestone": "T4",
-  "status": "w1_cr1_cr3_and_t3f_t4c_completed_ready_for_master_merge",
+  "branch": "feat/w1-polish",
+  "current_milestone": "T5",
+  "status": "all_10_cr_t4_t5_tasks_completed_and_verified",
   "omni_flash_latency_sec": 18.64,
   "omni_flash_total_with_io_sec": 22.65,
   "omni_flash_dual_take_parallel_sec": 25.47,
@@ -23,11 +23,43 @@
     "output_mode": "RGBA",
     "has_transparency": true
   },
-  "h264_browser_check": {
-    "total_cached_mp4s": 14,
-    "all_h264_chrome_playable": true,
-    "resolution": "640x360",
-    "fps": 24.0
+  "w1_t3h_720p_vs_360p_benchmark": {
+    "clip_duration_sec": 4,
+    "360p": {
+      "latency_sec": 18.64,
+      "size_kb": 1606.0,
+      "est_cost_usd": 0.08,
+      "cost_per_sec_usd": 0.02
+    },
+    "720p": {
+      "latency_sec": 33.17,
+      "size_kb": 3044.6,
+      "est_cost_usd": 0.28,
+      "cost_per_sec_usd": 0.07,
+      "is_h264": true
+    },
+    "latency_ratio_720p_vs_360p": 1.78,
+    "size_ratio_720p_vs_360p": 1.9,
+    "cost_ratio_720p_vs_360p": 3.5,
+    "takeaway": "360p is 1.78x faster (18.6s vs 33.2s), 1.9x smaller, and 3.5x cheaper ($0.08 vs $0.28 per 4s clip), ideal for live demo with optional 720p export."
+  },
+  "w1_t5a_audio_codec_audit": {
+    "report_file": "backend/assets/eval_audio_codec.json",
+    "total_unique_branch_clips": 20,
+    "all_h264": true,
+    "all_have_audio_stream": true,
+    "all_640x360_24fps": true,
+    "demo_reel": "backend/assets/finals/demo_comparison_be_vs_he.mp4",
+    "demo_reel_has_audio": true
+  },
+  "w1_t4c_prop_persistence_and_halo": {
+    "report_file": "backend/assets/eval_prop_persistence.json",
+    "total_props_audited": 8,
+    "all_props_rgba": true,
+    "all_props_bottom_flush": true,
+    "all_props_zero_green_spill": true,
+    "branch_v3_star_token_persistence_rate": 1.0,
+    "branch_v3_crystal_vase_intact_persistence_rate": 1.0
   },
   "w1_t3c_dual_cam_consistency": {
     "report_file": "backend/assets/eval_dual_cam_stats.json",
@@ -65,70 +97,23 @@
     "retried_shots": 6,
     "retried_passed": 5
   },
-  "w1_t3f_showcase_props": {
-    "count": 5,
-    "avg_latency_sec": 16.91,
-    "all_rgba": true,
-    "all_bottom_flush": true,
-    "files": [
-      "showcase_origami_crane.png",
-      "showcase_brass_pocket_watch.png",
-      "showcase_crystal_shield.png",
-      "showcase_glowing_quill.png",
-      "showcase_star_lantern.png"
-    ]
-  },
-  "w1_t3g_branch_v3_starlight_cached": {
-    "branch_id": "branch_v3_starlight_cached",
-    "branch_file": "backend/assets/branches/branch_v3_starlight_cached.json",
-    "qa_scores": [0.879, 0.881, 0.877, 0.814]
-  },
-  "w1_t3h_resolution_benchmark": {
-    "scene_id": 4,
-    "360p_elapsed_sec": 18.64,
-    "360p_bytes": 1674949,
-    "720p_elapsed_sec": 27.77,
-    "720p_bytes": 2769403,
-    "latency_ratio_720p_vs_360p": 1.49,
-    "size_ratio_720p_vs_360p": 1.65
-  },
-  "w1_t4b_demo_comparison_reel": {
-    "file": "backend/assets/finals/demo_comparison_be_vs_he.mp4",
-    "bytes": 2518808,
-    "h264_verified": true
-  },
-  "w1_t4c_prop_persistence_audit": {
-    "report_file": "backend/assets/eval_prop_persistence.json",
-    "prop_pngs_audited": 8,
-    "branch_v3_clips_audited": 6,
-    "star_token_persistence_rate": 1.0,
-    "crystal_vase_intact_persistence_rate": 1.0
-  },
   "verified_model_ids": {
     "video": "gemini-omni-flash-preview",
     "image": "gemini-nano-banana-2.1",
     "decision": "models/gemini-decision-1"
   },
   "completed_items": [
-    "Deep-Opt 1: Generated umbrella-free backend/assets/actors/lia_clean_ref.png & auto-swapped broken crystal_vase_broken.png refs to eliminate duplicate umbrellas and ghost intact vases",
-    "Deep-Opt 2: Replaced raw [col,row] grid tokens with natural cinematography blocking + borderless nighttime lock (eliminated matplotlib coordinate-axis border & Branch 2 sunny-daylight jumps)",
-    "Deep-Opt 3: Deduplicated held props vs stage_props & added SI height estimator estimate_prop_height_m() (eliminated duplicate giant star tokens)",
-    "Deep-Opt 4: Strengthened Cam A wide establishing vs Cam B 45-deg oblique close-up separation + added fast 0.9s cross-camera consistency check & auto-retry + merged Cam A/B Clapperboard QA",
-    "Deep-Opt 5: Upgraded prop_maker.py chroma key to border-connected floodfill (preserves solid green props) + exact timestamp_sec frame extraction + removed duplicate preview-override bug",
-    "Deep-Opt 6: Re-rendered all 14 cached MP4 clips across branch_v1 (Scenes 1..4) and branch_v2_cached (Scenes 2..4) with verified visual quality and H.264 playback",
-    "W1-T3C: Measured Cross-Camera Consistency Rate = 92.9% (26/28) across 7 dual-cam pairs -> backend/assets/eval_dual_cam_stats.json",
-    "W1-T3D: Completed 3-prop simultaneous stress test (star_token + red_umbrella + crystal_vase: qa=0.787, alignment=0.884, 31.26s)",
-    "W1-T3E: Exported 20-clip Decisions API calibration dataset (95.0% accuracy, 100% TNR, 1.37s avg) -> backend/assets/calibration_20_clips.json",
-    "W1-T4A: Verified full P2 smoke test suite passes after all deep optimizations",
-    "W1-CR1: Added gemini-3.1-flash-image alias, SHA1-suffixed _slugify(), frame_timestamp_sec parameter + sequential .webm frame decoding, and interior enclosed green-loop chroma keying in prop_maker.py",
-    "W1-CR2: Updated _merge_dual_cam_qa() to include all [CAM A] & [CAM B] items plus cross_cam_item",
-    "W1-CR3: Translated branch_v1.json and branch_v2_cached.json branch/scene metadata to natural English matching shared/mock_branch_{1,2}.json",
-    "W1-T3F: Generated 5 RGBA bottom-flush showcase props (avg 16.91s) in backend/assets/props/showcase_*.png",
-    "W1-T3G: Rendered & cached branch_v3_starlight_cached (Scenes 2..4 Cam A/B, qa=[0.879, 0.881, 0.877, 0.814])",
-    "W1-T3H: Benchmarked Scene 4 720p (27.77s, 2.77MB) vs 360p (18.64s, 1.67MB) -> 1.49x slower, 1.65x larger",
-    "W1-T4B: Built H.264 split-screen BE vs HE comparison reel -> backend/assets/finals/demo_comparison_be_vs_he.mp4 (2.52MB)",
-    "W1-T4C: Audited 8 prop PNGs & branch_v3_starlight_cached persistence (star_token=1.0, crystal_vase=1.0 across 6/6 clips) -> backend/assets/eval_prop_persistence.json"
+    "W1-CR1: Model aliases + sha1 collision-safe _slugify() + CAP_PROP_POS_MSEC .webm extraction + border-connected floodfill chroma-key with 2px rim despill",
+    "W1-CR2: Uppercase [CAM A]/[CAM B]/[Dual-Cam] QA merge + Unicode-safe _open_video_capture_safe() in is_browser_h264() + clean preview-anchored cache scripts",
+    "W1-CR3: Verified 0 CJK characters across branch_v1.json, branch_v2_cached.json, and branch_v3_starlight_cached.json with real Decision-1 P(true) scores",
+    "W1-T3F: 5 diverse showcase props (origami crane, brass pocket watch, crystal shield, glowing quill, star lantern) generated and verified 0 chroma-green spill",
+    "W1-T3G: Cached 3rd 100% English branch_v3_starlight_cached.json (6 H.264 MP4s + 6 tail PNGs + 100% star_token & crystal_vase persistence)",
+    "W1-T3H: Benchmarked 720p (33.17s, 3044.6KB, $0.28) vs 360p (18.64s, 1606.0KB, $0.08) — 360p is 1.78x faster & 3.5x cheaper",
+    "W1-T4B: Upgraded build_demo_reel.py to mux native Omni Flash AAC audio into side-by-side H.264 demo_comparison_be_vs_he.mp4",
+    "W1-T4C: Audited all 8 prop PNGs (100% RGBA, bottom-flush, 0 chroma-green spill) & branch_v3 multi-scene persistence (100%) -> eval_prop_persistence.json",
+    "W1-T5A: Audited all 20 cached branch MP4s + demo reel (100% H.264, 100% native audio stream, 640x360 24fps) -> eval_audio_codec.json",
+    "W1-T5B: Extended test_media_smoke.py (ALL branches HTTP 200 + H.264, 0 CJK, progress check, 0 green spill, audio stream check) — ALL PASSED"
   ],
   "blockers": [],
-  "last_updated": "2026-11-21T13:23:00-05:00"
+  "last_updated": "2026-11-21T13:27:30-05:00"
 }

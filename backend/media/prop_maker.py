@@ -227,9 +227,15 @@ def _chroma_key_green_to_rgba(raw_image_bytes: bytes, max_size: int = 512) -> Im
     ramp = np.clip(1.0 - (green_excess - 10.0) / 32.0, 0.0, 1.0) * 255.0
     alpha = np.where(fringe_mask, np.minimum(alpha, ramp), alpha)
 
-    # Despill green cast strictly along the translucent boundary band.
-    despill_mask = boundary_band & (alpha > 0) & (alpha < 252) & (green_excess > 0)
-    g_despilled = np.where(despill_mask, np.minimum(g, np.maximum(r, b) + 6), g)
+    # Despill green cast strictly along the outer boundary band (including opaque 2px rim pixels)
+    # so zero green halo survives while interior green props remain untouched.
+    despill_mask = boundary_band & (alpha > 0) & (green_excess > 8)
+    g_despilled = np.where(despill_mask, np.minimum(g, np.maximum(r, b) + 4), g)
+
+    # Also suppress any isolated neon chroma-green rim pixels bordering transparent alpha.
+    dilated_outer = cv2.dilate(bg_u8, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)), iterations=1)
+    tight_rim = (dilated_outer > 0) & (~bg_mask) & (alpha >= 200) & (h_chan >= 35) & (h_chan <= 95) & (s_chan >= 70) & (green_excess > 12)
+    g_despilled = np.where(tight_rim, np.minimum(g_despilled, np.maximum(r, b)), g_despilled)
 
     rgba_bgr = np.stack(
         [

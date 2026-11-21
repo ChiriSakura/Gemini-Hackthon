@@ -51,11 +51,11 @@ def _audit_prop_png(path: Path) -> dict:
     opaque_green_spill = int(
         np.sum(
             (alpha >= 200)
-            & (hsv[:, :, 0] >= 35)
-            & (hsv[:, :, 0] <= 90)
-            & (hsv[:, :, 1] >= 80)
-            & (hsv[:, :, 2] >= 60)
-            & (green_excess > 30)
+            & (hsv[:, :, 0] >= 42)
+            & (hsv[:, :, 0] <= 74)
+            & (hsv[:, :, 1] >= 110)
+            & (hsv[:, :, 2] >= 50)
+            & (green_excess > 35)
         )
     )
     return {

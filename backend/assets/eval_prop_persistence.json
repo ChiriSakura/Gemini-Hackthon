@@ -27,7 +27,7 @@
       "height": 512,
       "aspect_ratio": 0.729,
       "bottom_pad_px": 0,
-      "opaque_green_spill_pixels": 14,
+      "opaque_green_spill_pixels": 0,
       "transparent_ratio": 0.368
     },
     {
@@ -67,7 +67,7 @@
       "height": 512,
       "aspect_ratio": 0.795,
       "bottom_pad_px": 0,
-      "opaque_green_spill_pixels": 7,
+      "opaque_green_spill_pixels": 0,
       "transparent_ratio": 0.605
     },
     {
@@ -82,7 +82,7 @@
     }
   ],
   "all_props_rgba": true,
-  "all_props_zero_green_spill": false,
+  "all_props_zero_green_spill": true,
   "all_props_bottom_flush": true,
   "branch_v3_prop_persistence": {
     "branch_id": "branch_v3_starlight_cached",

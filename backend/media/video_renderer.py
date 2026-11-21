@@ -62,19 +62,44 @@ _UPLOAD_LOCK = asyncio.Lock()
 _RENDER_PROGRESS: dict[str, dict] = {}
 
 
+def _open_video_capture_safe(video_path: Path) -> tuple[cv2.VideoCapture, Optional[Path]]:
+    """
+    Open a video file with OpenCV safely even when the Windows path contains Unicode characters.
+
+    Returns `(cap, temp_copy_path)` — caller must release `cap` and unlink `temp_copy_path` if not None.
+    """
+    path_str = str(video_path)
+    if path_str.isascii():
+        cap = cv2.VideoCapture(path_str)
+        if cap.isOpened():
+            return cap, None
+        cap.release()
+
+    import tempfile
+
+    suffix = video_path.suffix or ".mp4"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp_path = Path(tmp.name)
+    shutil.copy2(video_path, tmp_path)
+    cap = cv2.VideoCapture(str(tmp_path))
+    return cap, tmp_path
+
+
 def is_browser_h264(video_path: Path) -> bool:
-    """Verify an MP4 file uses H.264/avc1 codec natively playable in Chrome <video> tags."""
+    """Verify an MP4 file uses H.264/avc1 codec natively playable in Chrome <video> tags (Unicode-path safe)."""
     if not video_path.is_file():
         return False
-    cap = cv2.VideoCapture(str(video_path))
-    if not cap.isOpened():
-        return False
+    cap, tmp_path = _open_video_capture_safe(video_path)
     try:
+        if not cap.isOpened():
+            return False
         fourcc_int = int(cap.get(cv2.CAP_PROP_FOURCC))
         fourcc = "".join(chr((fourcc_int >> (8 * i)) & 0xFF) for i in range(4)).lower()
         return fourcc in {"h264", "avc1", "x264"}
     finally:
         cap.release()
+        if tmp_path is not None:
+            tmp_path.unlink(missing_ok=True)
 
 
 def _update_render_progress(
@@ -187,20 +212,6 @@ def _write_png_safe(path: Path, frame: np.ndarray) -> bool:
         return False
     path.write_bytes(encoded.tobytes())
     return True
-
-
-def _open_video_capture_safe(video_path: Path) -> tuple[cv2.VideoCapture, Optional[Path]]:
-    """Open cv2.VideoCapture safely, falling back to an ASCII temp copy if path has Unicode chars."""
-    cap = cv2.VideoCapture(str(video_path))
-    if cap.isOpened():
-        return cap, None
-    cap.release()
-    import tempfile
-    tmp = tempfile.NamedTemporaryFile(suffix=video_path.suffix or ".mp4", delete=False)
-    tmp_path = Path(tmp.name)
-    tmp.close()
-    shutil.copy2(video_path, tmp_path)
-    return cv2.VideoCapture(str(tmp_path)), tmp_path
 
 
 def _extract_tail_frame_sync(video_path: Path, tail_path: Path) -> Optional[Path]:

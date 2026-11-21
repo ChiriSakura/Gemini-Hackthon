@@ -47,24 +47,34 @@ def run_smoke_tests() -> None:
         resp = client.get(asset_url)
         assert resp.status_code == 200, f"Static asset missing: {asset_url} -> {resp.status_code}"
 
-    # 3. Verify cached branch_v1, branch_v2_cached & branch_v3_starlight_cached media URLs serve 200 OK and use H.264
+    # 3. Verify ALL branches in GET /api/branches pass HTTP 200 on cached media URLs & use H.264
     from backend.media.video_renderer import _merge_dual_cam_qa, get_render_progress, is_browser_h264
 
-    for branch_id in ("branch_v1", "branch_v2_cached", "branch_v3_starlight_cached"):
-        target_branch = next((b for b in branches if b["branch_id"] == branch_id), None)
-        if target_branch is None:
-            b_resp = client.get(f"/api/branches/{branch_id}")
-            assert b_resp.status_code == 200, f"{branch_id} missing"
-            target_branch = b_resp.json()
+    branch_ids = {b["branch_id"] for b in branches}
+    for req_id in ("branch_v1", "branch_v2_cached", "branch_v3_starlight_cached"):
+        assert req_id in branch_ids, f"Expected cached branch {req_id} in GET /api/branches"
+
+    for target_branch in branches:
         for scene in target_branch["scenes"]:
             for key in ("cam_a_final_url", "cam_b_final_url", "cam_a_tail_frame_url", "cam_b_tail_frame_url"):
                 url = scene["media"].get(key)
                 if url:
                     resp = client.get(url)
-                    assert resp.status_code == 200, f"Cached media missing: {url} -> {resp.status_code}"
+                    assert resp.status_code == 200, f"Cached media missing ({target_branch['branch_id']}): {url} -> {resp.status_code}"
                     if url.endswith(".mp4"):
                         local_mp4 = config.ASSETS_DIR / url.removeprefix("/assets/")
                         assert is_browser_h264(local_mp4), f"Non-H.264 clip: {local_mp4}"
+
+    # Verify zero CJK characters remain in persisted branch JSONs (W1-CR3 / W1-T5B)
+    import re
+    for bjson in sorted(config.BRANCHES_DIR.glob("*.json")):
+        cjk_hits = re.findall(r"[\u4e00-\u9fff]+", bjson.read_text(encoding="utf-8"))
+        assert not cjk_hits, f"CJK characters found in {bjson.name}: {cjk_hits[:5]}"
+
+    # Strictly verify GET /api/media/progress/{branch_id} returns 200 OK (W1-T5B)
+    r_prog = client.get("/api/media/progress/branch_v1")
+    assert r_prog.status_code == 200, r_prog.text
+    assert r_prog.json().get("branch_id") == "branch_v1"
 
     branch_v1 = next(b for b in branches if b["branch_id"] == "branch_v1")
     assert get_render_progress("nonexistent_branch")["status"] == "idle"
@@ -147,8 +157,26 @@ def run_smoke_tests() -> None:
         stage_props_section = s4_prompt.split("Stage props:", 1)[1].split("Persistent", 1)[0]
         assert "star keepsake" not in stage_props_section.lower(), f"Duplicate star_token in Stage props: {stage_props_section}"
         assert _resolve_clean_actor_ref(config.SHARED_ASSETS_DIR / "lia.png").name == "lia_clean_ref.png"
+        assert _resolve_clean_actor_ref(
+            config.SHARED_ASSETS_DIR / "crystal_vase.png",
+            scene=SceneModel(**branch_v1["scenes"][3]),
+        ).name == "crystal_vase_broken.png"
         assert estimate_prop_height_m("star_token") == 0.10
         assert estimate_prop_height_m("crystal_vase") == 0.32
+
+        # 8. Verify W1-T4C zero green-spill audit & W1-T5A audio/H.264 audit artifacts
+        import json as _json
+        ep_path = config.ASSETS_DIR / "eval_prop_persistence.json"
+        if ep_path.is_file():
+            ep = _json.loads(ep_path.read_text(encoding="utf-8"))
+            assert ep.get("all_props_zero_green_spill") is True, f"Green spill remaining: {ep}"
+            assert ep.get("all_props_bottom_flush") is True
+        ac_path = config.ASSETS_DIR / "eval_audio_codec.json"
+        if ac_path.is_file():
+            ac = _json.loads(ac_path.read_text(encoding="utf-8"))
+            assert ac.get("all_h264") is True
+            assert ac.get("all_have_audio_stream") is True
+            assert (ac.get("demo_reel") or {}).get("has_audio_stream") is True
     finally:
         config.DEMO_MODE = prev_demo
         (config.PROPS_DIR / "smoke_prop.png").unlink(missing_ok=True)
