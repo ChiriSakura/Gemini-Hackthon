@@ -31,7 +31,7 @@
       "lighting": "warm_dim",
       "camera_shake": false,
       "audio_mood": "soft_rain_and_quiet_glasshouse_ambience",
-      "environment_notes": "glass_conservatory_interior rain_streaked_windows reflective_tiled_floor warm_wall_lanterns glowing_blue_rose crystal_vase potted_plant night_rain_outside",
+      "environment_notes": "rain_outside_glass_windows glowing_blue_rose_in_crystal_vase warm_wall_lanterns_lit herringbone_wooden_floor potted_corner_plants open_red_umbrella_indoors dark_nighttime_conservatory",
       "needs_rerender": false,
       "reused_from_branch": null,
       "actors": [
@@ -86,50 +86,62 @@
         "cam_a_tail_frame_url": "/assets/tails/scene_1_cam_a_tail.png",
         "cam_b_tail_frame_url": "/assets/tails/scene_1_cam_b_tail.png",
         "qa_result": {
-          "overall_score": 0.874,
+          "overall_score": 0.861,
           "all_passed": true,
           "items": [
             {
               "question": "Is the silver-haired girl standing on the left holding a red umbrella?",
               "passed": true,
-              "confidence": 0.928,
-              "reason": "Decision-1 P(true)=0.93"
+              "confidence": 0.939,
+              "reason": "Decision-1 P(true)=0.94"
             },
             {
               "question": "Is the black cat with a golden moon collar sitting on the right?",
               "passed": true,
-              "confidence": 0.925,
-              "reason": "Decision-1 P(true)=0.93"
+              "confidence": 0.943,
+              "reason": "Decision-1 P(true)=0.94"
             },
             {
               "question": "Is the crystal vase with a blue rose standing intact on the center round table?",
               "passed": true,
-              "confidence": 0.944,
-              "reason": "Decision-1 P(true)=0.94"
+              "confidence": 0.93,
+              "reason": "Decision-1 P(true)=0.93"
             },
             {
-              "question": "Do Camera A (front wide) and Camera B (45-degree close-up) match actor positions?",
+              "question": "[Cam B] Do Camera A (front wide) and Camera B (45-degree close-up) match actor positions?",
               "passed": true,
-              "confidence": 0.612,
-              "reason": "Decision-1 P(true)=0.61 [LOW_CONFIDENCE: escalate]"
+              "confidence": 0.62,
+              "reason": "Decision-1 P(true)=0.62 [LOW_CONFIDENCE: escalate]"
             },
             {
               "question": "Are there no extra unintended human characters in the scene?",
               "passed": true,
-              "confidence": 0.919,
-              "reason": "Decision-1 P(true)=0.92"
+              "confidence": 0.902,
+              "reason": "Decision-1 P(true)=0.90"
             },
             {
-              "question": "Is the black cat realistically small (below the girl's knee height) with all characters and props resting naturally on surfaces without floating?",
+              "question": "[Cam B] Is the black cat realistically small (below the girl's knee height) with all characters and props resting naturally on surfaces without floating?",
               "passed": true,
-              "confidence": 0.915,
+              "confidence": 0.752,
+              "reason": "Decision-1 P(true)=0.75"
+            },
+            {
+              "question": "Is this a clean full-bleed nighttime anime frame with NO black borders, NO coordinate axes or numbers, NO duplicate umbrellas or duplicate star tokens, and consistent nighttime atmosphere?",
+              "passed": true,
+              "confidence": 0.909,
               "reason": "Decision-1 P(true)=0.91"
+            },
+            {
+              "question": "[Dual-Cam] Camera A & Camera B spatial, prop, and nighttime lighting consistency",
+              "passed": true,
+              "confidence": 0.891,
+              "reason": "Cross-Cam Decision-1 P(true)=0.89"
             }
           ]
         },
-        "qa_score": 0.889,
-        "qa_retries": 0,
-        "selected_candidate_index": 0,
+        "qa_score": 0.879,
+        "qa_retries": 1,
+        "selected_candidate_index": 1,
         "fallback_to_preview": false
       }
     },
@@ -144,7 +156,7 @@
       "lighting": "cold_blue",
       "camera_shake": true,
       "audio_mood": "sudden_thunderclap_and_shattering_crystal_glass",
-      "environment_notes": "shattered_glass_shards overturned_glass_vase fallen_blue_rose scattered_blue_petals wet_glass_panes heavy_rain_streaks cloudy_moonlit_sky empty_round_table reflective_tiled_floor",
+      "environment_notes": "heavy_rain_outside full_moon_behind_clouds window_frame_floor_shadows wet_reflective_tile_floor water_puddle_by_feet scattered_blue_fragments blue_sphere_on_table",
       "needs_rerender": false,
       "reused_from_branch": null,
       "actors": [
@@ -199,49 +211,61 @@
         "cam_a_tail_frame_url": "/assets/tails/scene_2_cam_a_tail.png",
         "cam_b_tail_frame_url": "/assets/tails/scene_2_cam_b_tail.png",
         "qa_result": {
-          "overall_score": 0.933,
+          "overall_score": 0.86,
           "all_passed": true,
           "items": [
             {
               "question": "Is the crystal vase shattered on the floor with blue rose petals around it?",
               "passed": true,
-              "confidence": 0.946,
-              "reason": "Decision-1 P(true)=0.95"
+              "confidence": 0.896,
+              "reason": "Decision-1 P(true)=0.90"
             },
             {
               "question": "Is the black cat startled and leaping away to the right?",
               "passed": true,
-              "confidence": 0.945,
-              "reason": "Decision-1 P(true)=0.94"
+              "confidence": 0.92,
+              "reason": "Decision-1 P(true)=0.92"
             },
             {
               "question": "Is the silver-haired girl still holding the red umbrella?",
               "passed": true,
-              "confidence": 0.94,
-              "reason": "Decision-1 P(true)=0.94"
+              "confidence": 0.932,
+              "reason": "Decision-1 P(true)=0.93"
             },
             {
               "question": "Is the lighting cold rainy blue?",
               "passed": true,
-              "confidence": 0.953,
-              "reason": "Decision-1 P(true)=0.95"
+              "confidence": 0.933,
+              "reason": "Decision-1 P(true)=0.93"
             },
             {
               "question": "Are there no extra unintended characters in the scene?",
               "passed": true,
-              "confidence": 0.929,
-              "reason": "Decision-1 P(true)=0.93"
+              "confidence": 0.898,
+              "reason": "Decision-1 P(true)=0.90"
             },
             {
               "question": "Is the black cat realistically small (below the girl's knee height) with all characters and props resting naturally on surfaces without floating?",
               "passed": true,
-              "confidence": 0.884,
-              "reason": "Decision-1 P(true)=0.88"
+              "confidence": 0.826,
+              "reason": "Decision-1 P(true)=0.83"
+            },
+            {
+              "question": "Is this a clean full-bleed nighttime anime frame with NO black borders, NO coordinate axes or numbers, NO duplicate umbrellas or duplicate star tokens, and consistent nighttime atmosphere?",
+              "passed": true,
+              "confidence": 0.907,
+              "reason": "Decision-1 P(true)=0.91"
+            },
+            {
+              "question": "[Dual-Cam] Camera A & Camera B spatial, prop, and nighttime lighting consistency",
+              "passed": true,
+              "confidence": 0.569,
+              "reason": "Cross-Cam Decision-1 P(true)=0.57"
             }
           ]
         },
-        "qa_score": 0.933,
-        "qa_retries": 0,
+        "qa_score": 0.905,
+        "qa_retries": 1,
         "selected_candidate_index": 0,
         "fallback_to_preview": false
       }
@@ -257,7 +281,7 @@
       "lighting": "cold_blue",
       "camera_shake": false,
       "audio_mood": "steady_heavy_rain_melancholic_piano",
-      "environment_notes": "broken_glass_vase shattered_glass_shards water_puddles fallen_blue_rose scattered_blue_petals wet_reflective_floor rain_streaked_glass_windows moonlit_window_shadows",
+      "environment_notes": "water_puddles shattered_glass_shards fallen_glass_vase upright_empty_vase scattered_blue_petals fallen_blue_roses rain_streaked_windows wet_reflective_floor bare_round_table moonlit_rainy_conservatory",
       "needs_rerender": false,
       "reused_from_branch": null,
       "actors": [
@@ -311,42 +335,54 @@
         "cam_a_tail_frame_url": "/assets/tails/scene_3_cam_a_tail.png",
         "cam_b_tail_frame_url": "/assets/tails/scene_3_cam_b_tail.png",
         "qa_result": {
-          "overall_score": 0.906,
+          "overall_score": 0.841,
           "all_passed": true,
           "items": [
             {
               "question": "Are the broken crystal vase shards still visibly lying on the wet floor?",
               "passed": true,
-              "confidence": 0.94,
-              "reason": "Decision-1 P(true)=0.94"
+              "confidence": 0.923,
+              "reason": "Decision-1 P(true)=0.92"
             },
             {
               "question": "Is the black cat crouching cautiously in the right corner?",
               "passed": true,
-              "confidence": 0.773,
-              "reason": "Decision-1 P(true)=0.77"
+              "confidence": 0.776,
+              "reason": "Decision-1 P(true)=0.78"
             },
             {
               "question": "Is the silver-haired girl standing still holding her red umbrella?",
               "passed": true,
-              "confidence": 0.941,
-              "reason": "Decision-1 P(true)=0.94"
+              "confidence": 0.928,
+              "reason": "Decision-1 P(true)=0.93"
             },
             {
               "question": "Is the lighting consistently cold rainy blue?",
               "passed": true,
-              "confidence": 0.949,
-              "reason": "Decision-1 P(true)=0.95"
+              "confidence": 0.903,
+              "reason": "Decision-1 P(true)=0.90"
             },
             {
               "question": "Is the black cat realistically small (below the girl's knee height) with all characters and props resting naturally on surfaces without floating?",
               "passed": true,
-              "confidence": 0.925,
-              "reason": "Decision-1 P(true)=0.92"
+              "confidence": 0.879,
+              "reason": "Decision-1 P(true)=0.88"
+            },
+            {
+              "question": "Is this a clean full-bleed nighttime anime frame with NO black borders, NO coordinate axes or numbers, NO duplicate umbrellas or duplicate star tokens, and consistent nighttime atmosphere?",
+              "passed": true,
+              "confidence": 0.914,
+              "reason": "Decision-1 P(true)=0.91"
+            },
+            {
+              "question": "[Dual-Cam] Camera A & Camera B spatial, prop, and nighttime lighting consistency",
+              "passed": true,
+              "confidence": 0.562,
+              "reason": "Cross-Cam Decision-1 P(true)=0.56"
             }
           ]
         },
-        "qa_score": 0.9,
+        "qa_score": 0.874,
         "qa_retries": 0,
         "selected_candidate_index": 1,
         "fallback_to_preview": false
@@ -363,7 +399,7 @@
       "lighting": "cold_blue",
       "camera_shake": false,
       "audio_mood": "heavy_rainstorm_fading_footsteps_sad_cello",
-      "environment_notes": "broken_glass_vase shattered_glass_shards scattered_blue_petals fallen_blue_roses wet_reflective_floor raindrops_on_umbrella rainy_night_conservatory",
+      "environment_notes": "shattered_glass_shards scattered_blue_petals fallen_blue_rose rain_streaked_windows wet_reflective_floor moonlight_floor_spotlight empty_round_table full_moon_overhead",
       "needs_rerender": false,
       "reused_from_branch": null,
       "actors": [
@@ -413,49 +449,55 @@
         "cam_a_preview_url": null,
         "cam_b_preview_url": null,
         "cam_a_final_url": "/assets/finals/scene_4_cam_a.mp4",
-        "cam_b_final_url": "/assets/finals/scene_4_cam_b.mp4",
+        "cam_b_final_url": null,
         "cam_a_tail_frame_url": "/assets/tails/scene_4_cam_a_tail.png",
-        "cam_b_tail_frame_url": "/assets/tails/scene_4_cam_b_tail.png",
+        "cam_b_tail_frame_url": null,
         "qa_result": {
-          "overall_score": 0.847,
-          "all_passed": true,
+          "overall_score": 0.972,
+          "all_passed": false,
           "items": [
             {
-              "question": "Is the silver-haired girl alone under her red umbrella looking wistfully down?",
-              "passed": true,
-              "confidence": 0.875,
-              "reason": "Decision-1 P(true)=0.88"
+              "question": "[Cam B] Is the silver-haired girl alone under her red umbrella looking wistfully down?",
+              "passed": false,
+              "confidence": 0.0,
+              "reason": "BadRequestError: Error code: 400 - {'error': {'message': 'Input blocked: The prompt could not be processed. Please try rephrasing the prompt or using different input. If you think this was an error, [send feedback](https://aistudio.google.com/docs/troubleshooting).', 'code': 'content_blocked'}}"
             },
             {
-              "question": "Is the crystal vase still broken on the floor (object permanence)?",
-              "passed": true,
-              "confidence": 0.883,
-              "reason": "Decision-1 P(true)=0.88"
+              "question": "[Cam B] Is the crystal vase still broken on the floor (object permanence)?",
+              "passed": false,
+              "confidence": 0.0,
+              "reason": "BadRequestError: Error code: 400 - {'error': {'message': 'Input blocked: The prompt could not be processed. Please try rephrasing the prompt or using different input. If you think this was an error, [send feedback](https://aistudio.google.com/docs/troubleshooting).', 'code': 'content_blocked'}}"
             },
             {
-              "question": "Is the black cat fleeing toward the far right rainy corner?",
-              "passed": true,
-              "confidence": 0.776,
-              "reason": "Decision-1 P(true)=0.78"
+              "question": "[Cam B] Is the black cat fleeing toward the far right rainy corner?",
+              "passed": false,
+              "confidence": 0.0,
+              "reason": "BadRequestError: Error code: 400 - {'error': {'message': 'Input blocked: The prompt could not be processed. Please try rephrasing the prompt or using different input. If you think this was an error, [send feedback](https://aistudio.google.com/docs/troubleshooting).', 'code': 'content_blocked'}}"
             },
             {
-              "question": "Do Camera A and Camera B stay spatially consistent?",
-              "passed": true,
-              "confidence": 0.793,
-              "reason": "Decision-1 P(true)=0.79"
+              "question": "[Cam B] Do Camera A and Camera B stay spatially consistent?",
+              "passed": false,
+              "confidence": 0.0,
+              "reason": "BadRequestError: Error code: 400 - {'error': {'message': 'Input blocked: The prompt could not be processed. Please try rephrasing the prompt or using different input. If you think this was an error, [send feedback](https://aistudio.google.com/docs/troubleshooting).', 'code': 'content_blocked'}}"
             },
             {
               "question": "Is the black cat realistically small (below the girl's knee height) with all characters and props resting naturally on surfaces without floating?",
               "passed": true,
-              "confidence": 0.91,
+              "confidence": 0.914,
               "reason": "Decision-1 P(true)=0.91"
+            },
+            {
+              "question": "Is this a clean full-bleed nighttime anime frame with NO black borders, NO coordinate axes or numbers, NO duplicate umbrellas or duplicate star tokens, and consistent nighttime atmosphere?",
+              "passed": true,
+              "confidence": 0.918,
+              "reason": "Decision-1 P(true)=0.92"
             }
           ]
         },
-        "qa_score": 0.859,
-        "qa_retries": 0,
+        "qa_score": 0.428,
+        "qa_retries": 2,
         "selected_candidate_index": 0,
-        "fallback_to_preview": false
+        "fallback_to_preview": true
       }
     }
   ]
