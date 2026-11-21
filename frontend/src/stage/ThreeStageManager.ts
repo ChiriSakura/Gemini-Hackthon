@@ -287,15 +287,29 @@ export class ThreeStageManager {
     return points;
   }
 
-  private loadSpriteTexture(url: string, fallbackKey?: string): THREE.Texture {
+  private loadSpriteTexture(
+    url: string,
+    fallbackKey?: string,
+    onSizeReady?: (w: number, h: number) => void,
+  ): THREE.Texture {
     const cached = this.textureCache.get(url);
-    if (cached) return cached;
+    if (cached) {
+      const img = cached.image as { width?: number; height?: number } | undefined;
+      if (img?.width && img?.height && onSizeReady) {
+        onSizeReady(img.width, img.height);
+      }
+      return cached;
+    }
 
     const fallbackTex = createFallbackStarTexture();
     const tex = this.textureLoader.load(
       url,
       (loaded) => {
         loaded.colorSpace = THREE.SRGBColorSpace;
+        const img = loaded.image as { width?: number; height?: number } | undefined;
+        if (img?.width && img?.height && onSizeReady) {
+          onSizeReady(img.width, img.height);
+        }
       },
       undefined,
       () => {
@@ -307,6 +321,18 @@ export class ThreeStageManager {
     tex.colorSpace = THREE.SRGBColorSpace;
     this.textureCache.set(url, tex);
     return tex;
+  }
+
+  private fitScaleToBox(imgW: number, imgH: number, maxW: number, maxH: number): [number, number] {
+    if (!imgW || !imgH) return [maxW, maxH];
+    const ratio = imgW / imgH;
+    let w = maxH * ratio;
+    let h = maxH;
+    if (w > maxW) {
+      w = maxW;
+      h = maxW / ratio;
+    }
+    return [Number(w.toFixed(3)), Number(h.toFixed(3))];
   }
 
   /**
@@ -328,30 +354,39 @@ export class ThreeStageManager {
       activeActorIds.add(actor.id);
       const { x, z } = gridToWorld(actor.grid);
       const isNyx = actor.id === 'nyx';
-      const baseW = isNyx ? 1.15 : 1.75;
-      const baseH = isNyx ? 1.15 : 2.25;
-      const y = baseH / 2 + 0.02;
+      // Keep Nyx realistically cat-sized (~29% of Lia's 2.25 height)
+      const maxW = isNyx ? 0.68 : 1.75;
+      const maxH = isNyx ? 0.65 : 2.25;
+      const y = maxH / 2 + 0.02;
 
       let entity = this.actorEntities.get(actor.id);
       if (!entity) {
+        const spriteRef: { entity?: SpriteEntity } = {};
         const mat = new THREE.SpriteMaterial({
-          map: this.loadSpriteTexture(actor.asset_url),
+          map: this.loadSpriteTexture(actor.asset_url, undefined, (iw, ih) => {
+            const fitted = this.fitScaleToBox(iw, ih, maxW, maxH);
+            if (spriteRef.entity) {
+              spriteRef.entity.baseScale = fitted;
+              spriteRef.entity.targetPos.y = fitted[1] / 2 + 0.02;
+            }
+          }),
           transparent: true,
         });
         const sprite = new THREE.Sprite(mat);
         sprite.position.set(x, y, z);
-        sprite.scale.set(baseW, baseH, 1);
+        sprite.scale.set(maxW, maxH, 1);
         this.scene.add(sprite);
         entity = {
           sprite,
-          baseScale: [baseW, baseH],
+          baseScale: [maxW, maxH],
           targetPos: new THREE.Vector3(x, y, z),
           action: actor.action,
           facing: actor.facing,
         };
+        spriteRef.entity = entity;
         this.actorEntities.set(actor.id, entity);
       } else {
-        entity.targetPos.set(x, y, z);
+        entity.targetPos.set(x, entity.baseScale[1] / 2 + 0.02, z);
         entity.action = actor.action;
         entity.facing = actor.facing;
       }
@@ -368,11 +403,34 @@ export class ThreeStageManager {
       ent.sprite.visible = activeActorIds.has(id);
     }
 
-    // Sync props
+    // Sync props (stage_props + any non-umbrella prop currently held by an actor)
     const activePropIds = new Set<string>();
     let anyBrokenVase = false;
 
-    for (const prop of sceneData.stage_props) {
+    const propsToPlace: Array<{
+      id: string;
+      grid: [number, number];
+      on_floor: boolean;
+      state: string;
+      heldByActor?: boolean;
+    }> = [...sceneData.stage_props];
+
+    for (const actor of sceneData.actors) {
+      if (actor.holding_prop && actor.holding_prop !== 'red_umbrella') {
+        const alreadyListed = propsToPlace.some((p) => p.id === actor.holding_prop);
+        if (!alreadyListed) {
+          propsToPlace.push({
+            id: actor.holding_prop,
+            grid: [Math.min(2, actor.grid[0] + 0.18), actor.grid[1]],
+            on_floor: false,
+            state: 'held',
+            heldByActor: true,
+          });
+        }
+      }
+    }
+
+    for (const prop of propsToPlace) {
       if (prop.id === 'red_umbrella' && !prop.on_floor) continue;
       activePropIds.add(prop.id);
 
@@ -384,28 +442,40 @@ export class ThreeStageManager {
         anyBrokenVase = true;
       }
 
-      const scaleW = prop.id === 'crystal_vase' ? 0.72 : 0.65;
-      const scaleH = prop.id === 'crystal_vase' ? 0.88 : 0.65;
-      const y = prop.on_floor ? 0.34 : prop.id === 'crystal_vase' ? 1.18 : 0.95;
+      // Normalize all props cleanly inside realistic stage bounding boxes
+      const maxPropW = prop.id === 'crystal_vase' ? 0.42 : prop.heldByActor ? 0.30 : 0.38;
+      const maxPropH = prop.id === 'crystal_vase' ? 0.46 : prop.heldByActor ? 0.30 : 0.38;
+      const y = prop.heldByActor
+        ? 0.92
+        : prop.on_floor
+          ? maxPropH / 2 + 0.02
+          : 0.77 + maxPropH / 2;
 
       let entity = this.propEntities.get(prop.id);
       if (!entity) {
+        const propRef: { entity?: SpriteEntity } = {};
         const mat = new THREE.SpriteMaterial({
-          map: this.loadSpriteTexture(imageUrl, prop.id),
+          map: this.loadSpriteTexture(imageUrl, prop.id, (iw, ih) => {
+            const fitted = this.fitScaleToBox(iw, ih, maxPropW, maxPropH);
+            if (propRef.entity) {
+              propRef.entity.baseScale = fitted;
+            }
+          }),
           transparent: true,
         });
         const sprite = new THREE.Sprite(mat);
         sprite.position.set(x, y, z);
-        sprite.scale.set(scaleW, scaleH, 1);
+        sprite.scale.set(maxPropW, maxPropH, 1);
         this.scene.add(sprite);
         entity = {
           sprite,
-          baseScale: [scaleW, scaleH],
+          baseScale: [maxPropW, maxPropH],
           targetPos: new THREE.Vector3(x, y, z),
           action: prop.state,
           facing: 'front',
           broken: isBroken,
         };
+        propRef.entity = entity;
         this.propEntities.set(prop.id, entity);
       } else {
         entity.targetPos.set(x, y, z);

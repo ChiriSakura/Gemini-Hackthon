@@ -2,7 +2,7 @@
   "worker": "worker-1 (P2)",
   "branch": "feat/w1-media",
   "pull_main_first": true,
-  "batch_deadline": "14:15",
+  "batch_deadline": "14:45",
   "owned_paths": ["backend/media/**", "backend/assets/**", "tasks/status_P2.json"],
   "parallel_tasks": [
     {
@@ -19,15 +19,27 @@
     },
     {
       "task_id": "W1-T2C",
-      "priority": "P1",
-      "title": "Pre-cache Branch 2 (HE twist) fallback + test photo-based create_prop()",
-      "details": "Render Scene 2 & Scene 4 of shared/mock_branch_2.json as cached branch_v2_cached.json fallback, and verify create_prop() with a real camera JPEG/PNG photo input."
+      "priority": "P0",
+      "title": "Pre-cache Branch 2 (HE twist) fallback + crystal_vase_broken.png asset",
+      "details": "Render Scene 2..4 of shared/mock_branch_2.json into cached branch_v2_cached.json fallback, AND generate a dedicated transparent `backend/assets/props/crystal_vase_broken.png` (shattered blue-rose glass shards) via create_prop()."
     },
     {
       "task_id": "W1-T2D",
       "priority": "P1",
-      "title": "Benchmark Decisions API multimodal (.mp4 vs tail PNG) latency & accuracy",
-      "details": "Test whether models/gemini-decision-1 accepts .mp4 directly or falls back to Hydrogen/PNG, and log exact latencies into tasks/status_P2.json."
+      "title": "Test photo-based create_prop() & multimodal Decisions API (.mp4 vs PNG)",
+      "details": "Verify create_prop() with a real camera JPEG/PNG photo input, and benchmark whether models/gemini-decision-1 accepts .mp4 directly or falls back to PNG/Hydrogen; log latencies in tasks/status_P2.json."
+    },
+    {
+      "task_id": "W1-T3A",
+      "priority": "P1",
+      "title": "Add 1-take vs 2-take pass-rate & retry-recovery logger for Eval",
+      "details": "In video_renderer.py, record per-shot candidate scores (`take_0_score`, `take_1_score`, `repaired_score`) into `backend/assets/eval_media_stats.jsonl` so P1 eval/run_eval.py can plot 1-take vs 2-take pass rates directly from real runs."
+    },
+    {
+      "task_id": "W1-T3B",
+      "priority": "P1",
+      "title": "Add parallel render progress endpoint helper & timeout safety guard",
+      "details": "Add per-take asyncio.wait_for timeout guard (e.g. 60s) in video_renderer.py so a stuck Omni Flash call cleanly triggers fallback_to_preview=True instead of hanging the live demo."
     }
   ]
 }
