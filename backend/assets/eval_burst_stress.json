@@ -1,0 +1,15 @@
+{
+  "generated_at": "2026-11-21T13:39:34",
+  "concurrent_ops": [
+    "create_prop(t6i_burst_moon_compass)",
+    "render_scene_media(S3 dual-cam)"
+  ],
+  "wall_latency_sec": 49.56,
+  "deadlock_free": true,
+  "collision_free": true,
+  "created_prop_id": "t6i_burst_moon_compass",
+  "rendered_qa_score": 0.902,
+  "rendered_qa_retries": 0,
+  "cam_a_generated": true,
+  "cam_b_generated": true
+}

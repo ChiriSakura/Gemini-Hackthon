@@ -1,0 +1,53 @@
+{
+  "generated_at": "2026-11-21T13:38:50",
+  "model": "models/gemini-decision-1",
+  "clips_evaluated": 4,
+  "matched_count": 4,
+  "audio_mood_accuracy": 1.0,
+  "results": [
+    {
+      "clip_label": "branch_v1:S2_cam_a",
+      "file": "scene_2_cam_a.mp4",
+      "expected_audio_mood": "sudden_thunderclap_and_shattering_crystal_glass",
+      "question": "Listen to the video's audio track: does it sound tense or stormy with thunder, rain, or glass shattering (NOT calm peaceful music)?",
+      "expected": true,
+      "predicted": true,
+      "matched": true,
+      "p_true": 0.85,
+      "latency_sec": 3.58
+    },
+    {
+      "clip_label": "branch_v2_cached:S4_cam_a",
+      "file": "branch_v2_scene_4_cam_a.mp4",
+      "expected_audio_mood": "magical_warm_chimes_gentle_winter_snow_romantic_strings",
+      "question": "Listen to the video's audio track: does it sound calm, gentle, and warm with soft music or chimes (NOT loud thunder or shattering glass)?",
+      "expected": true,
+      "predicted": true,
+      "matched": true,
+      "p_true": 0.789,
+      "latency_sec": 3.68
+    },
+    {
+      "clip_label": "branch_v1:S4_cam_a_negative_check",
+      "file": "scene_4_cam_a.mp4",
+      "expected_audio_mood": "heavy_rainstorm_fading_footsteps_sad_cello",
+      "question": "Listen to the video's audio track: does it contain cheerful upbeat celebratory music?",
+      "expected": false,
+      "predicted": false,
+      "matched": true,
+      "p_true": 0.144,
+      "latency_sec": 3.63
+    },
+    {
+      "clip_label": "branch_v4_umbrella_shield:S4_cam_a",
+      "file": "branch_v4_scene_4_cam_a.mp4",
+      "expected_audio_mood": "peaceful_night_rain_warm_strings",
+      "question": "Listen to the video's audio track and clip: does it convey a calm, peaceful nighttime atmosphere without harsh thunderclaps?",
+      "expected": true,
+      "predicted": true,
+      "matched": true,
+      "p_true": 0.837,
+      "latency_sec": 3.93
+    }
+  ]
+}

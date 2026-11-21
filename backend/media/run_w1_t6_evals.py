@@ -15,7 +15,7 @@ from backend.director.genai_client import build_decision_input, create_decision
 from backend.director.hydrogen_judge import inspect_tail_frame
 from backend.director.state_tree import get_branch
 from backend.media.prop_maker import create_prop
-from backend.media.video_renderer import _get_or_upload_uri, render_scene_media
+from backend.media.video_renderer import render_scene_media
 
 
 async def run_w1_t6d_branch_matrix() -> dict:
@@ -56,15 +56,17 @@ async def run_w1_t6d_branch_matrix() -> dict:
         assert branch is not None, f"Missing branch {branch_id}"
         sc = next(s for s in branch.scenes if s.scene_id == scene_id)
         local_mp4 = config.ASSETS_DIR / (sc.media.cam_a_final_url or "").removeprefix("/assets/")
-        uri, mime = await _get_or_upload_uri(local_mp4)
         t0 = time.perf_counter()
-        p_true = await asyncio.to_thread(
-            create_decision,
-            inputs=[
-                build_decision_input("file_uri", uri, mime_type=mime),
-                build_decision_input("text", f"Answer YES only if clearly true in this clip: {question}"),
-            ],
+        payload = build_decision_input(
+            f"Evaluate continuity in {branch_id} Scene {scene_id} Cam A.",
+            [local_mp4],
         )
+        res = await create_decision(
+            payload,
+            {"check": {"type": "noul", "instructions": question}},
+        )
+        ans = (getattr(res, "answers", None) or {}).get("check")
+        p_true = float(getattr(ans, "noul", 0.5)) if ans else 0.5
         predicted = p_true >= 0.5
         return {
             "branch_id": branch_id,
@@ -107,42 +109,44 @@ async def run_w1_t6e_audio_mood() -> dict:
             "branch_v1:S2_cam_a",
             config.FINALS_DIR / "scene_2_cam_a.mp4",
             "sudden_thunderclap_and_shattering_crystal_glass",
-            "Does this video's audio sound tense or stormy with thunder, rain, or glass shattering (NOT calm peaceful music)?",
+            "Listen to the video's audio track: does it sound tense or stormy with thunder, rain, or glass shattering (NOT calm peaceful music)?",
             True,
         ),
         (
             "branch_v2_cached:S4_cam_a",
             config.FINALS_DIR / "branch_v2_scene_4_cam_a.mp4",
             "magical_warm_chimes_gentle_winter_snow_romantic_strings",
-            "Does this video's audio sound calm, gentle, and warm with soft music or chimes (NOT loud thunder or shattering glass)?",
+            "Listen to the video's audio track: does it sound calm, gentle, and warm with soft music or chimes (NOT loud thunder or shattering glass)?",
             True,
         ),
         (
             "branch_v1:S4_cam_a_negative_check",
             config.FINALS_DIR / "scene_4_cam_a.mp4",
             "heavy_rainstorm_fading_footsteps_sad_cello",
-            "Does this clip contain cheerful upbeat celebratory music?",
+            "Listen to the video's audio track: does it contain cheerful upbeat celebratory music?",
             False,
         ),
         (
             "branch_v4_umbrella_shield:S4_cam_a",
             config.FINALS_DIR / "branch_v4_scene_4_cam_a.mp4",
             "peaceful_night_rain_warm_strings",
-            "Does this clip convey a peaceful nighttime atmosphere without harsh thunderclaps?",
+            "Listen to the video's audio track and clip: does it convey a calm, peaceful nighttime atmosphere without harsh thunderclaps?",
             True,
         ),
     ]
 
     async def _one(label: str, path: Path, mood: str, q: str, expected: bool) -> dict:
-        uri, mime = await _get_or_upload_uri(path)
         t0 = time.perf_counter()
-        p_true = await asyncio.to_thread(
-            create_decision,
-            inputs=[
-                build_decision_input("file_uri", uri, mime_type=mime),
-                build_decision_input("text", f"Listen to the audio track and watch the clip. {q}"),
-            ],
+        payload = build_decision_input(
+            f"Evaluate native audio mood for {label} (expected mood: {mood}).",
+            [path],
         )
+        res = await create_decision(
+            payload,
+            {"audio_match": {"type": "noul", "instructions": q}},
+        )
+        ans = (getattr(res, "answers", None) or {}).get("audio_match")
+        p_true = float(getattr(ans, "noul", 0.5)) if ans else 0.5
         pred = p_true >= 0.5
         return {
             "clip_label": label,
@@ -226,12 +230,12 @@ async def run_w1_t6i_burst_stress() -> dict:
 
 
 async def run_batch_2() -> None:
-    """Run W1-T6D, W1-T6E, and W1-T6I concurrently where safe."""
-    d_res, e_res = await asyncio.gather(
+    """Run W1-T6D, W1-T6E, and W1-T6I concurrently."""
+    d_res, e_res, i_res = await asyncio.gather(
         run_w1_t6d_branch_matrix(),
         run_w1_t6e_audio_mood(),
+        run_w1_t6i_burst_stress(),
     )
-    i_res = await run_w1_t6i_burst_stress()
     print("W1-T6D:", json.dumps({k: v for k, v in d_res.items() if k != "results"}))
     print("W1-T6E:", json.dumps({k: v for k, v in e_res.items() if k != "results"}))
     print("W1-T6I:", json.dumps(i_res))
