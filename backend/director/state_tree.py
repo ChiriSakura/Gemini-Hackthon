@@ -84,3 +84,21 @@ def list_branches() -> list[BranchState]:
     for file_path in sorted(config.BRANCHES_DIR.glob("*.json")):
         branches.append(BranchState.model_validate_json(file_path.read_text(encoding="utf-8")))
     return branches
+
+
+def is_protected_branch(branch_id: str) -> bool:
+    """Return True for immutable preset baselines (`branch_v1` and `*_cached`)."""
+    return branch_id == "branch_v1" or branch_id.endswith("_cached")
+
+
+@log_function_call
+def delete_branch(branch_id: str) -> bool:
+    """Delete a non-protected live branch JSON from disk cleanly (R-26 safe)."""
+    safe_id = _validate_branch_id(branch_id)
+    if is_protected_branch(safe_id):
+        raise PermissionError(f"Protected preset branch cannot be deleted: {safe_id}")
+    path = config.BRANCHES_DIR / f"{safe_id}.json"
+    if not path.exists():
+        return False
+    path.unlink()
+    return True

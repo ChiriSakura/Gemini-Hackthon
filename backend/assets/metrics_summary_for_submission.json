@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-11-21T15:36:46",
+  "generated_at": "2026-11-21T15:54:54",
   "project": "StageState — Time-Travel Dual-Camera AI Stage Director",
   "models": {
     "director_planner": "gemini-4-neon",
     "multimodal_judge": "gemini-4-hydrogen",
     "decisions_v1beta": "models/gemini-decision-1",
     "video_synthesis": "gemini-omni-flash-preview",
-    "prop_cutout": "gemini-nano-banana-2.1"
+    "prop_cutout": "gemini-3.1-flash-image"
   },
   "dual_cam_consistency": {
     "cross_camera_consistency_rate": 0.929,
@@ -111,8 +111,8 @@
   "multimodal_and_robustness": {
     "branch_matrix_accuracy": 0.875,
     "audio_mood_accuracy": 1.0,
-    "burst_stress_wall_sec": null,
-    "burst_stress_deadlock_free": null,
+    "burst_stress_wall_sec": 0.028,
+    "burst_stress_deadlock_free": true,
     "failover_rehearsal_passed": true,
     "cached_blueprints_total": 26,
     "decisions_multimodal_suite_keys": [
@@ -121,7 +121,11 @@
       "choice_routing",
       "score_clip_alignment",
       "wall_clock_sec"
-    ]
+    ],
+    "fixed_room_5_criteria_rate_0_80": 1.0,
+    "fixed_room_qa_score": 0.917,
+    "fast_live_scene5_wall_sec": 28.16,
+    "fast_live_scene5_qa_score": 0.895
   },
   "preflight": {
     "preflight_passed": true,

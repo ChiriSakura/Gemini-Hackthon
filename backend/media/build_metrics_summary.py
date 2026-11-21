@@ -34,9 +34,12 @@ def build_metrics_summary() -> dict:
     branch_matrix = _load_if_exists("eval_branch_matrix.json")
     audio_mood = _load_if_exists("eval_audio_mood.json")
     burst_stress = _load_if_exists("eval_burst_stress.json")
+    burst_nested = burst_stress.get("concurrent_burst_stress") or {}
     failover = _load_if_exists("eval_failover_rehearsal.json")
     live_props = _load_if_exists("eval_live_props_sim.json")
     decisions_suite = _load_if_exists("eval_decisions_multimodal.json")
+    fixed_room = _load_if_exists("eval_dual_cam_fixed_room.json")
+    fast_live = _load_if_exists("eval_fast_live_latency.json")
 
     summary = {
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -100,11 +103,25 @@ def build_metrics_summary() -> dict:
         "multimodal_and_robustness": {
             "branch_matrix_accuracy": branch_matrix.get("matrix_accuracy"),
             "audio_mood_accuracy": audio_mood.get("audio_mood_accuracy"),
-            "burst_stress_wall_sec": burst_stress.get("wall_latency_sec"),
-            "burst_stress_deadlock_free": burst_stress.get("deadlock_free"),
+            "burst_stress_wall_sec": (
+                burst_stress.get("wall_latency_sec")
+                if burst_stress.get("wall_latency_sec") is not None
+                else burst_nested.get("elapsed_sec")
+            ),
+            "burst_stress_deadlock_free": (
+                burst_stress.get("deadlock_free")
+                if burst_stress.get("deadlock_free") is not None
+                else burst_nested.get("zero_deadlocks_or_collisions")
+            ),
             "failover_rehearsal_passed": failover.get("all_passed"),
             "cached_blueprints_total": blueprint.get("cached_blueprints_total"),
             "decisions_multimodal_suite_keys": list(decisions_suite.keys()) if decisions_suite else [],
+            "fixed_room_5_criteria_rate_0_80": (fixed_room.get("fixed_room_5_criteria_eval") or {}).get(
+                "consistency_rate_0_80"
+            ),
+            "fixed_room_qa_score": (fixed_room.get("render_result") or {}).get("qa_score"),
+            "fast_live_scene5_wall_sec": fast_live.get("wall_clock_sec"),
+            "fast_live_scene5_qa_score": fast_live.get("qa_score"),
         },
         "preflight": {
             "preflight_passed": preflight.get("preflight_passed"),

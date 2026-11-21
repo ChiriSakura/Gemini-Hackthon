@@ -17,9 +17,11 @@ Feature & Use Cases:
 """
 
 import asyncio
+import copy
 import json
 import re
 import shutil
+import subprocess
 import time
 import uuid
 from pathlib import Path
@@ -60,8 +62,44 @@ _UPLOAD_CACHE: dict[tuple[str, int, int], tuple[str, str, float]] = {}
 _UPLOAD_INFLIGHT: dict[tuple[str, int, int], asyncio.Task[tuple[str, str]]] = {}
 _UPLOAD_LOCK = asyncio.Lock()
 
-# In-memory render progress tracker for parallel render progress polling (W1-T3B).
+# In-memory render progress tracker + SSE subscriber registry for real-time progress streaming.
 _RENDER_PROGRESS: dict[str, dict] = {}
+_PROGRESS_SUBSCRIBERS: dict[str, set[asyncio.Queue[dict]]] = {}
+
+
+def _notify_progress_subscribers(branch_id: str, snapshot: dict) -> None:
+    """Push a progress snapshot copy to all active SSE subscribers without blocking."""
+    queues = _PROGRESS_SUBSCRIBERS.get(branch_id)
+    if not queues:
+        return
+    payload = copy.deepcopy(snapshot)
+    for q in list(queues):
+        if q.full():
+            try:
+                q.get_nowait()
+            except asyncio.QueueEmpty:
+                pass
+        try:
+            q.put_nowait(payload)
+        except asyncio.QueueFull:
+            pass
+
+
+def subscribe_render_progress(branch_id: str) -> asyncio.Queue[dict]:
+    """Register an SSE subscriber queue for `branch_id` render progress events."""
+    q: asyncio.Queue[dict] = asyncio.Queue(maxsize=16)
+    _PROGRESS_SUBSCRIBERS.setdefault(branch_id, set()).add(q)
+    return q
+
+
+def unsubscribe_render_progress(branch_id: str, q: asyncio.Queue[dict]) -> None:
+    """Remove an SSE subscriber queue for `branch_id` cleanly on disconnect."""
+    queues = _PROGRESS_SUBSCRIBERS.get(branch_id)
+    if not queues:
+        return
+    queues.discard(q)
+    if not queues:
+        _PROGRESS_SUBSCRIBERS.pop(branch_id, None)
 
 
 def _open_video_capture_safe(video_path: Path) -> tuple[cv2.VideoCapture, Optional[Path]]:
@@ -110,12 +148,17 @@ def _update_render_progress(
     status: str,
     qa_score: Optional[float] = None,
     fallback: Optional[bool] = None,
+    branch_status: Optional[str] = None,
 ) -> None:
-    """Update per-scene progress metadata for a branch render job."""
+    """Update per-scene progress metadata for a branch render job and push to SSE subscribers."""
     entry = _RENDER_PROGRESS.setdefault(
         branch_id,
         {"branch_id": branch_id, "status": "running", "updated_at": time.time(), "scenes": {}},
     )
+    if branch_status is not None:
+        entry["status"] = branch_status
+    elif status in ("queued", "rendering", "uploading_refs", "qa_judging", "content_blocked_retrying"):
+        entry["status"] = "running"
     scene_entry = entry["scenes"].setdefault(str(scene_id), {"scene_id": scene_id, "status": status})
     scene_entry["status"] = status
     if qa_score is not None:
@@ -123,6 +166,37 @@ def _update_render_progress(
     if fallback is not None:
         scene_entry["fallback_to_preview"] = fallback
     entry["updated_at"] = round(time.time(), 2)
+    _notify_progress_subscribers(branch_id, entry)
+
+
+def publish_scene_progress(
+    branch_id: str,
+    scene_id: int,
+    status: str,
+    qa_score: Optional[float] = None,
+    fallback: Optional[bool] = None,
+    branch_status: Optional[str] = None,
+) -> None:
+    """Public helper allowing FastAPI single-scene renders to stream live SSE progress updates."""
+    _update_render_progress(
+        branch_id,
+        scene_id,
+        status,
+        qa_score=qa_score,
+        fallback=fallback,
+        branch_status=branch_status,
+    )
+
+
+def set_branch_progress_status(branch_id: str, status: str) -> None:
+    """Update top-level branch render status and notify SSE subscribers."""
+    entry = _RENDER_PROGRESS.setdefault(
+        branch_id,
+        {"branch_id": branch_id, "status": status, "updated_at": time.time(), "scenes": {}},
+    )
+    entry["status"] = status
+    entry["updated_at"] = round(time.time(), 2)
+    _notify_progress_subscribers(branch_id, entry)
 
 
 def get_render_progress(branch_id: str) -> dict:
@@ -1371,6 +1445,119 @@ async def render_branch_scenes(
 
     await asyncio.gather(*(_run_scene(s) for s in target_scenes))
     if branch.branch_id in _RENDER_PROGRESS:
-        _RENDER_PROGRESS[branch.branch_id]["status"] = "completed"
-        _RENDER_PROGRESS[branch.branch_id]["updated_at"] = round(time.time(), 2)
+        set_branch_progress_status(branch.branch_id, "completed")
     return branch
+
+
+def _has_audio_stream(ffmpeg_exe: str, video_path: Path) -> bool:
+    """Detect whether `video_path` contains an audio stream via ffmpeg probe."""
+    proc = subprocess.run(
+        [ffmpeg_exe, "-hide_banner", "-i", str(video_path)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    return "Audio:" in (proc.stderr or "")
+
+
+def export_branch_movie_sync(branch: BranchState, mode: str = "cam_a") -> dict:
+    """
+    Stitch all rendered clips in `branch` (ordered by `scene_id`) into a single
+    downloadable H.264+AAC `.mp4` movie (`cam_a`, `cam_b`, or `dual_cam` side-by-side).
+    """
+    import imageio_ffmpeg
+
+    norm_mode = mode if mode in ("cam_a", "cam_b", "dual_cam") else "cam_a"
+    ordered = sorted(branch.scenes, key=lambda s: s.scene_id)
+    clip_pairs: list[tuple[int, Path, Optional[Path]]] = []
+    for scene in ordered:
+        pa = _resolve_asset_to_local_path(scene.media.cam_a_final_url)
+        pb = _resolve_asset_to_local_path(scene.media.cam_b_final_url)
+        if norm_mode == "cam_a" and pa is not None:
+            clip_pairs.append((scene.scene_id, pa, None))
+        elif norm_mode == "cam_b" and (pb or pa) is not None:
+            clip_pairs.append((scene.scene_id, pb or pa, None))  # type: ignore[arg-type]
+        elif norm_mode == "dual_cam" and pa is not None:
+            clip_pairs.append((scene.scene_id, pa, pb or pa))
+
+    if not clip_pairs:
+        raise ValueError(f"Branch {branch.branch_id} has no rendered final clips to export")
+
+    ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+    safe_branch = re.sub(r"[^a-zA-Z0-9_-]", "_", branch.branch_id)
+    out_path = config.FINALS_DIR / f"export_{safe_branch}_{norm_mode}.mp4"
+
+    cmd: list[str] = [ffmpeg_exe, "-y"]
+    filter_parts: list[str] = []
+    concat_inputs: list[str] = []
+    input_idx = 0
+
+    for seg_i, (_sid, path_a, path_b) in enumerate(clip_pairs):
+        cmd.extend(["-i", str(path_a)])
+        idx_a = input_idx
+        input_idx += 1
+        has_aud = _has_audio_stream(ffmpeg_exe, path_a)
+
+        if norm_mode == "dual_cam" and path_b is not None:
+            cmd.extend(["-i", str(path_b)])
+            idx_b = input_idx
+            input_idx += 1
+            filter_parts.append(
+                f"[{idx_a}:v]scale=640:360:force_original_aspect_ratio=decrease,"
+                f"pad=640:360:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24[va{seg_i}]"
+            )
+            filter_parts.append(
+                f"[{idx_b}:v]scale=640:360:force_original_aspect_ratio=decrease,"
+                f"pad=640:360:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24[vb{seg_i}]"
+            )
+            filter_parts.append(f"[va{seg_i}][vb{seg_i}]hstack=inputs=2[v{seg_i}]")
+        else:
+            filter_parts.append(
+                f"[{idx_a}:v]scale=640:360:force_original_aspect_ratio=decrease,"
+                f"pad=640:360:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24[v{seg_i}]"
+            )
+
+        if has_aud:
+            filter_parts.append(
+                f"[{idx_a}:a]aresample=48000,aformat=channel_layouts=stereo[a{seg_i}]"
+            )
+        else:
+            filter_parts.append(f"anullsrc=r=48000:cl=stereo:d=4.0[a{seg_i}]")
+        concat_inputs.append(f"[v{seg_i}][a{seg_i}]")
+
+    n_seg = len(clip_pairs)
+    filter_parts.append(f"{''.join(concat_inputs)}concat=n={n_seg}:v=1:a=1[vout][aout]")
+    filter_complex = ";".join(filter_parts)
+
+    cmd.extend([
+        "-filter_complex", filter_complex,
+        "-map", "[vout]",
+        "-map", "[aout]",
+        "-c:v", "libx264",
+        "-preset", "fast",
+        "-crf", "20",
+        "-pix_fmt", "yuv420p",
+        "-c:a", "aac",
+        "-b:a", "128k",
+        "-movflags", "+faststart",
+        str(out_path),
+    ])
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    if proc.returncode != 0 or not out_path.is_file():
+        raise RuntimeError(f"ffmpeg export failed (rc={proc.returncode}): {(proc.stderr or '')[-400:]}")
+
+    return {
+        "branch_id": branch.branch_id,
+        "mode": norm_mode,
+        "scenes_stitched": [sid for sid, _, _ in clip_pairs],
+        "scene_count": n_seg,
+        "duration_est_sec": round(n_seg * float(config.VIDEO_DURATION_SEC), 1),
+        "video_url": f"/assets/finals/{out_path.name}",
+        "bytes": out_path.stat().st_size,
+        "is_h264": is_browser_h264(out_path),
+    }
+
+
+async def export_branch_movie(branch: BranchState, mode: str = "cam_a") -> dict:
+    """Async wrapper running ffmpeg branch movie stitch off the event loop."""
+    return await asyncio.to_thread(export_branch_movie_sync, branch, mode)

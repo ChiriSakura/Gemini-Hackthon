@@ -15,13 +15,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   createStageProp,
+  exportBranchMovie,
   extendDirectorStory,
   fetchBranches,
   fetchHealth,
-  fetchRenderProgress,
   perceiveDirectorInput,
   requestSceneRender,
   submitDirectorFork,
+  subscribeRenderProgress,
   type RenderProgressSnapshot,
 } from './api/stageClient';
 import {
@@ -73,10 +74,12 @@ function WaitingBanner({
   label,
   typical,
   since,
+  liveStage,
 }: {
   label: string;
   typical: string;
   since: number;
+  liveStage?: string | null;
 }): React.ReactElement {
   const [elapsedSec, setElapsedSec] = useState(0);
   useEffect(() => {
@@ -89,7 +92,8 @@ function WaitingBanner({
   return (
     <div className="notice wait" role="status">
       <span>
-        {label} — waiting for backend… {elapsedSec}s ({typical})
+        {label}
+        {liveStage ? ` [${liveStage}]` : ''} — waiting for backend… {elapsedSec}s ({typical})
       </span>
     </div>
   );
@@ -113,6 +117,7 @@ export default function App(): React.ReactElement {
   const freezeTimerRef = useRef<number | null>(null);
   const optimisticUrlsRef = useRef<Set<string>>(new Set());
   const resetDemoRef = useRef<() => void>(() => {});
+  const handleExportBranchRef = useRef<() => Promise<void>>(async () => {});
   const [renderedSceneKeys, setRenderedSceneKeys] = useState<Set<string>>(
     () => new Set(),
   );
@@ -201,19 +206,9 @@ export default function App(): React.ReactElement {
       setRenderProgress(null);
       return;
     }
-    let cancelled = false;
-    const poll = async () => {
-      const snap = await fetchRenderProgress(activeBranch.branch_id);
-      if (!cancelled && snap) {
-        setRenderProgress(snap);
-      }
-    };
-    poll();
-    const timer = window.setInterval(poll, 1200);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
+    return subscribeRenderProgress(activeBranch.branch_id, (snap) => {
+      setRenderProgress(snap);
+    });
   }, [renderingScene, isMockMode, activeBranch.branch_id]);
 
   const activeScene =
@@ -303,6 +298,9 @@ export default function App(): React.ReactElement {
       } else if (key === 'r') {
         e.preventDefault();
         resetDemoRef.current();
+      } else if (key === 'x') {
+        e.preventDefault();
+        void handleExportBranchRef.current();
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -375,6 +373,37 @@ export default function App(): React.ReactElement {
     }
   };
   resetDemoRef.current = handleResetDemo;
+
+  handleExportBranchRef.current = async () => {
+    if (busy || isMockMode) {
+      setStatusNote(
+        isMockMode
+          ? 'Branch film export requires the backend server.'
+          : 'Wait for the active task to finish before exporting.',
+      );
+      return;
+    }
+    setBusy({
+      label: `Exporting stitched film for ${getBranchLabelEn(activeBranch)}`,
+      typical: 'usually 2–6s',
+      since: Date.now(),
+    });
+    const { result, error } = await exportBranchMovie(activeBranch.branch_id, 'dual_cam');
+    setBusy(null);
+    if (!result) {
+      setErrorNote(`Export failed: ${error ?? 'unknown error'}`);
+      return;
+    }
+    setStatusNote(
+      `Exported ${result.scene_count} scenes (${result.duration_est_sec}s H.264) — download started.`,
+    );
+    const link = document.createElement('a');
+    link.href = result.video_url;
+    link.download = `${activeBranch.branch_id}_dual_cam.mp4`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
 
   /**
    * Execute Stage-2 unbounded continuation (`POST /api/director/extend`) from
@@ -1160,7 +1189,18 @@ export default function App(): React.ReactElement {
           </div>
         )}
 
-        {busy && <WaitingBanner label={busy.label} typical={busy.typical} since={busy.since} />}
+        {busy && (
+          <WaitingBanner
+            label={busy.label}
+            typical={busy.typical}
+            since={busy.since}
+            liveStage={
+              renderingScene
+                ? renderProgress?.scenes?.[String(activeScene.scene_id)]?.status ?? null
+                : null
+            }
+          />
+        )}
 
         {heardNote && (heardNote.heard || heardNote.saw) && (
           <div className="notice heard" role="status">

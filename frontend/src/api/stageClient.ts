@@ -546,6 +546,109 @@ export async function fetchRenderProgress(
 }
 
 /**
+ * Subscribe to real-time render progress via Server-Sent Events
+ * (`GET /api/media/progress/{branch_id}/stream`), automatically falling back to
+ * lightweight polling when `EventSource` is unavailable or disconnects.
+ */
+export function subscribeRenderProgress(
+  branchId: string,
+  onSnapshot: (snap: RenderProgressSnapshot) => void,
+): () => void {
+  let closed = false;
+  let pollTimer: number | null = null;
+  let es: EventSource | null = null;
+
+  const startPolling = () => {
+    if (closed || pollTimer !== null) return;
+    const poll = async () => {
+      const snap = await fetchRenderProgress(branchId);
+      if (!closed && snap) onSnapshot(snap);
+    };
+    void poll();
+    pollTimer = window.setInterval(() => void poll(), 1200);
+  };
+
+  if (typeof EventSource !== 'undefined') {
+    try {
+      es = new EventSource(
+        `/api/media/progress/${encodeURIComponent(branchId)}/stream`,
+      );
+      es.onmessage = (evt) => {
+        if (closed) return;
+        try {
+          const parsed = JSON.parse(evt.data) as RenderProgressSnapshot;
+          if (parsed && typeof parsed === 'object') {
+            onSnapshot(parsed);
+          }
+        } catch {
+          // Ignore malformed keepalive frames
+        }
+      };
+      es.onerror = () => {
+        if (es) {
+          es.close();
+          es = null;
+        }
+        startPolling();
+      };
+    } catch {
+      startPolling();
+    }
+  } else {
+    startPolling();
+  }
+
+  return () => {
+    closed = true;
+    if (es) {
+      es.close();
+      es = null;
+    }
+    if (pollTimer !== null) {
+      window.clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  };
+}
+
+export interface BranchExportResult {
+  branch_id: string;
+  mode: 'cam_a' | 'cam_b' | 'dual_cam';
+  scenes_stitched: number[];
+  scene_count: number;
+  duration_est_sec: number;
+  video_url: string;
+  bytes: number;
+  is_h264: boolean;
+}
+
+/**
+ * Stitch all rendered clips of `branchId` into a single downloadable H.264+AAC MP4
+ * via `POST /api/media/export-branch`.
+ */
+export async function exportBranchMovie(
+  branchId: string,
+  mode: 'cam_a' | 'cam_b' | 'dual_cam' = 'dual_cam',
+): Promise<{ result: BranchExportResult | null; error: string | null }> {
+  const formData = new FormData();
+  formData.append('branch_id', branchId);
+  formData.append('mode', mode);
+  try {
+    const res = await fetch('/api/media/export-branch', {
+      method: 'POST',
+      body: formData,
+      signal: AbortSignal.timeout(65000),
+    });
+    if (!res.ok) {
+      return { result: null, error: await readErrorDetail(res) };
+    }
+    return { result: (await res.json()) as BranchExportResult, error: null };
+  } catch (err) {
+    return { result: null, error: describeRequestError(err, 65000) };
+  }
+}
+
+/**
  * Trigger concurrent rendering for all `needs_rerender` scenes of a branch.
  */
 export async function requestBranchRender(
