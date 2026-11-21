@@ -1,6 +1,6 @@
 {
-  "props_dir": "C:\\Users\\18206\\OneDrive\\Desktop\\Gemini·\\backend\\assets\\props",
-  "total_props": 11,
+  "props_dir": "C:\\Users\\11345\\.gemini\\antigravity\\scratch\\StageState\\backend\\assets\\props",
+  "total_props": 14,
   "all_rgba": true,
   "all_bottom_flush_ok": true,
   "all_zero_opaque_green_spill": true,
@@ -53,6 +53,52 @@
       "halo_green_pixels": 0,
       "halo_free_ok": true,
       "file_size_bytes": 210314,
+      "passed": true
+    },
+    {
+      "file": "red_umbrella_closed.png",
+      "asset_url": "/assets/props/red_umbrella_closed.png",
+      "mode": "RGBA",
+      "has_transparency": true,
+      "width": 134,
+      "height": 512,
+      "aspect_ratio": 0.2617,
+      "alpha_bbox": [
+        3,
+        3,
+        131,
+        512
+      ],
+      "bottom_opaque_gap_px": 0,
+      "bottom_any_gap_px": 0,
+      "bottom_flush_ok": true,
+      "opaque_green_spill_px": 0,
+      "halo_green_pixels": 0,
+      "halo_free_ok": true,
+      "file_size_bytes": 61025,
+      "passed": true
+    },
+    {
+      "file": "red_umbrella_open.png",
+      "asset_url": "/assets/props/red_umbrella_open.png",
+      "mode": "RGBA",
+      "has_transparency": true,
+      "width": 512,
+      "height": 439,
+      "aspect_ratio": 1.1663,
+      "alpha_bbox": [
+        3,
+        3,
+        509,
+        439
+      ],
+      "bottom_opaque_gap_px": 0,
+      "bottom_any_gap_px": 0,
+      "bottom_flush_ok": true,
+      "opaque_green_spill_px": 0,
+      "halo_green_pixels": 0,
+      "halo_free_ok": true,
+      "file_size_bytes": 202427,
       "passed": true
     },
     {
@@ -260,6 +306,29 @@
       "halo_green_pixels": 0,
       "halo_free_ok": true,
       "file_size_bytes": 215540,
+      "passed": true
+    },
+    {
+      "file": "wooden_chair.png",
+      "asset_url": "/assets/props/wooden_chair.png",
+      "mode": "RGBA",
+      "has_transparency": true,
+      "width": 328,
+      "height": 512,
+      "aspect_ratio": 0.6406,
+      "alpha_bbox": [
+        3,
+        3,
+        325,
+        512
+      ],
+      "bottom_opaque_gap_px": 0,
+      "bottom_any_gap_px": 0,
+      "bottom_flush_ok": true,
+      "opaque_green_spill_px": 0,
+      "halo_green_pixels": 0,
+      "halo_free_ok": true,
+      "file_size_bytes": 176515,
       "passed": true
     }
   ]

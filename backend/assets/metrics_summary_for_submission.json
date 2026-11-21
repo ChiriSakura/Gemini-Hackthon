@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-21T14:16:53",
+  "generated_at": "2026-11-21T15:08:09",
   "project": "StageState — Time-Travel Dual-Camera AI Stage Director",
   "models": {
     "director_planner": "gemini-4-neon",
@@ -22,7 +22,7 @@
     "avg_latency_sec": 1.37
   },
   "prop_persistence_and_cutout": {
-    "total_props_audited": 11,
+    "total_props_audited": 14,
     "all_rgba": true,
     "all_bottom_flush": true,
     "total_green_halo_pixels": 0,
@@ -36,7 +36,7 @@
     "all_640x360": true,
     "all_24fps": true,
     "all_have_audio_stream": true,
-    "submission_mp4s_audited": 2,
+    "submission_mp4s_audited": 3,
     "all_submission_videos_have_audio": true
   },
   "resolution_latency_tradeoff": {
@@ -111,8 +111,8 @@
   "multimodal_and_robustness": {
     "branch_matrix_accuracy": 0.875,
     "audio_mood_accuracy": 1.0,
-    "burst_stress_wall_sec": 49.56,
-    "burst_stress_deadlock_free": true,
+    "burst_stress_wall_sec": null,
+    "burst_stress_deadlock_free": null,
     "failover_rehearsal_passed": true,
     "cached_blueprints_total": 26,
     "decisions_multimodal_suite_keys": [
@@ -125,9 +125,9 @@
   },
   "preflight": {
     "preflight_passed": true,
-    "mp4_total": 28,
+    "mp4_total": 29,
     "mp4_all_h264": true,
-    "mp4_with_audio": 28,
+    "mp4_with_audio": 29,
     "blueprints_count": 26
   }
 }

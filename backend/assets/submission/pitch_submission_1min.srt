@@ -7,13 +7,13 @@ Rewrite one moment in the past and every camera reshapes in sync. Watch StageSta
 Scene one stays cached with zero rerender. Speak and show a real prop at scene two—Gemini Four Neon forks the world while Omni Flash renders both cameras.
 
 3
-00:00:23,000 --> 00:00:33,000
+00:00:23,000 --> 00:00:33,120
 Nano Banana Two Point One turns desk objects into zero-halo stage props in fifteen seconds—persisting one hundred percent across four timelines.
 
 4
-00:00:33,000 --> 00:00:42,500
-Hydrogen hears emotion and gestures. Decisions API checks every clip in under one second, and Best-of-Two Omni Flash hits one hundred percent QA.
+00:00:33,120 --> 00:00:43,520
+Hydrogen hears emotion and gestures. Decisions API checks every clip in under one second with ninety-five percent calibration, lifting QA from eighty-one to ninety-eight percent.
 
 5
-00:00:42,500 --> 00:00:54,500
+00:00:43,520 --> 00:00:55,520
 Live benchmarks: zero-point-nine-five versus zero-point-five-six baseline, four times faster, seventy-one percent cheaper at three-sixty-p. StageState—direct the past, keep the world intact.

@@ -93,17 +93,64 @@ def _frame_sharpness_score(frame: np.ndarray) -> float:
     return float(cv2.Laplacian(gray, cv2.CV_64F).var())
 
 
+def _detect_throw_peak_frame_idx(frames: list[np.ndarray], est_fps: float = 30.0) -> int:
+    """
+    Identify the frame right as a tossed/introduced object enters the center region and settles into crisp focus.
+
+    Scans the central 50% ROI across up to 1200 frames (30s @ 30fps) for motion impulse (`absdiff`)
+    paired with high Laplacian sharpness, preferring frames immediately after peak motion where blur drops.
+    """
+    if not frames:
+        return 0
+    if len(frames) == 1:
+        return 0
+
+    h, w = frames[0].shape[:2]
+    y0, y1 = max(0, h // 4), min(h, max(h // 4 + 1, (3 * h) // 4))
+    x0, x1 = max(0, w // 4), min(w, max(w // 4 + 1, (3 * w) // 4))
+
+    grays: list[np.ndarray] = []
+    brightness: list[float] = []
+    sharpness: list[float] = []
+    for f in frames:
+        roi = f[y0:y1, x0:x1]
+        b_mean = float(np.mean(roi))
+        brightness.append(b_mean)
+        g = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+        grays.append(g)
+        sharpness.append(float(cv2.Laplacian(g, cv2.CV_64F).var()) if b_mean > 4.0 else 0.0)
+
+    motion = [0.0]
+    for i in range(1, len(grays)):
+        motion.append(float(np.mean(cv2.absdiff(grays[i], grays[i - 1]))))
+
+    valid_indices = [i for i, b_mean in enumerate(brightness) if b_mean > 4.0]
+    if not valid_indices:
+        return len(frames) // 2
+
+    max_motion = max(motion[i] for i in valid_indices)
+    if max_motion < 2.0:
+        # Static camera feed: pick crispest non-dark frame near midpoint.
+        return max(valid_indices, key=lambda i: (sharpness[i], -abs(i - len(frames) // 2)))
+
+    peak_m_idx = max(valid_indices, key=lambda i: motion[i])
+    settle_end = min(len(frames) - 1, peak_m_idx + max(4, int(round(est_fps * 0.6))))
+    settle_start = max(0, peak_m_idx - 2)
+    window = [i for i in range(settle_start, settle_end + 1) if brightness[i] > 4.0] or valid_indices
+    return max(window, key=lambda i: sharpness[i] / (1.0 + 0.05 * motion[i]))
+
+
 def _extract_image_from_bytes(
     raw_bytes: bytes,
     timestamp_sec: Optional[float] = None,
+    detect_throw_peak: bool = True,
 ) -> Optional[tuple[bytes, str]]:
     """
-    Normalize incoming camera bytes (image or `.webm`/`.mp4` video clip) to `(jpeg_bytes, mime_type)`.
+    Normalize incoming camera bytes (image or up to 30s `.webm`/`.mp4` video clip) to `(jpeg_bytes, mime_type)`.
 
-    When `/api/director/fork` forwards a 3s `.webm` clip as `camera_frame_bytes`, seeks to
-    `timestamp_sec` (when provided by Hydrogen `prop_frame_timestamp_sec`) or the midpoint
-    frame via OpenCV, picking the sharpest frame within a small `±0.20s` window to reject
-    handheld motion blur and dark fade-in frames.
+    When `/api/director/fork` or `/api/media/create-prop` forwards a `.webm` clip up to 30s (`1200` frames):
+    - If `timestamp_sec` is provided, seeks to `CAP_PROP_POS_MSEC` and picks the sharpest frame within `±0.20s`.
+    - Otherwise, when `detect_throw_peak=True`, locates the center-ROI motion impulse / settled object frame.
     """
     if not raw_bytes:
         return None
@@ -118,7 +165,7 @@ def _extract_image_from_bytes(
     except Exception:
         pass
 
-    # Fallback: treat bytes as a short video clip (e.g. webcam `.webm`) and grab target/midpoint frame.
+    # Fallback: treat bytes as a short video clip (up to 30s `.webm`) and grab target/throw-peak/midpoint frame.
     tmp_path: Optional[Path] = None
     try:
         tmp_path = _create_ascii_temp_file(".webm")
@@ -129,8 +176,6 @@ def _extract_image_from_bytes(
         est_fps = fps if 1.0 <= fps <= 120.0 else 30.0
         frame: Optional[np.ndarray] = None
 
-        # Decode up to 150 frames sequentially when needed (Chrome MediaRecorder .webm often has total <= 0)
-        # OR sample a local sharpness window around `timestamp_sec` when random seek works.
         if timestamp_sec is not None and timestamp_sec >= 0.0 and total > 1:
             candidates: list[np.ndarray] = []
             for delta in (0.0, -0.10, 0.10, -0.20, 0.20):
@@ -147,7 +192,7 @@ def _extract_image_from_bytes(
                     candidates.append(cand)
             if candidates:
                 frame = max(candidates, key=_frame_sharpness_score)
-        elif total > 1:
+        elif total > 1 and not detect_throw_peak:
             mid = total // 2
             candidates = []
             for offset in (0, -2, 2, -4, 4):
@@ -159,11 +204,11 @@ def _extract_image_from_bytes(
             if candidates:
                 frame = max(candidates, key=_frame_sharpness_score)
 
-        # Handle Chrome MediaRecorder .webm clips where CAP_PROP_FRAME_COUNT <= 0 or seek failed.
+        # Decode up to 1200 frames (30s @ 30fps) sequentially for throw-peak detection or Chrome .webm metadata fallback.
         if frame is None:
             cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
             decoded_frames: list[np.ndarray] = []
-            while len(decoded_frames) < 150:
+            while len(decoded_frames) < 1200:
                 ok, cand = cap.read()
                 if not ok or cand is None:
                     break
@@ -171,13 +216,21 @@ def _extract_image_from_bytes(
             if decoded_frames:
                 if timestamp_sec is not None and timestamp_sec >= 0.0:
                     center_idx = max(0, min(len(decoded_frames) - 1, int(round(timestamp_sec * est_fps))))
+                    radius = max(1, int(round(0.15 * est_fps)))
+                    lo = max(0, center_idx - radius)
+                    hi = min(len(decoded_frames), center_idx + radius + 1)
+                    window = [f for f in decoded_frames[lo:hi] if float(np.mean(f)) > 4.0] or [decoded_frames[center_idx]]
+                    frame = max(window, key=_frame_sharpness_score)
+                elif detect_throw_peak:
+                    peak_idx = _detect_throw_peak_frame_idx(decoded_frames, est_fps=est_fps)
+                    frame = decoded_frames[peak_idx]
                 else:
                     center_idx = len(decoded_frames) // 2
-                radius = max(1, int(round(0.15 * est_fps)))
-                lo = max(0, center_idx - radius)
-                hi = min(len(decoded_frames), center_idx + radius + 1)
-                window = [f for f in decoded_frames[lo:hi] if float(np.mean(f)) > 4.0] or [decoded_frames[center_idx]]
-                frame = max(window, key=_frame_sharpness_score)
+                    radius = max(1, int(round(0.15 * est_fps)))
+                    lo = max(0, center_idx - radius)
+                    hi = min(len(decoded_frames), center_idx + radius + 1)
+                    window = [f for f in decoded_frames[lo:hi] if float(np.mean(f)) > 4.0] or [decoded_frames[center_idx]]
+                    frame = max(window, key=_frame_sharpness_score)
 
         cap.release()
         if frame is not None:
@@ -404,10 +457,13 @@ async def create_prop(
     prop_id: Optional[str] = None,
     frame_timestamp_sec: Optional[float] = None,
     timestamp_sec: Optional[float] = None,
+    detect_throw_peak: bool = True,
 ) -> tuple[str, PropRegistryItem]:
     """
-    Generate a transparent PNG prop from text or webcam frame and save under `backend/assets/props/`.
+    Generate a transparent PNG prop from text or webcam frame (up to 30s `.webm`) and save under `backend/assets/props/`.
 
+    Flags placeholder/mock fallbacks explicitly in `PropRegistryItem.state` (`degraded_fallback` / `mock_placeholder`)
+    rather than masking failures as intact rendered props (R-18).
     Returns `(prop_id, PropRegistryItem)` ready for `props_registry`.
     """
     resolved_ts = frame_timestamp_sec if frame_timestamp_sec is not None else timestamp_sec
@@ -417,20 +473,26 @@ async def create_prop(
         "camera_physical" if camera_frame_bytes else "text_generated"
     )
     resolved_model = _resolve_image_model()
+    prop_state = "intact"
 
     if config.DEMO_MODE or not config.GEMINI_API_KEY:
         if not out_path.exists():
             img = Image.new("RGBA", (256, 256), (255, 215, 64, 230))
             img.save(out_path, format="PNG")
+        prop_state = "mock_placeholder"
         log_genai_call(
             resolved_model,
             {"name": name, "description": description, "has_camera_frame": bool(camera_frame_bytes)},
             {"placeholder": True},
-            {"saved_path": str(out_path)},
+            {"saved_path": str(out_path), "state": prop_state},
         )
     else:
         camera_still = (
-            _extract_image_from_bytes(camera_frame_bytes, timestamp_sec=resolved_ts)
+            _extract_image_from_bytes(
+                camera_frame_bytes,
+                timestamp_sec=resolved_ts,
+                detect_throw_peak=detect_throw_peak,
+            )
             if camera_frame_bytes
             else None
         )
@@ -454,21 +516,23 @@ async def create_prop(
                 {"saved_path": str(out_path), "size": [rgba_img.width, rgba_img.height], **meta},
             )
         except Exception as exc:
-            # Never crash live demo if image generation fails: fall back to a visible token sprite.
+            # Never crash live demo if image generation fails, but explicitly mark state degraded (R-18).
             if not out_path.exists():
                 img = Image.new("RGBA", (256, 256), (255, 215, 64, 230))
                 img.save(out_path, format="PNG")
+            prop_state = "degraded_fallback"
             log_genai_call(
                 resolved_model,
                 {"name": name, "description": description, "has_camera_still": bool(camera_still)},
                 {"fallback": True},
-                {"error": f"{type(exc).__name__}: {exc}", "saved_path": str(out_path)},
+                {"error": f"{type(exc).__name__}: {exc}", "saved_path": str(out_path), "state": prop_state},
             )
 
     item = PropRegistryItem(
         name=name,
         image_url=f"/assets/props/{resolved_id}.png",
-        state="intact",
+        state=prop_state,
         origin=origin,
+        height_m=estimate_prop_height_m(name, description),
     )
     return resolved_id, item
