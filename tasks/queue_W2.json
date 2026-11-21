@@ -2,69 +2,57 @@
   "worker": "worker-2 (P3)",
   "branch": "feat/w2-frontend",
   "pull_main_first": true,
-  "batch_deadline": "16:45",
+  "batch_deadline": "16:50",
   "owned_paths": ["frontend/**", "tasks/status_P3.json"],
-  "note": "Master merged 8ea9e07 (W2-T6E..T7D ALL passed!) + merged P2's latest (ba54d96 + w1-media-opt 7a61f20)! P2 just landed `branch_v4_umbrella_shield_cached.json`, 3 desk props (`showcase_desk_*.png`), `showcase_storyboard_strip.png`, `hook_10s_dualcam_twist.mp4`, `eval_dashboard_12s.mp4`, and `eval_charts_board.png`! Pull main first, then knock out these 10 T8 Final Showcase & Booth Polish tasks!",
+  "note": "Master merged 9765781 (all 10 W2-T8A..T8J tasks passed: tsc clean, vite build 893ms, 0 CJK UI hits!). Pull main first, then run these 8 T9 Final Stability, Offline Fallback & Self-Test tasks!",
   "parallel_tasks": [
     {
-      "task_id": "W2-T8A",
+      "task_id": "W2-T9A",
       "priority": "P0",
-      "title": "Add 'Submission & Storyboard' Showcase Strip to `EvalModal.tsx`",
-      "details": "In `frontend/src/components/EvalModal.tsx`: showcase the newly landed submission assets (`/assets/submission/hook_10s_dualcam_twist.mp4`, `/assets/submission/eval_dashboard_12s.mp4`, `/assets/submission/eval_charts_board.png`, and 3 live desk props `/assets/props/showcase_desk_*.png`) in a clean collapsible gallery inside `EvalModal` with graceful `onError` handling."
+      "title": "Sync `frontend/src/data/mockBranches.ts` to 100% Native English + Add `branch_v3` & `branch_v4` Offline Previews",
+      "details": "Audit `frontend/src/data/mockBranches.ts` so fallback mock data uses idiomatic English strings natively (even before `displayLocale.ts`) and optionally includes lightweight preview presets for all 4 story arcs cleanly when FastAPI is offline."
     },
     {
-      "task_id": "W2-T8B",
+      "task_id": "W2-T9B",
       "priority": "P0",
-      "title": "1-Click 4-Branch Preset Switcher Pills (`BE` / `HE Star` / `Twist V3` / `Shield V4`)",
-      "details": "In `frontend/src/components/StoryBranchTree.tsx` / `App.tsx`: render crisp 1-click quick-switch pills along the timeline header when `branch_v1`..`branch_v4_umbrella_shield_cached` are loaded so judges can compare all 4 story arcs effortlessly."
+      "title": "Verify `StageErrorBoundary` Clean Recovery & Canvas WebGL Context-Loss Guard",
+      "details": "In `frontend/src/stage/ThreeStageManager.ts` and `StageErrorBoundary.tsx`: attach `webglcontextlost` / `webglcontextrestored` listeners cleanly on `canvasA`/`canvasB` so rapid laptop sleep/wake during Hackathon booth sessions never leaves a black Three.js canvas."
     },
     {
-      "task_id": "W2-T8C",
+      "task_id": "W2-T9C",
       "priority": "P1",
-      "title": "Visual Scene Thumbnail Tooltip on `StoryBranchTree.tsx` Nodes",
-      "details": "When hovering or focusing a rendered scene pill (`S1..S4`) in `StoryBranchTree.tsx`, show a crisp tiny `cam_a_tail_frame_url` preview popover (120x68px) with `qa_score` so timeline navigation gives instant visual memory."
+      "title": "Add `frontend/scripts/verify_frontend.mjs` Automated Sanity Script",
+      "details": "Create `frontend/scripts/verify_frontend.mjs` (zero extra npm deps) checking: (1) zero CJK characters in `frontend/src` & `index.html`, (2) all referenced `/assets/actors/*` & `/assets/props/*` files exist under `frontend/public/assets/` or `backend/assets/`, and (3) `dist/index.html` + asset chunks exist cleanly after `npm run build`."
     },
     {
-      "task_id": "W2-T8D",
+      "task_id": "W2-T9D",
       "priority": "P1",
-      "title": "One-Click 'Reconnect Backend' Pill When Running in Mock Fallback Mode",
-      "details": "In `frontend/src/App.tsx`: when the header shows `Mock Fallback Mode`, make clicking that badge (or a tiny `↻ Retry API` pill) re-ping `fetchBranches()` so starting FastAPI after the browser tab opens connects immediately without a page reload."
+      "title": "Pause Background `<video>` Autoplay Elements When `EvalModal` Opens",
+      "details": "In `frontend/src/components/DualCameraStage.tsx` / `App.tsx`: when `evalModalOpen` is true and the user watches `demo_comparison_be_vs_he.mp4` or `hook_10s_dualcam_twist.mp4`, mute/pause the stage `<video>` elements behind the modal so audio tracks never overlap."
     },
     {
-      "task_id": "W2-T8E",
+      "task_id": "W2-T9E",
       "priority": "P1",
-      "title": "Subtle Web Audio UI Confirmation Chime on Fork / Render Completion",
-      "details": "Add a zero-dependency Web Audio synthesizer helper (e.g., two soft harmonic notes <0.25s, strictly gated on `soundEnabled` and non-blocking try/catch) when a timeline fork or live render completes cleanly."
+      "title": "Clean `displayLocale.ts` Check & Unit-Testable Translation Coverage",
+      "details": "In `frontend/src/utils/displayLocale.ts`: ensure every CJK keyword or actor/prop alias maps cleanly to consistent English terminology (`Lia`, `Nyx`, `Crimson Vintage Umbrella`, `Blue Rose Crystal Vase`, `Starlight Keepsake`) matching `shared/mock_branch_1.json` & `mock_branch_2.json`."
     },
     {
-      "task_id": "W2-T8F",
+      "task_id": "W2-T9F",
       "priority": "P1",
-      "title": "De-Overlap Table Props Alongside `crystal_vase` in `ThreeStageManager.ts`",
-      "details": "When multiple props share `[1,1]` / table placement (`on_floor: false` and not held), slightly stagger their X/Z offset (e.g., `+0.26` X / `+0.10` Z for non-`crystal_vase` props) so new desk props never visually overlap the center crystal vase on the table."
+      "title": "Pre-Demo Checklist Drawer / Dry-Run Indicator in `EvalModal.tsx`",
+      "details": "Add a compact 4-bullet 'Live Booth Checklist' badge inside `EvalModal.tsx` (`Mic Ready · Cam Ready · API Live · 4 Cached Branches Loaded`) reading live runtime states cleanly."
     },
     {
-      "task_id": "W2-T8G",
+      "task_id": "W2-T9G",
       "priority": "P1",
-      "title": "Concise 3-Step Judge Try-It Guide Inside `DirectControlBar` Empty Hint",
-      "details": "Add a single non-intrusive 1-line helper tip below presets (hidden in Clean Mode): `Try it: (1) Hold Cam+Mic for 3s · (2) Snap a desk object · (3) Compare BE vs HE side-by-side`."
+      "title": "Verify `npm run build` Bundle Size & Zero Unused Imports (`tsc --noEmit`)",
+      "details": "Confirm zero TypeScript unused locals/warnings, verify chunk splitting (`three-vendor`, `react-vendor`, app chunk) stays optimal, and record bundle metrics in `tasks/status_P3.json`."
     },
     {
-      "task_id": "W2-T8H",
-      "priority": "P1",
-      "title": "Projector Focus-Visible & High-Contrast Accessibility Polish (`index.css`)",
-      "details": "Ensure all interactive buttons, chips, and sliders in `frontend/src/index.css` have crisp `:focus-visible` outlines and >= 4.5:1 label contrast against dark glassmorphism panels under bright booth projectors."
-    },
-    {
-      "task_id": "W2-T8I",
-      "priority": "P1",
-      "title": "Narrow-Screen Responsive Stacking Guard (`@media (max-width: 960px)`)",
-      "details": "Add clean responsive media queries in `frontend/src/index.css` so Camera A and Camera B stack vertically cleanly on split-screen laptops/tablets (`<=960px`) without horizontal overflow."
-    },
-    {
-      "task_id": "W2-T8J",
+      "task_id": "W2-T9H",
       "priority": "P0",
-      "title": "Final Pre-Freeze Verification (`tsc && vite build`, 0-CJK Scan, Submission Media Check)",
-      "details": "Run `npx tsc --noEmit && npm run build`, verify 0 CJK UI strings across `frontend/src` + `index.html`, verify `branch_v1..branch_v4` + `/assets/submission/*` + Vite offline proxy work cleanly, and update `tasks/status_P3.json`."
+      "title": "Run `node frontend/scripts/verify_frontend.mjs` & Final Pre-Pitch Lock in `tasks/status_P3.json`",
+      "details": "Execute `npx tsc --noEmit && npm run build && node scripts/verify_frontend.mjs` inside `frontend/`, verify all checks pass 100%, and mark P3 ready for final pitch rehearsal in `tasks/status_P3.json`."
     }
   ]
 }
