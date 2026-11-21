@@ -85,109 +85,109 @@
       "media": {
         "cam_a_preview_url": null,
         "cam_b_preview_url": null,
-        "cam_a_final_url": "/assets/finals/scene_1_cam_a_fb8847.mp4",
-        "cam_b_final_url": "/assets/finals/scene_1_cam_b_cb43a1.mp4",
-        "cam_a_tail_frame_url": "/assets/tails/scene_1_cam_a_fb8847_tail.png",
-        "cam_b_tail_frame_url": "/assets/tails/scene_1_cam_b_cb43a1_tail.png",
+        "cam_a_final_url": "/assets/finals/scene_1_cam_a_f0a5fb.mp4",
+        "cam_b_final_url": "/assets/finals/scene_1_cam_b_270cea.mp4",
+        "cam_a_tail_frame_url": "/assets/tails/scene_1_cam_a_f0a5fb_tail.png",
+        "cam_b_tail_frame_url": "/assets/tails/scene_1_cam_b_270cea_tail.png",
         "qa_result": {
-          "overall_score": 0.855,
+          "overall_score": 0.86,
           "all_passed": false,
           "items": [
             {
               "question": "[CAM A] Is the silver-haired girl standing on the left holding a closed (not open) red umbrella at her side?",
               "passed": true,
-              "confidence": 0.917,
+              "confidence": 0.923,
               "reason": "Decision-1 P(true)=0.92"
             },
             {
               "question": "[CAM A] Is the black cat with a golden moon collar sitting on the right?",
               "passed": true,
-              "confidence": 0.925,
-              "reason": "Decision-1 P(true)=0.93"
+              "confidence": 0.915,
+              "reason": "Decision-1 P(true)=0.91"
             },
             {
               "question": "[CAM A] Is the crystal vase with a blue rose standing intact on the center round table?",
               "passed": true,
-              "confidence": 0.92,
-              "reason": "Decision-1 P(true)=0.92"
+              "confidence": 0.926,
+              "reason": "Decision-1 P(true)=0.93"
             },
             {
               "question": "[CAM A] Do Camera A (front wide) and Camera B (45-degree close-up) match actor positions?",
               "passed": true,
-              "confidence": 0.658,
-              "reason": "Decision-1 P(true)=0.66 [LOW_CONFIDENCE: escalate]"
+              "confidence": 0.836,
+              "reason": "Decision-1 P(true)=0.84"
             },
             {
               "question": "[CAM A] Are there no extra unintended human characters in the scene?",
-              "passed": true,
-              "confidence": 0.887,
-              "reason": "Decision-1 P(true)=0.89"
-            },
-            {
-              "question": "[CAM A] Is the black cat realistically small (below the girl's knee height) with all characters and props resting naturally on surfaces without floating?",
-              "passed": true,
-              "confidence": 0.897,
-              "reason": "Decision-1 P(true)=0.90"
-            },
-            {
-              "question": "[CAM A] Is this a clean full-bleed nighttime anime frame with NO black borders, NO coordinate axes or numbers, NO duplicate umbrellas or duplicate star tokens, and consistent nighttime atmosphere?",
-              "passed": true,
-              "confidence": 0.898,
-              "reason": "Decision-1 P(true)=0.90"
-            },
-            {
-              "question": "[CAM B] Is the silver-haired girl standing on the left holding a closed (not open) red umbrella at her side?",
-              "passed": true,
-              "confidence": 0.932,
-              "reason": "Decision-1 P(true)=0.93"
-            },
-            {
-              "question": "[CAM B] Is the black cat with a golden moon collar sitting on the right?",
-              "passed": true,
-              "confidence": 0.914,
-              "reason": "Decision-1 P(true)=0.91"
-            },
-            {
-              "question": "[CAM B] Is the crystal vase with a blue rose standing intact on the center round table?",
-              "passed": true,
-              "confidence": 0.903,
-              "reason": "Decision-1 P(true)=0.90"
-            },
-            {
-              "question": "[CAM B] Do Camera A (front wide) and Camera B (45-degree close-up) match actor positions?",
-              "passed": false,
-              "confidence": 0.556,
-              "reason": "Decision-1 P(true)=0.44 [LOW_CONFIDENCE: escalate]"
-            },
-            {
-              "question": "[CAM B] Are there no extra unintended human characters in the scene?",
               "passed": true,
               "confidence": 0.889,
               "reason": "Decision-1 P(true)=0.89"
             },
             {
+              "question": "[CAM A] Is the black cat realistically small (below the girl's knee height) with all characters and props resting naturally on surfaces without floating?",
+              "passed": true,
+              "confidence": 0.866,
+              "reason": "Decision-1 P(true)=0.87"
+            },
+            {
+              "question": "[CAM A] Is this a clean full-bleed nighttime anime frame with NO black borders, NO coordinate axes or numbers, NO duplicate umbrellas or duplicate star tokens, and consistent nighttime atmosphere?",
+              "passed": true,
+              "confidence": 0.899,
+              "reason": "Decision-1 P(true)=0.90"
+            },
+            {
+              "question": "[CAM B] Is the silver-haired girl standing on the left holding a closed (not open) red umbrella at her side?",
+              "passed": true,
+              "confidence": 0.916,
+              "reason": "Decision-1 P(true)=0.92"
+            },
+            {
+              "question": "[CAM B] Is the black cat with a golden moon collar sitting on the right?",
+              "passed": true,
+              "confidence": 0.907,
+              "reason": "Decision-1 P(true)=0.91"
+            },
+            {
+              "question": "[CAM B] Is the crystal vase with a blue rose standing intact on the center round table?",
+              "passed": true,
+              "confidence": 0.922,
+              "reason": "Decision-1 P(true)=0.92"
+            },
+            {
+              "question": "[CAM B] Do Camera A (front wide) and Camera B (45-degree close-up) match actor positions?",
+              "passed": false,
+              "confidence": 0.582,
+              "reason": "Decision-1 P(true)=0.42 [LOW_CONFIDENCE: escalate]"
+            },
+            {
+              "question": "[CAM B] Are there no extra unintended human characters in the scene?",
+              "passed": true,
+              "confidence": 0.892,
+              "reason": "Decision-1 P(true)=0.89"
+            },
+            {
               "question": "[CAM B] Is the black cat realistically small (below the girl's knee height) with all characters and props resting naturally on surfaces without floating?",
               "passed": true,
-              "confidence": 0.869,
-              "reason": "Decision-1 P(true)=0.87"
+              "confidence": 0.795,
+              "reason": "Decision-1 P(true)=0.80"
             },
             {
               "question": "[CAM B] Is this a clean full-bleed nighttime anime frame with NO black borders, NO coordinate axes or numbers, NO duplicate umbrellas or duplicate star tokens, and consistent nighttime atmosphere?",
               "passed": true,
-              "confidence": 0.87,
-              "reason": "Decision-1 P(true)=0.87"
+              "confidence": 0.888,
+              "reason": "Decision-1 P(true)=0.89"
             },
             {
               "question": "[Dual-Cam] Camera A & Camera B spatial, prop, and nighttime lighting consistency",
               "passed": true,
-              "confidence": 0.903,
+              "confidence": 0.904,
               "reason": "Cross-Cam Decision-1 P(true)=0.90"
             }
           ]
         },
-        "qa_score": 0.852,
+        "qa_score": 0.857,
         "qa_retries": 1,
-        "selected_candidate_index": 1,
+        "selected_candidate_index": 0,
         "fallback_to_preview": false
       }
     },
@@ -358,7 +358,7 @@
       "lighting": "warm_transition",
       "camera_shake": false,
       "audio_mood": "gentle_rain_soft_purring_warm_piano",
-      "environment_notes": "glass_conservatory starry_night_sky glowing_blue_rose round_wooden_table warm_wall_lanterns lantern_glass_reflections herringbone_wood_floor stardust_speckled_cloak stone_balustrade_exterior",
+      "environment_notes": "glass_conservatory starry_night_sky warm_wall_lanterns herringbone_wood_floor round_pedestal_table glowing_blue_rose glass_vase starry_blue_cloak closed_red_umbrella stone_balustrade",
       "needs_rerender": false,
       "reused_from_branch": null,
       "actors": [
@@ -408,85 +408,85 @@
       "media": {
         "cam_a_preview_url": null,
         "cam_b_preview_url": null,
-        "cam_a_final_url": "/assets/finals/scene_3_cam_a_34ad67.mp4",
-        "cam_b_final_url": "/assets/finals/scene_3_cam_b_40c994.mp4",
-        "cam_a_tail_frame_url": "/assets/tails/scene_3_cam_a_34ad67_tail.png",
-        "cam_b_tail_frame_url": "/assets/tails/scene_3_cam_b_40c994_tail.png",
+        "cam_a_final_url": "/assets/finals/scene_3_cam_a_2904ee.mp4",
+        "cam_b_final_url": "/assets/finals/scene_3_cam_b_8eca74.mp4",
+        "cam_a_tail_frame_url": "/assets/tails/scene_3_cam_a_2904ee_tail.png",
+        "cam_b_tail_frame_url": "/assets/tails/scene_3_cam_b_8eca74_tail.png",
         "qa_result": {
-          "overall_score": 0.867,
+          "overall_score": 0.864,
           "all_passed": true,
           "items": [
             {
               "question": "[CAM A] Is Lia kneeling near the small black cat with warm golden lighting?",
               "passed": true,
-              "confidence": 0.91,
-              "reason": "Decision-1 P(true)=0.91"
+              "confidence": 0.894,
+              "reason": "Decision-1 P(true)=0.89"
             },
             {
               "question": "[CAM A] Is the crystal vase with its blue rose still intact on the center round table?",
               "passed": true,
-              "confidence": 0.941,
-              "reason": "Decision-1 P(true)=0.94"
+              "confidence": 0.963,
+              "reason": "Decision-1 P(true)=0.96"
             },
             {
               "question": "[CAM A] Do Camera A and Camera B match character placement cleanly?",
               "passed": true,
-              "confidence": 0.757,
-              "reason": "Decision-1 P(true)=0.76"
+              "confidence": 0.837,
+              "reason": "Decision-1 P(true)=0.84"
             },
             {
               "question": "[CAM A] Is the black cat realistically small (below the girl's knee height) with all characters and props resting naturally on surfaces without floating?",
               "passed": true,
-              "confidence": 0.917,
-              "reason": "Decision-1 P(true)=0.92"
+              "confidence": 0.898,
+              "reason": "Decision-1 P(true)=0.90"
             },
             {
               "question": "[CAM A] Is this a clean full-bleed nighttime anime frame with NO black borders, NO coordinate axes or numbers, NO duplicate umbrellas or duplicate star tokens, and consistent nighttime atmosphere?",
               "passed": true,
-              "confidence": 0.913,
-              "reason": "Decision-1 P(true)=0.91"
+              "confidence": 0.878,
+              "reason": "Decision-1 P(true)=0.88"
             },
             {
               "question": "[CAM B] Is Lia kneeling near the small black cat with warm golden lighting?",
               "passed": true,
-              "confidence": 0.891,
-              "reason": "Decision-1 P(true)=0.89"
+              "confidence": 0.875,
+              "reason": "Decision-1 P(true)=0.88"
             },
             {
               "question": "[CAM B] Is the crystal vase with its blue rose still intact on the center round table?",
               "passed": true,
-              "confidence": 0.964,
-              "reason": "Decision-1 P(true)=0.96"
+              "confidence": 0.929,
+              "reason": "Decision-1 P(true)=0.93"
             },
             {
               "question": "[CAM B] Do Camera A and Camera B match character placement cleanly?",
               "passed": true,
-              "confidence": 0.656,
-              "reason": "Decision-1 P(true)=0.66 [LOW_CONFIDENCE: escalate]"
+              "confidence": 0.594,
+              "reason": "Decision-1 P(true)=0.59 [LOW_CONFIDENCE: escalate]"
             },
             {
               "question": "[CAM B] Is the black cat realistically small (below the girl's knee height) with all characters and props resting naturally on surfaces without floating?",
               "passed": true,
-              "confidence": 0.87,
-              "reason": "Decision-1 P(true)=0.87"
+              "confidence": 0.859,
+              "reason": "Decision-1 P(true)=0.86"
             },
             {
               "question": "[CAM B] Is this a clean full-bleed nighttime anime frame with NO black borders, NO coordinate axes or numbers, NO duplicate umbrellas or duplicate star tokens, and consistent nighttime atmosphere?",
               "passed": true,
-              "confidence": 0.879,
+              "confidence": 0.876,
               "reason": "Decision-1 P(true)=0.88"
             },
             {
               "question": "[Dual-Cam] Camera A & Camera B spatial, prop, and nighttime lighting consistency",
               "passed": true,
-              "confidence": 0.839,
-              "reason": "Cross-Cam Decision-1 P(true)=0.84"
+              "confidence": 0.899,
+              "reason": "Cross-Cam Decision-1 P(true)=0.90"
             }
           ]
         },
-        "qa_score": 0.87,
+        "qa_score": 0.861,
         "qa_retries": 1,
-        "selected_candidate_index": 0,
+        "selected_candidate_index": 1,
         "fallback_to_preview": false
       }
     },

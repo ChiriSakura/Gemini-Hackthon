@@ -609,7 +609,7 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
               }}
             >
               <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fda4af' }}>
-                Baseline: {getBranchLabelEn(compareBranch)} (Scene {compareScene.scene_id})
+                Before · {getBranchLabelEn(compareBranch)} (Scene {compareScene.scene_id})
               </span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 {showCompareOldVideo && (
@@ -617,9 +617,9 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
                     type="button"
                     className={`pill-btn subtle ${compareAudioSource === 'baseline' ? 'active' : ''}`}
                     onClick={() => handleSelectCompareAudio('baseline')}
-                    title="Unmute only Baseline comparison audio"
+                    title="Unmute only the Before clip audio"
                   >
-                    {compareAudioSource === 'baseline' ? '🔊 Audio: Baseline' : '🔇 Listen'}
+                    {compareAudioSource === 'baseline' ? '🔊 Audio: Before' : '🔇 Listen'}
                   </button>
                 )}
                 {allBranches.length > 2 && onSelectCompareBranch && !cleanCaptureMode && (
@@ -628,7 +628,7 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
                     style={{ padding: '3px 8px', fontSize: '0.72rem', maxWidth: 200 }}
                     value={compareBranch.branch_id}
                     onChange={(e) => onSelectCompareBranch(e.target.value)}
-                    aria-label="Select baseline branch for left comparison slot"
+                    aria-label="Select the Before branch for the left comparison slot"
                   >
                     {allBranches
                       .filter((b) => b.branch_id !== activeBranch.branch_id)
@@ -683,16 +683,16 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
               }}
             >
               <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#6ee7b7' }}>
-                Active: {getBranchLabelEn(activeBranch)} (Scene {scene.scene_id})
+                After · {getBranchLabelEn(activeBranch)} (Scene {scene.scene_id})
               </span>
               {showCompareNewVideo && (
                 <button
                   type="button"
                   className={`pill-btn subtle ${compareAudioSource === 'active' ? 'active' : ''}`}
                   onClick={() => handleSelectCompareAudio('active')}
-                  title="Unmute only Active comparison audio"
+                  title="Unmute only the After clip audio"
                 >
-                  {compareAudioSource === 'active' ? '🔊 Audio: Active' : '🔇 Listen'}
+                  {compareAudioSource === 'active' ? '🔊 Audio: After' : '🔇 Listen'}
                 </button>
               )}
             </div>

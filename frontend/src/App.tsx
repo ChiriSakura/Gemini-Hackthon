@@ -9,7 +9,7 @@
  *   inline contradiction confirmation and physical prop creation to `/api/media/create-prop`.
  * - Hosts a lightweight collapsible `📊 Eval` modal showing real empirical curves.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   createStageProp,
   fetchBranches,
@@ -51,6 +51,36 @@ interface PendingForkInput {
 
 type ApiStatus = 'checking' | 'live' | 'mock';
 
+/**
+ * Honest wait indicator: shows how long the current backend call has been
+ * running instead of pretending to know which internal step it is on.
+ */
+function WaitingBanner({
+  label,
+  typical,
+  since,
+}: {
+  label: string;
+  typical: string;
+  since: number;
+}): React.ReactElement {
+  const [elapsedSec, setElapsedSec] = useState(0);
+  useEffect(() => {
+    setElapsedSec(Math.floor((Date.now() - since) / 1000));
+    const timer = window.setInterval(() => {
+      setElapsedSec(Math.floor((Date.now() - since) / 1000));
+    }, 500);
+    return () => window.clearInterval(timer);
+  }, [since]);
+  return (
+    <div className="pipeline-stepper" role="status" aria-live="polite">
+      <span className="pipeline-step active">
+        {label} — waiting for backend… {elapsedSec}s ({typical})
+      </span>
+    </div>
+  );
+}
+
 export default function App(): React.ReactElement {
   const [branches, setBranches] = useState<BranchState[]>(INITIAL_MOCK_BRANCHES);
   const [isMockMode, setIsMockMode] = useState(true);
@@ -80,12 +110,18 @@ export default function App(): React.ReactElement {
   const [renderingScene, setRenderingScene] = useState<boolean>(false);
   const [renderProgress, setRenderProgress] = useState<RenderProgressSnapshot | null>(null);
   const [creatingProp, setCreatingProp] = useState<boolean>(false);
-  const [pipelineStage, setPipelineStage] = useState<number>(0); // 0=idle, 1..4=active step
+  const [busy, setBusy] = useState<{ label: string; typical: string; since: number } | null>(
+    null,
+  );
+  const [heardNote, setHeardNote] = useState<{ heard: string | null; saw: string | null } | null>(
+    null,
+  );
   const [rules, setRules] = useState<string[]>([]);
   const [pendingConflict, setPendingConflict] = useState<PendingForkInput | null>(
     null,
   );
   const [statusNote, setStatusNote] = useState<string | null>(null);
+  const submittingRef = useRef(false);
 
   // Re-read /api/health so the header badge reflects whether models are really live
   const refreshHealth = async (branchesFromMock: boolean) => {
@@ -263,9 +299,9 @@ export default function App(): React.ReactElement {
     setPixelArtMode(false);
     setPendingConflict(null);
     setRenderProgress(null);
-    setPipelineStage(0);
     setStatusNote(null);
     setErrorNote(null);
+    setHeardNote(null);
     setCompareBranchId(null);
     if (baseBranch) {
       setActiveBranchId(baseBranch.branch_id);
@@ -285,7 +321,10 @@ export default function App(): React.ReactElement {
     confirmContradiction?: boolean;
     parentBranchIdOverride?: string;
     targetSceneIdOverride?: number;
-  }) => {
+  }): Promise<boolean> => {
+    // Ref guard: a double click cannot start two forks in the same render
+    if (submittingRef.current) return false;
+    submittingRef.current = true;
     const effectiveParentBranchId =
       opts.parentBranchIdOverride ?? activeBranch.branch_id;
     const effectiveTargetSceneId =
@@ -293,14 +332,15 @@ export default function App(): React.ReactElement {
 
     setIsPlayingStory(false);
     setSubmitting(true);
-    setPipelineStage(1);
     setPendingConflict(null);
     setErrorNote(null);
-    setStatusNote('Step 1/4: Hydrogen parsing multimodal input…');
-    const stepTimer = window.setTimeout(() => {
-      setPipelineStage(2);
-      setStatusNote('Step 2/4: Gemini 4 Neon simulating causal world state…');
-    }, 1800);
+    setStatusNote(null);
+    setHeardNote(null);
+    setBusy({
+      label: opts.clip ? 'Reading your clip and rewriting the story' : 'Rewriting the story',
+      typical: 'usually about 30s',
+      since: Date.now(),
+    });
 
     const { branch: newBranch, error: forkError } = await submitDirectorFork({
       parentBranchId: effectiveParentBranchId,
@@ -309,16 +349,27 @@ export default function App(): React.ReactElement {
       text: opts.text,
       confirmContradiction: opts.confirmContradiction,
     });
-    window.clearTimeout(stepTimer);
+    submittingRef.current = false;
     setSubmitting(false);
-    setPipelineStage(0);
+    setBusy(null);
 
     if (!newBranch) {
       setStatusNote(null);
       setErrorNote(`Rewrite failed: ${forkError ?? 'unknown error'}. No branch was added.`);
       void refreshHealth(isMockMode);
-      return;
+      return false;
     }
+
+    // Echo back what the backend understood from the voice/text and the camera
+    const parentRegistry =
+      branches.find((b) => b.branch_id === effectiveParentBranchId)?.props_registry ?? {};
+    const sawProps = Object.entries(newBranch.props_registry)
+      .filter(([id, item]) => item.origin === 'camera_physical' && !(id in parentRegistry))
+      .map(([, item]) => item.name);
+    setHeardNote({
+      heard: newBranch.rewrite_summary,
+      saw: sawProps.length > 0 ? sawProps.join(', ') : null,
+    });
 
     if (newBranch.contradiction_warning) {
       setPendingConflict({
@@ -329,7 +380,7 @@ export default function App(): React.ReactElement {
         warning: newBranch.contradiction_warning,
       });
       setStatusNote('Contradiction detected — confirm below to force rewrite.');
-      return;
+      return false;
     }
 
     setBranches((prev) => [...prev, newBranch]);
@@ -347,6 +398,7 @@ export default function App(): React.ReactElement {
     setStatusNote(
       `Forked "${getBranchLabelEn(newBranch)}" — 2.5D preview updated; ${pendingCount} scene${pendingCount === 1 ? '' : 's'} not rendered yet.`,
     );
+    return true;
   };
 
   const handleForceRewrite = async () => {
@@ -367,13 +419,13 @@ export default function App(): React.ReactElement {
     if (renderingScene) return;
     setErrorNote(null);
     setRenderingScene(true);
-    setPipelineStage(3);
-    setStatusNote(`Step 3/4: Uploading Scene ${scene.scene_id} 2.5D preview…`);
-    const renderStepTimer = window.setTimeout(() => {
-      setPipelineStage(4);
-      setStatusNote(`Step 4/4: Omni Flash dual-take rendering + Decision-1 QA…`);
-    }, 1200);
-    const result = await requestSceneRender({
+    setStatusNote(null);
+    setBusy({
+      label: `Rendering Scene ${scene.scene_id} (two cameras + QA)`,
+      typical: 'usually 40–60s',
+      since: Date.now(),
+    });
+    const { result, error: renderError } = await requestSceneRender({
       branchId: activeBranch.branch_id,
       scene,
       camAPreview: preview.camABlob,
@@ -383,12 +435,13 @@ export default function App(): React.ReactElement {
       camBStartPng: preview.camBStartPng,
       camBEndPng: preview.camBEndPng,
     });
-    window.clearTimeout(renderStepTimer);
     setRenderingScene(false);
-    setPipelineStage(0);
+    setBusy(null);
 
     if (!result) {
-      setStatusNote('Render API unreachable — staying on live 2.5D preview.');
+      setErrorNote(
+        `Render failed: ${renderError ?? 'unknown error'}. Staying on the 2.5D preview.`,
+      );
       void refreshHealth(isMockMode);
       return;
     }
@@ -448,14 +501,20 @@ export default function App(): React.ReactElement {
     if (renderingScene) return;
     setErrorNote(null);
     setRenderingScene(true);
-    setPipelineStage(4);
-    setStatusNote(`Step 4/4: Concurrent Omni Flash dual-take + Decision-1 QA for ${getBranchLabelEn(activeBranch)}…`);
+    setStatusNote(null);
+    setBusy({
+      label: `Rendering all pending scenes of "${getBranchLabelEn(activeBranch)}" (two cameras + QA)`,
+      typical: 'usually 40–60s',
+      since: Date.now(),
+    });
     const before = activeBranch;
-    const updated = await requestBranchRender(before.branch_id);
+    const { branch: updated, error: renderError } = await requestBranchRender(
+      before.branch_id,
+    );
     setRenderingScene(false);
-    setPipelineStage(0);
+    setBusy(null);
     if (!updated) {
-      setStatusNote('Batch render failed — verify FastAPI backend is running.');
+      setErrorNote(`Branch render failed: ${renderError ?? 'unknown error'}.`);
       void refreshHealth(isMockMode);
       return;
     }
@@ -526,7 +585,12 @@ export default function App(): React.ReactElement {
     const currentSceneId = activeScene.scene_id;
     setErrorNote(null);
     setCreatingProp(true);
-    setStatusNote(`Generating transparent stage prop "${opts.name}" (${opts.placement})…`);
+    setStatusNote(null);
+    setBusy({
+      label: `Creating stage prop "${opts.name}"`,
+      typical: 'usually about 35s',
+      since: Date.now(),
+    });
     const created = await createStageProp({
       name: opts.name,
       description: opts.name,
@@ -535,6 +599,7 @@ export default function App(): React.ReactElement {
       imageBlob: opts.imageBlob,
     });
     setCreatingProp(false);
+    setBusy(null);
     if (created.simulated) {
       void refreshHealth(isMockMode);
     }
@@ -742,28 +807,21 @@ export default function App(): React.ReactElement {
         </div>
       </header>
 
-      {pipelineStage > 0 && (
-        <div className="pipeline-stepper" role="status" aria-live="polite">
-          {[
-            '1. Hydrogen Parse',
-            '2. Neon Causal Sim',
-            '3. 2.5D Preview Upload',
-            '4. Omni Flash Dual-Take + Decision-1 QA',
-          ].map((label, idx) => {
-            const stepNum = idx + 1;
-            const stateClass =
-              stepNum < pipelineStage
-                ? 'done'
-                : stepNum === pipelineStage
-                  ? 'active'
-                  : '';
-            return (
-              <span key={label} className={`pipeline-step ${stateClass}`}>
-                {stepNum < pipelineStage ? '✓ ' : stepNum === pipelineStage ? '⏳ ' : ''}
-                {label}
-              </span>
-            );
-          })}
+      {busy && <WaitingBanner label={busy.label} typical={busy.typical} since={busy.since} />}
+
+      {heardNote && (heardNote.heard || heardNote.saw) && (
+        <div className="status-banner blue" role="status">
+          {heardNote.heard && (
+            <span>
+              <strong>Heard:</strong> &ldquo;{heardNote.heard}&rdquo;
+            </span>
+          )}
+          {heardNote.heard && heardNote.saw && <span> · </span>}
+          {heardNote.saw && (
+            <span>
+              <strong>Saw:</strong> {heardNote.saw}
+            </span>
+          )}
         </div>
       )}
 
@@ -782,7 +840,7 @@ export default function App(): React.ReactElement {
         </div>
       )}
 
-      {!cleanCaptureMode && statusNote && pipelineStage === 0 && (
+      {!cleanCaptureMode && statusNote && !busy && (
         <div className="status-banner gold" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
           <span>{statusNote}</span>
           <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
