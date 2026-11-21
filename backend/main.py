@@ -36,7 +36,7 @@ from backend.director.rule_memory import add_rule, load_rules
 from backend.director.state_tree import get_branch, list_branches, save_branch
 from backend.logger import log_function_call
 from backend.media.prop_maker import create_prop
-from backend.media.video_renderer import render_branch_scenes, render_scene_media
+from backend.media.video_renderer import get_render_progress, render_branch_scenes, render_scene_media
 from backend.schemas import BranchState, Scene, StagePropState
 
 app = FastAPI(title="StageState Director API", version="0.2.0")
@@ -92,6 +92,13 @@ def api_get_branch(branch_id: str) -> BranchState:
 def api_get_rules() -> dict:
     """Return active continuity rules learned from QA repairs."""
     return {"rules": load_rules()}
+
+
+@app.get("/api/media/progress/{branch_id}")
+@log_function_call
+def api_get_render_progress(branch_id: str) -> dict:
+    """Return live per-scene parallel render progress snapshot for `branch_id`."""
+    return get_render_progress(branch_id)
 
 
 def _next_branch_id() -> str:
