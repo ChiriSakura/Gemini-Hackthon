@@ -1,0 +1,143 @@
+{
+  "prop_png_audits": [
+    {
+      "file": "crystal_vase.png",
+      "mode": "RGBA",
+      "width": 293,
+      "height": 664,
+      "aspect_ratio": 0.441,
+      "bottom_pad_px": 0,
+      "opaque_green_spill_pixels": 0,
+      "transparent_ratio": 0.508
+    },
+    {
+      "file": "crystal_vase_broken.png",
+      "mode": "RGBA",
+      "width": 512,
+      "height": 324,
+      "aspect_ratio": 1.58,
+      "bottom_pad_px": 0,
+      "opaque_green_spill_pixels": 0,
+      "transparent_ratio": 0.674
+    },
+    {
+      "file": "showcase_brass_pocket_watch.png",
+      "mode": "RGBA",
+      "width": 373,
+      "height": 512,
+      "aspect_ratio": 0.729,
+      "bottom_pad_px": 0,
+      "opaque_green_spill_pixels": 14,
+      "transparent_ratio": 0.368
+    },
+    {
+      "file": "showcase_crystal_shield.png",
+      "mode": "RGBA",
+      "width": 447,
+      "height": 512,
+      "aspect_ratio": 0.873,
+      "bottom_pad_px": 0,
+      "opaque_green_spill_pixels": 0,
+      "transparent_ratio": 0.248
+    },
+    {
+      "file": "showcase_glowing_quill.png",
+      "mode": "RGBA",
+      "width": 331,
+      "height": 512,
+      "aspect_ratio": 0.646,
+      "bottom_pad_px": 0,
+      "opaque_green_spill_pixels": 0,
+      "transparent_ratio": 0.659
+    },
+    {
+      "file": "showcase_origami_crane.png",
+      "mode": "RGBA",
+      "width": 512,
+      "height": 418,
+      "aspect_ratio": 1.225,
+      "bottom_pad_px": 0,
+      "opaque_green_spill_pixels": 0,
+      "transparent_ratio": 0.641
+    },
+    {
+      "file": "showcase_star_lantern.png",
+      "mode": "RGBA",
+      "width": 407,
+      "height": 512,
+      "aspect_ratio": 0.795,
+      "bottom_pad_px": 0,
+      "opaque_green_spill_pixels": 7,
+      "transparent_ratio": 0.605
+    },
+    {
+      "file": "star_token.png",
+      "mode": "RGBA",
+      "width": 512,
+      "height": 491,
+      "aspect_ratio": 1.043,
+      "bottom_pad_px": 0,
+      "opaque_green_spill_pixels": 0,
+      "transparent_ratio": 0.572
+    }
+  ],
+  "all_props_rgba": true,
+  "all_props_zero_green_spill": false,
+  "all_props_bottom_flush": true,
+  "branch_v3_prop_persistence": {
+    "branch_id": "branch_v3_starlight_cached",
+    "clips_audited": 6,
+    "star_token_persistence_rate": 1.0,
+    "crystal_vase_intact_persistence_rate": 1.0,
+    "details": [
+      {
+        "scene_id": 2,
+        "cam_id": "cam_a",
+        "star_token_persists": true,
+        "star_p_true": 0.871,
+        "crystal_vase_intact": true,
+        "vase_p_true": 0.844
+      },
+      {
+        "scene_id": 2,
+        "cam_id": "cam_b",
+        "star_token_persists": true,
+        "star_p_true": 0.87,
+        "crystal_vase_intact": true,
+        "vase_p_true": 0.824
+      },
+      {
+        "scene_id": 3,
+        "cam_id": "cam_a",
+        "star_token_persists": true,
+        "star_p_true": 0.752,
+        "crystal_vase_intact": true,
+        "vase_p_true": 0.884
+      },
+      {
+        "scene_id": 3,
+        "cam_id": "cam_b",
+        "star_token_persists": true,
+        "star_p_true": 0.881,
+        "crystal_vase_intact": true,
+        "vase_p_true": 0.865
+      },
+      {
+        "scene_id": 4,
+        "cam_id": "cam_a",
+        "star_token_persists": true,
+        "star_p_true": 0.865,
+        "crystal_vase_intact": true,
+        "vase_p_true": 0.806
+      },
+      {
+        "scene_id": 4,
+        "cam_id": "cam_b",
+        "star_token_persists": true,
+        "star_p_true": 0.725,
+        "crystal_vase_intact": true,
+        "vase_p_true": 0.86
+      }
+    ]
+  }
+}

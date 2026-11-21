@@ -197,18 +197,19 @@ def _chroma_key_green_to_rgba(raw_image_bytes: bytes, max_size: int = 512) -> Im
     border_labels.discard(0)
     bg_mask = np.isin(labels, list(border_labels))
 
-    # Also clear flat, ultra-pure neon chroma-green interior loops (e.g. inside cup handles).
+    # Also clear neon chroma-green interior loops (e.g. inside pocket-watch/lantern rings).
     for lbl in range(1, num_labels):
         if lbl in border_labels:
             continue
         area = int(stats[lbl, cv2.CC_STAT_AREA])
-        if area < 120:
+        if area < 20:
             continue
         region = labels == lbl
-        mean_excess = float(np.mean(green_excess[region]))
-        mean_sat = float(np.mean(s_chan[region]))
-        std_val = float(np.std(bgr[region]))
-        if mean_excess > 70.0 and mean_sat > 170.0 and std_val < 14.0:
+        med_excess = float(np.median(green_excess[region]))
+        med_sat = float(np.median(s_chan[region]))
+        med_val = float(np.median(v_chan[region]))
+        med_hue = float(np.median(h_chan[region]))
+        if med_excess > 140.0 and med_sat > 210.0 and med_val > 205.0 and 50.0 <= med_hue <= 70.0:
             bg_mask |= region
 
     alpha = np.where(bg_mask, 0.0, 255.0).astype(np.float32)

@@ -37,16 +37,25 @@ def run_smoke_tests() -> None:
         "/assets/actors/nyx.png",
         "/assets/props/crystal_vase.png",
         "/assets/props/crystal_vase_broken.png",
+        "/assets/props/showcase_origami_crane.png",
+        "/assets/props/showcase_brass_pocket_watch.png",
+        "/assets/props/showcase_crystal_shield.png",
+        "/assets/props/showcase_glowing_quill.png",
+        "/assets/props/showcase_star_lantern.png",
+        "/assets/finals/demo_comparison_be_vs_he.mp4",
     ):
         resp = client.get(asset_url)
         assert resp.status_code == 200, f"Static asset missing: {asset_url} -> {resp.status_code}"
 
-    # 3. Verify cached branch_v1 & branch_v2_cached media URLs serve 200 OK and use H.264
-    from backend.media.video_renderer import get_render_progress, is_browser_h264
+    # 3. Verify cached branch_v1, branch_v2_cached & branch_v3_starlight_cached media URLs serve 200 OK and use H.264
+    from backend.media.video_renderer import _merge_dual_cam_qa, get_render_progress, is_browser_h264
 
-    for branch_id in ("branch_v1", "branch_v2_cached"):
+    for branch_id in ("branch_v1", "branch_v2_cached", "branch_v3_starlight_cached"):
         target_branch = next((b for b in branches if b["branch_id"] == branch_id), None)
-        assert target_branch is not None, f"{branch_id} missing"
+        if target_branch is None:
+            b_resp = client.get(f"/api/branches/{branch_id}")
+            assert b_resp.status_code == 200, f"{branch_id} missing"
+            target_branch = b_resp.json()
         for scene in target_branch["scenes"]:
             for key in ("cam_a_final_url", "cam_b_final_url", "cam_a_tail_frame_url", "cam_b_tail_frame_url"):
                 url = scene["media"].get(key)
@@ -59,6 +68,15 @@ def run_smoke_tests() -> None:
 
     branch_v1 = next(b for b in branches if b["branch_id"] == "branch_v1")
     assert get_render_progress("nonexistent_branch")["status"] == "idle"
+    from backend.schemas import JudgeItem, JudgeResult
+    merged_qa = _merge_dual_cam_qa(
+        JudgeResult(overall_score=0.9, all_passed=True, items=[JudgeItem(question="Cam A check", passed=True, confidence=0.9, reason="ok")]),
+        JudgeResult(overall_score=0.8, all_passed=True, items=[JudgeItem(question="Cam B check", passed=True, confidence=0.8, reason="ok")]),
+        cross_cam_item=JudgeItem(question="[Dual-Cam] cross", passed=True, confidence=0.85, reason="ok"),
+    )
+    assert len(merged_qa.items) == 3
+    assert merged_qa.items[0].question.startswith("[CAM A]")
+    assert merged_qa.items[1].question.startswith("[CAM B]")
 
     # 4. Verify POST /api/media/create-prop contract using an in-memory test image (fast demo-safe check)
     prev_demo = config.DEMO_MODE
