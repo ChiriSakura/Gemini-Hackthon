@@ -111,7 +111,7 @@ def test_catch_from_camera_conditional_prompting() -> None:
         ],
     )
     p_catch = _build_shot_prompt(catch_scene, "cam_a", has_first_frame=False, has_preview_video=False)
-    assert "Lia leans toward the camera to catch the flying item out of mid-air" in p_catch
+    assert "leans gracefully forward toward the camera lens to catch the flying item out of mid-air" in p_catch
     assert "incoming throw arc from the front camera" in p_catch
 
 
