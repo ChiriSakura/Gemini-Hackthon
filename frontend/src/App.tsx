@@ -229,33 +229,44 @@ export default function App(): React.ReactElement {
   const activeScene =
     activeBranch.scenes[activeSceneIndex] ?? activeBranch.scenes[0];
 
-  // Auto-advance scenes 1 -> 4 every 4 seconds when Play 1->4 is active
+  // Advance to the next scene smoothly when a clip finishes during continuous Play Story mode
+  const handleAdvanceStoryScene = () => {
+    setActiveSceneIndex((prev) => {
+      const totalScenes = activeBranch.scenes.length;
+      if (prev + 1 >= totalScenes) {
+        setIsPlayingStory(false);
+        return prev;
+      }
+      const next = prev + 1;
+      setTargetSceneId(activeBranch.scenes[next]?.scene_id ?? next + 1);
+      return next;
+    });
+  };
+
+  // Fallback timer ONLY if the current scene has no rendered final video clip during Play Story
   useEffect(() => {
     if (!isPlayingStory) return;
+    const current = activeBranch.scenes[activeSceneIndex];
+    const hasClip = Boolean(current?.media?.cam_a_final_url);
+    if (hasClip) return;
     const totalScenes = activeBranch.scenes.length;
     if (totalScenes <= 1) {
       setIsPlayingStory(false);
       return;
     }
-    const timer = window.setInterval(() => {
-      setActiveSceneIndex((prev) => {
-        if (prev + 1 >= totalScenes) {
-          setIsPlayingStory(false);
-          return prev;
-        }
-        const next = prev + 1;
-        setTargetSceneId(next + 1);
-        return next;
-      });
+    const timer = window.setTimeout(() => {
+      handleAdvanceStoryScene();
     }, 4000);
-    return () => window.clearInterval(timer);
-  }, [isPlayingStory, activeBranch.scenes.length]);
+    return () => window.clearTimeout(timer);
+  }, [isPlayingStory, activeSceneIndex, activeBranch.branch_id, activeBranch.scenes]);
 
   const handleTogglePlayStory = () => {
     setIsPlayingStory((playing) => {
       if (!playing) {
+        setViewMode('final');
         setActiveSceneIndex(0);
         setTargetSceneId(1);
+        window.requestAnimationFrame(() => stageRef.current?.syncReplay());
         return true;
       }
       return false;
@@ -1161,6 +1172,7 @@ export default function App(): React.ReactElement {
         onSelectCompareBranch={setCompareBranchId}
         onOpenSavedRun={hasSavedRun ? () => handleOpenSavedRun(activeScene.scene_id) : undefined}
         onTogglePlayStory={handleTogglePlayStory}
+        onAdvanceStoryScene={handleAdvanceStoryScene}
         onExportStart={() => setStatusNote('Capturing a 4s dual-camera preview…')}
         onExportComplete={handleExportComplete}
         onRenderScene={handleRenderScene}
