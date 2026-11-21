@@ -43,15 +43,21 @@ const SHOWCASE_PROPS = [
   { label: 'Glowing Quill', url: '/assets/props/showcase_glowing_quill.png' },
   { label: 'Origami Crane', url: '/assets/props/showcase_origami_crane.png' },
   { label: 'Star Lantern', url: '/assets/props/showcase_star_lantern.png' },
+  { label: 'Desk: Brass Key', url: '/assets/props/showcase_desk_brass_key.png' },
+  { label: 'Desk: Coffee Mug', url: '/assets/props/showcase_desk_coffee_mug.png' },
+  { label: 'Desk: Paper Heart', url: '/assets/props/showcase_desk_paper_heart.png' },
 ];
 
 export const EvalModal: React.FC<EvalModalProps> = ({ open, onClose }) => {
   const [reelOpen, setReelOpen] = useState(false);
   const [reelError, setReelError] = useState(false);
   const [pitchSectionOpen, setPitchSectionOpen] = useState(false);
-  const [storyboardMissing, setStoryboardMissing] = useState(false);
-  const [pitchReelMissing, setPitchReelMissing] = useState(false);
+  const [missingMedia, setMissingMedia] = useState<Record<string, boolean>>({});
   const [failedProps, setFailedProps] = useState<Record<string, boolean>>({});
+
+  const markMediaMissing = (key: string) => {
+    setMissingMedia((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
+  };
 
   if (!open) return null;
 
@@ -255,7 +261,7 @@ export const EvalModal: React.FC<EvalModalProps> = ({ open, onClose }) => {
           )}
         </div>
 
-        {/* Collapsible Storyboard Filmstrip & 1-Min Pitch Reel (W2-T6F) */}
+        {/* Collapsible Submission & Storyboard Showcase Gallery (W2-T6F + W2-T8A) */}
         <div className="eval-box" style={{ marginTop: 10 }}>
           <div
             style={{
@@ -266,31 +272,61 @@ export const EvalModal: React.FC<EvalModalProps> = ({ open, onClose }) => {
             }}
           >
             <span className="eval-box-title" style={{ margin: 0 }}>
-              🎞️ Storyboard Filmstrip &amp; 1-Min Pitch Reel
+              🎞️ Submission &amp; Storyboard Showcase Gallery
             </span>
             <button
               type="button"
               className={`pill-btn ${pitchSectionOpen ? 'active' : 'subtle'}`}
               onClick={() => {
-                setStoryboardMissing(false);
-                setPitchReelMissing(false);
+                setMissingMedia({});
                 setPitchSectionOpen((v) => !v);
               }}
             >
-              {pitchSectionOpen ? 'Hide Pitch Assets' : 'Open Pitch Assets'}
+              {pitchSectionOpen ? 'Hide Gallery' : 'Open Submission & Storyboard'}
             </button>
           </div>
           {pitchSectionOpen && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
-              {!storyboardMissing && (
+              <div className="eval-two-col">
+                {!missingMedia.hook10s && (
+                  <div>
+                    <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginBottom: 4 }}>
+                      10s Dual-Cam Twist Hook (<code>hook_10s_dualcam_twist.mp4</code>)
+                    </div>
+                    <video
+                      src="/assets/submission/hook_10s_dualcam_twist.mp4"
+                      controls
+                      playsInline
+                      onError={() => markMediaMissing('hook10s')}
+                      style={{ width: '100%', maxHeight: 190, borderRadius: 8, background: '#000' }}
+                    />
+                  </div>
+                )}
+                {!missingMedia.eval12s && (
+                  <div>
+                    <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginBottom: 4 }}>
+                      12s Empirical Curves Reel (<code>eval_dashboard_12s.mp4</code>)
+                    </div>
+                    <video
+                      src="/assets/submission/eval_dashboard_12s.mp4"
+                      controls
+                      playsInline
+                      onError={() => markMediaMissing('eval12s')}
+                      style={{ width: '100%', maxHeight: 190, borderRadius: 8, background: '#000' }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {!missingMedia.evalBoard && (
                 <div>
                   <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginBottom: 4 }}>
-                    Storyboard Filmstrip (<code>/assets/showcase_storyboard_strip.png</code>)
+                    Empirical Charts Board (<code>eval_charts_board.png</code>)
                   </div>
                   <img
-                    src="/assets/showcase_storyboard_strip.png"
-                    alt="StageState Storyboard Filmstrip"
-                    onError={() => setStoryboardMissing(true)}
+                    src="/assets/submission/eval_charts_board.png"
+                    alt="StageState Empirical Evaluation Charts Board"
+                    onError={() => markMediaMissing('evalBoard')}
                     style={{
                       width: '100%',
                       borderRadius: 8,
@@ -300,30 +336,50 @@ export const EvalModal: React.FC<EvalModalProps> = ({ open, onClose }) => {
                   />
                 </div>
               )}
-              {!pitchReelMissing && (
+
+              {!missingMedia.storyboard && (
                 <div>
                   <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginBottom: 4 }}>
-                    1-Min Pitch Demo Reel (<code>/assets/finals/pitch_demo_reel_1min.mp4</code>)
+                    Storyboard Filmstrip (<code>showcase_storyboard_strip.png</code>)
+                  </div>
+                  <img
+                    src="/assets/showcase_storyboard_strip.png"
+                    alt="StageState Storyboard Filmstrip"
+                    onError={() => markMediaMissing('storyboard')}
+                    style={{
+                      width: '100%',
+                      borderRadius: 8,
+                      border: '1px solid var(--border-subtle)',
+                      background: '#05070d',
+                    }}
+                  />
+                </div>
+              )}
+
+              {!missingMedia.pitchReel && (
+                <div>
+                  <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginBottom: 4 }}>
+                    1-Min Pitch Demo Reel (<code>pitch_demo_reel_1min.mp4</code>)
                   </div>
                   <video
                     src="/assets/finals/pitch_demo_reel_1min.mp4"
                     controls
                     playsInline
-                    onError={() => setPitchReelMissing(true)}
-                    style={{
-                      width: '100%',
-                      maxHeight: 240,
-                      borderRadius: 8,
-                      background: '#000',
-                    }}
+                    onError={() => markMediaMissing('pitchReel')}
+                    style={{ width: '100%', maxHeight: 220, borderRadius: 8, background: '#000' }}
                   />
                 </div>
               )}
-              {storyboardMissing && pitchReelMissing && (
-                <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                  Pitch storyboard strip and 1-min reel will appear here automatically once generated by P2.
-                </div>
-              )}
+
+              {missingMedia.hook10s &&
+                missingMedia.eval12s &&
+                missingMedia.evalBoard &&
+                missingMedia.storyboard &&
+                missingMedia.pitchReel && (
+                  <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                    Submission media gallery requires FastAPI static assets on port 8000.
+                  </div>
+                )}
             </div>
           )}
         </div>

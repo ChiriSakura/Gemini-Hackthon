@@ -4,9 +4,9 @@
   --bg-theater: #090b12;
   --bg-stage-panel: #101420;
   --bg-card: #151b2b;
-  --border-subtle: rgba(148, 163, 184, 0.16);
-  --text-primary: #f1f5f9;
-  --text-muted: #94a3b8;
+  --border-subtle: rgba(148, 163, 184, 0.22);
+  --text-primary: #f8fafc;
+  --text-muted: #b4c2d4;
   --accent-gold: #fbbf24;
   --accent-blue: #38bdf8;
   --accent-rose: #fb7185;
@@ -846,5 +846,109 @@ button {
 
   .branch-tree-panel {
     max-height: 145px;
+  }
+}
+
+/* W2-T8B & W2-T8C: Preset switcher pills & hover/focus scene thumbnail tooltip */
+.preset-branch-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.scene-node-wrap {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 118px;
+  display: flex;
+}
+
+.scene-node-wrap .scene-node-btn {
+  width: 100%;
+}
+
+.scene-thumb-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 124px;
+  background: #0b1120;
+  border: 1px solid rgba(251, 191, 36, 0.55);
+  border-radius: 8px;
+  padding: 2px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.72);
+  z-index: 80;
+  pointer-events: none;
+}
+
+.scene-thumb-tooltip img {
+  display: block;
+  width: 120px;
+  height: 68px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: #000;
+}
+
+.scene-thumb-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #fde68a;
+  padding: 2px 4px 1px;
+}
+
+.try-it-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  opacity: 0.92;
+}
+
+/* W2-T8H: High-contrast projector focus-visible & accessibility outlines */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent-gold);
+  outline-offset: 2px;
+}
+
+.pill-btn.subtle {
+  color: #cbd5e1;
+}
+
+.showcase-prop-strip {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* W2-T8I: Narrow-screen responsive stacking guard (<= 960px) */
+html,
+body {
+  overflow-x: hidden;
+}
+
+@media (max-width: 960px) {
+  .dual-cam-grid,
+  .compare-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cam-frame {
+    max-height: none;
+  }
+
+  .branch-row {
+    flex-wrap: wrap;
+  }
+
+  .branch-label-btn {
+    flex: 1 1 100%;
+  }
+
+  .scene-node-wrap {
+    flex: 1 1 calc(50% - 6px);
+    min-width: 130px;
   }
 }
