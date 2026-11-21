@@ -115,14 +115,14 @@ export class StageErrorBoundary extends React.Component<
               className="pill-btn active"
               onClick={this.handleReset}
             >
-              ↺ Recover Stage
+              Recover Stage
             </button>
             <button
               type="button"
               className="pill-btn blue"
               onClick={this.handleReload}
             >
-              🔄 Reload App
+              Reload App
             </button>
           </div>
         </div>

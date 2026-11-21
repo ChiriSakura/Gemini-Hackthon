@@ -1,16 +1,19 @@
 /**
- * 4-Scene Causal Story Branch Tree Component.
+ * Save Tree of Scene Snapshots.
  *
  * Feature & Use Cases:
- * - Visualizes all branches (e.g., BE `branch_v1`, HE `branch_v2_cached`,
- *   `branch_v3_starlight_cached`, `branch_v4_umbrella_shield_cached`, and live forks).
- * - Provides 1-click 4-branch preset switcher pills (`BE` / `HE Star` / `Twist V3` / `Shield V4`).
- * - Shows per-scene status badges derived from real data: `Reused` (only when
- *   `reused_from_branch` is set), `Cached` (pre-rendered clip of its own),
- *   `Rendered` (rendered during this session), `Not rendered`, or `Degraded`,
- *   plus a hover/focus thumbnail tooltip (tail frame + judge score if judged).
+ * - Every saved run is a row of photo snapshots on the tree, and a live rewrite
+ *   grows a new branch on it. Branches are glowing golden vines growing left to
+ *   right from a single trunk at Scene 1; scenes shared with the parent are
+ *   drawn once and the vine splits where a branch forks.
+ * - Each scene is a small framed photo snapshot (its Camera A tail frame when
+ *   the scene has media of its own) hanging from the vine with a slight tilt.
+ *   The active snapshot is larger and brighter, unrendered scenes are faint
+ *   dashed ghost frames, and ending snapshots carry a small BE/HE ribbon.
+ * - Click (or focus + Enter) jumps to that branch and scene. Status, narration
+ *   and the judge score only appear in the hover/focus card, never at a glance.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { BranchState, Scene } from '../types/schema';
 import { getBranchLabelEn, getSceneTextEn } from '../utils/displayLocale';
 import {
@@ -26,200 +29,367 @@ interface StoryBranchTreeProps {
   activeSceneIndex: number;
   /** `branchId:sceneId` keys of scenes rendered during this browser session. */
   renderedSceneKeys?: Set<string>;
+  /** Branches created by a live rewrite during this browser session. */
+  liveBranchIds?: Set<string>;
   onSelectScene: (branchId: string, sceneIndex: number) => void;
 }
 
-type SceneBadge = 'Reused' | 'Cached' | 'Rendered' | 'Not rendered' | 'Degraded';
+type SceneBadge = 'Reused' | 'Saved' | 'Live' | 'Not rendered' | 'Degraded';
 
-const BADGE_STYLE: Record<SceneBadge, { background: string; color: string }> = {
-  Reused: { background: 'rgba(52, 211, 153, 0.14)', color: '#6ee7b7' },
-  Rendered: { background: 'rgba(251, 191, 36, 0.16)', color: '#fde68a' },
-  Cached: { background: 'rgba(56, 189, 248, 0.14)', color: '#7dd3fc' },
-  'Not rendered': { background: 'rgba(148, 163, 184, 0.16)', color: '#cbd5e1' },
-  Degraded: { background: 'rgba(251, 113, 133, 0.16)', color: '#fda4af' },
-};
+interface TreeNode {
+  key: string;
+  branch: BranchState;
+  scene: Scene;
+  sceneIndex: number;
+  row: number;
+  col: number;
+  ownMedia: boolean;
+  badge: SceneBadge;
+  title: string;
+  narration: string;
+  tilt: number;
+  endTag: 'BE' | 'HE' | null;
+  branchTag: 'Saved' | 'Live' | null;
+}
 
-const PRESET_SLOTS: Array<{ label: string; match: (id: string) => boolean }> = [
-  { label: 'BE', match: (id) => id === 'branch_v1' },
-  { label: 'HE Star', match: (id) => id === 'branch_v2_cached' || id === 'branch_v2' },
-  { label: 'Twist V3', match: (id) => id.startsWith('branch_v3') },
-  { label: 'Shield V4', match: (id) => id.startsWith('branch_v4') },
-];
+interface TreeSegment {
+  key: string;
+  d: string;
+  width: number;
+  pending: boolean;
+  lit: boolean;
+}
+
+// SVG user units: one column and one row are each 100 units; the canvas is
+// stretched to the grid, so strokes use `vector-effect: non-scaling-stroke`.
+const COL_UNITS = 100;
+const ROW_UNITS = 100;
+const HANG_X = 22;
+const HANG_Y = 20;
+const SEGMENT_WIDTHS = [3.6, 3, 2.4, 1.9];
+
+function hashString(value: string): number {
+  let h = 0;
+  for (let i = 0; i < value.length; i++) {
+    h = (h * 31 + value.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+/** Deterministic tilt between roughly -3 and +3 degrees, never flat. */
+function tiltFor(key: string): number {
+  const raw = (hashString(key) % 600) / 100 - 3;
+  if (Math.abs(raw) < 1.2) return raw < 0 ? -1.8 : 1.8;
+  return Number(raw.toFixed(1));
+}
+
+function endingTag(branch: BranchState, lastScene: Scene | undefined): 'BE' | 'HE' | null {
+  const fromLabel = /\b(BE|HE)\b/.exec(branch.branch_label);
+  if (fromLabel) return fromLabel[1] as 'BE' | 'HE';
+  const fromTitle = lastScene ? /\b(BE|HE)\b/.exec(lastScene.title) : null;
+  return fromTitle ? (fromTitle[1] as 'BE' | 'HE') : null;
+}
 
 export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
   branches,
   activeBranchId,
   activeSceneIndex,
   renderedSceneKeys,
+  liveBranchIds,
   onSelectScene,
 }) => {
-  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+  const [tip, setTip] = useState<{ key: string; x: number; y: number } | null>(null);
   const [failedThumbs, setFailedThumbs] = useState<Record<string, boolean>>({});
+  const nodeRefs = useRef(new Map<string, HTMLButtonElement>());
 
-  const presetPills = PRESET_SLOTS.map((slot) => {
-    const found = branches.find((b) => slot.match(b.branch_id));
-    return found ? { label: slot.label, branch: found } : null;
-  }).filter((item): item is { label: string; branch: BranchState } => Boolean(item));
+  const layout = useMemo(() => {
+    const byId = new Map(branches.map((b) => [b.branch_id, b]));
+    const rowOf = new Map(branches.map((b, idx) => [b.branch_id, idx]));
+    const cols = Math.max(1, ...branches.map((b) => b.scenes.length));
 
-  const renderThumbTooltip = (sc: Scene, key: string, ownMedia: boolean) => {
-    const thumbUrl = ownMedia ? sc.media.cam_a_tail_frame_url : null;
-    if (hoveredKey !== key || !thumbUrl || failedThumbs[thumbUrl]) return null;
-    const judge = summarizeJudge(sc, ownMedia);
-    return (
-      <div className="scene-thumb-tooltip" role="tooltip">
-        <img
-          src={thumbUrl}
-          alt={`Scene ${sc.scene_id} preview`}
-          width={120}
-          height={68}
-          onError={() =>
-            setFailedThumbs((prev) =>
-              prev[thumbUrl] ? prev : { ...prev, [thumbUrl]: true },
-            )
-          }
-        />
-        <div className="scene-thumb-meta">
-          <span>S{sc.scene_id}</span>
-          <span>{judge.judged ? `QA ${judge.scorePct}%` : 'QA —'}</span>
-        </div>
-      </div>
-    );
+    // First scene number a branch draws itself; earlier scenes are the parent's
+    const firstOwnScene = (b: BranchState): number => {
+      if (!b.parent_branch_id || !byId.has(b.parent_branch_id)) return 1;
+      return Math.max(1, b.forked_from_scene ?? 1);
+    };
+    // Which branch actually draws scene `sceneId` on the way to branch `b`
+    const ownerOf = (b: BranchState, sceneId: number, depth = 0): BranchState => {
+      const parent = b.parent_branch_id ? byId.get(b.parent_branch_id) : undefined;
+      if (parent && depth < 12 && sceneId < firstOwnScene(b)) {
+        return ownerOf(parent, sceneId, depth + 1);
+      }
+      return b;
+    };
+    const hang = (col: number, row: number) => ({
+      x: (col - 1) * COL_UNITS + HANG_X,
+      y: row * ROW_UNITS + HANG_Y,
+    });
+    const curve = (
+      from: { x: number; y: number },
+      to: { x: number; y: number },
+      seed: string,
+    ): string => {
+      const dx = (to.x - from.x) * 0.55;
+      const wobble = from.y === to.y ? (hashString(seed) % 2 === 0 ? 9 : -9) : 0;
+      return `C ${from.x + dx} ${from.y + wobble}, ${to.x - dx} ${to.y - wobble}, ${to.x} ${to.y}`;
+    };
+    const startPoint = (b: BranchState, sceneId: number) => {
+      if (sceneId <= 1) {
+        // Everything grows out of one trunk at the left edge of Scene 1
+        const hasParent = Boolean(b.parent_branch_id && byId.has(b.parent_branch_id));
+        const trunkRow = hasParent ? 0 : (rowOf.get(b.branch_id) ?? 0);
+        return { x: 0, y: trunkRow * ROW_UNITS + HANG_Y + 6 };
+      }
+      const owner = ownerOf(b, sceneId - 1);
+      return hang(sceneId - 1, rowOf.get(owner.branch_id) ?? 0);
+    };
+
+    const active = byId.get(activeBranchId) ?? branches[0];
+    const litKeys = new Set<string>();
+    let sparklePath = '';
+    if (active) {
+      for (let sceneId = 1; sceneId <= active.scenes.length; sceneId++) {
+        const owner = ownerOf(active, sceneId);
+        litKeys.add(sceneKey(owner.branch_id, sceneId));
+        const from = startPoint(owner, sceneId);
+        const to = hang(sceneId, rowOf.get(owner.branch_id) ?? 0);
+        if (sceneId === 1) sparklePath = `M ${from.x} ${from.y} `;
+        sparklePath += `${curve(from, to, sceneKey(owner.branch_id, sceneId))} `;
+      }
+    }
+
+    const nodes: TreeNode[] = [];
+    const segments: TreeSegment[] = [];
+    branches.forEach((branch, row) => {
+      const first = firstOwnScene(branch);
+      const lastScene = branch.scenes[branch.scenes.length - 1];
+      let taggedBranch = false;
+      branch.scenes.forEach((scene, sceneIndex) => {
+        if (scene.scene_id < first) return;
+        const key = sceneKey(branch.branch_id, scene.scene_id);
+        const ownMedia = hasOwnFinalMedia(
+          scene,
+          findParentScene(branch, branches, scene.scene_id),
+        );
+        const badge: SceneBadge = scene.media.fallback_to_preview
+          ? 'Degraded'
+          : !ownMedia
+            ? 'Not rendered'
+            : scene.reused_from_branch
+              ? 'Reused'
+              : renderedSceneKeys?.has(key)
+                ? 'Live'
+                : 'Saved';
+        const text = getSceneTextEn(branch.branch_id, scene);
+        const col = sceneIndex + 1;
+        const branchTag = taggedBranch
+          ? null
+          : liveBranchIds?.has(branch.branch_id)
+            ? 'Live'
+            : 'Saved';
+        taggedBranch = true;
+        nodes.push({
+          key,
+          branch,
+          scene,
+          sceneIndex,
+          row,
+          col,
+          ownMedia,
+          badge,
+          title: text.title,
+          narration: text.narration,
+          tilt: tiltFor(key),
+          endTag: scene === lastScene ? endingTag(branch, lastScene) : null,
+          branchTag,
+        });
+        const from = startPoint(branch, scene.scene_id);
+        const to = hang(col, row);
+        segments.push({
+          key,
+          d: `M ${from.x} ${from.y} ${curve(from, to, key)}`,
+          width: SEGMENT_WIDTHS[Math.min(col - 1, SEGMENT_WIDTHS.length - 1)],
+          pending: !ownMedia,
+          lit: litKeys.has(key),
+        });
+      });
+    });
+
+    return { cols, rows: branches.length, nodes, segments, sparklePath };
+  }, [branches, activeBranchId, renderedSceneKeys, liveBranchIds]);
+
+  const activeKey = (() => {
+    const active = branches.find((b) => b.branch_id === activeBranchId) ?? branches[0];
+    const scene = active?.scenes[activeSceneIndex];
+    return active && scene ? sceneKey(active.branch_id, scene.scene_id) : null;
+  })();
+
+  // Keep the active branch's own snapshots in view when the tree scrolls
+  useEffect(() => {
+    const own = layout.nodes.find((n) => n.branch.branch_id === activeBranchId);
+    const el = own ? nodeRefs.current.get(own.key) : null;
+    el?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [activeBranchId, layout.nodes]);
+
+  const showTip = (node: TreeNode, el: HTMLElement) => {
+    const rect = el.getBoundingClientRect();
+    const x = Math.min(Math.max(rect.left + 30, 160), window.innerWidth - 160);
+    setTip({ key: node.key, x, y: rect.top - 10 });
   };
 
+  const tipNode = tip ? layout.nodes.find((n) => n.key === tip.key) : null;
+  const tipJudge = tipNode ? summarizeJudge(tipNode.scene, tipNode.ownMedia) : null;
+
+  const style = {
+    '--cols': layout.cols,
+    '--rows': Math.max(1, layout.rows),
+  } as React.CSSProperties;
+
   return (
-    <section className="branch-tree-panel">
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          fontSize: '0.8rem',
-          gap: 8,
-          flexWrap: 'wrap',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <strong>🌿 4-Scene Causal Story Tree</strong>
-          {presetPills.length >= 2 && (
-            <div className="preset-branch-pills" role="group" aria-label="Quick branch switcher">
-              {presetPills.map(({ label, branch }) => (
-                <button
-                  key={branch.branch_id}
-                  type="button"
-                  className={`pill-btn subtle ${branch.branch_id === activeBranchId ? 'active' : ''}`}
-                  style={{ padding: '2px 8px', fontSize: '0.7rem' }}
-                  onClick={() => onSelectScene(branch.branch_id, activeSceneIndex)}
-                  title={getBranchLabelEn(branch)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
+    <nav className="tree" aria-label="Story save tree" style={style}>
+      <div className="tree-inner">
+        <div className="tree-head" aria-hidden="true">
+          {Array.from({ length: layout.cols }, (_, i) => (
+            <span key={i}>Scene {i + 1}</span>
+          ))}
         </div>
-        <span style={{ color: 'var(--text-muted)', fontSize: '0.73rem' }}>
-          Click any branch or scene to jump &amp; compare timelines
-        </span>
-      </div>
+        <div className="tree-canvas">
+          <svg
+            className="tree-links"
+            viewBox={`0 0 ${layout.cols * COL_UNITS} ${Math.max(1, layout.rows) * ROW_UNITS}`}
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient
+                id="vine-gold"
+                gradientUnits="userSpaceOnUse"
+                x1="0"
+                y1="0"
+                x2={layout.cols * COL_UNITS}
+                y2="0"
+              >
+                <stop offset="0" stopColor="#f5c451" />
+                <stop offset="0.6" stopColor="#ffe6a3" />
+                <stop offset="1" stopColor="#fff6dc" />
+              </linearGradient>
+            </defs>
+            {layout.segments.map((seg) => (
+              <path
+                key={seg.key}
+                d={seg.d}
+                stroke="url(#vine-gold)"
+                strokeWidth={seg.lit ? seg.width + 0.8 : seg.width}
+                className={`${seg.lit ? 'lit' : ''} ${seg.pending ? 'pending' : ''}`}
+              />
+            ))}
+            {layout.sparklePath &&
+              [0, 1, 2].map((i) => (
+                <path key={i} className="tree-sparkle" d="M0 0h0.01">
+                  <animateMotion
+                    dur="9s"
+                    begin={`${i * 3}s`}
+                    repeatCount="indefinite"
+                    path={layout.sparklePath}
+                  />
+                  <animate
+                    attributeName="opacity"
+                    values="0;1;0.4;1;0"
+                    dur="9s"
+                    begin={`${i * 3}s`}
+                    repeatCount="indefinite"
+                  />
+                </path>
+              ))}
+          </svg>
 
-      {branches.map((branch) => {
-        const isCurrentBranch = branch.branch_id === activeBranchId;
-        const reusedCount = branch.scenes.filter((s) =>
-          Boolean(s.reused_from_branch),
-        ).length;
-
-        return (
-          <div key={branch.branch_id} className="branch-row">
-            <button
-              type="button"
-              className={`branch-label-btn ${isCurrentBranch ? 'active' : ''}`}
-              onClick={() => onSelectScene(branch.branch_id, activeSceneIndex)}
-              title={getBranchLabelEn(branch)}
-            >
-              <div style={{ fontWeight: 700 }}>{getBranchLabelEn(branch)}</div>
-              <div style={{ fontSize: '0.71rem', color: 'var(--text-muted)' }}>
-                {branch.forked_from_scene
-                  ? `Forked at Scene ${branch.forked_from_scene} · ${reusedCount}/${branch.scenes.length} scenes reused`
-                  : 'Primary Baseline Timeline'}
-              </div>
-            </button>
-
-            {branch.scenes.map((sc, idx) => {
-              const isSelected = isCurrentBranch && idx === activeSceneIndex;
-              const isReused = Boolean(sc.reused_from_branch);
-              const ownMedia = hasOwnFinalMedia(
-                sc,
-                findParentScene(branch, branches, sc.scene_id),
-              );
-              const nodeKey = sceneKey(branch.branch_id, sc.scene_id);
-              const badge: SceneBadge = sc.media.fallback_to_preview
-                ? 'Degraded'
-                : !ownMedia
-                  ? 'Not rendered'
-                  : isReused
-                    ? 'Reused'
-                    : renderedSceneKeys?.has(nodeKey)
-                      ? 'Rendered'
-                      : 'Cached';
-              const { title } = getSceneTextEn(branch.branch_id, sc);
-
+          <div className="tree-grid">
+            {layout.nodes.map((node) => {
+              const isActive = node.key === activeKey;
+              const onActiveBranch = node.branch.branch_id === activeBranchId;
+              const thumbUrl = node.ownMedia ? node.scene.media.cam_a_tail_frame_url : null;
+              const showImg = thumbUrl !== null && !failedThumbs[thumbUrl];
               return (
-                <div
-                  key={sc.scene_id}
-                  className="scene-node-wrap"
-                  onMouseEnter={() => setHoveredKey(nodeKey)}
-                  onMouseLeave={() => setHoveredKey((k) => (k === nodeKey ? null : k))}
+                <button
+                  key={node.key}
+                  type="button"
+                  ref={(el) => {
+                    if (el) nodeRefs.current.set(node.key, el);
+                    else nodeRefs.current.delete(node.key);
+                  }}
+                  className={`snap ${isActive ? 'active' : ''} ${
+                    onActiveBranch ? 'on-branch' : ''
+                  } ${node.ownMedia ? '' : 'ghost'} ${node.badge === 'Degraded' ? 'degraded' : ''}`}
+                  style={
+                    {
+                      gridColumn: node.col,
+                      gridRow: node.row + 1,
+                      '--tilt': `${node.tilt}deg`,
+                    } as React.CSSProperties
+                  }
+                  aria-current={isActive ? 'true' : undefined}
+                  aria-label={`${getBranchLabelEn(node.branch)} — Scene ${node.scene.scene_id}: ${node.title} (${node.badge})`}
+                  onClick={() => onSelectScene(node.branch.branch_id, node.sceneIndex)}
+                  onMouseEnter={(e) => showTip(node, e.currentTarget)}
+                  onMouseLeave={() => setTip((t) => (t?.key === node.key ? null : t))}
+                  onFocus={(e) => showTip(node, e.currentTarget)}
+                  onBlur={() => setTip((t) => (t?.key === node.key ? null : t))}
                 >
-                  {renderThumbTooltip(sc, nodeKey, ownMedia)}
-                  <button
-                    type="button"
-                    className={`scene-node-btn ${isSelected ? 'active' : ''} ${
-                      badge === 'Reused' ? 'reused' : ''
-                    }`}
-                    onFocus={() => setHoveredKey(nodeKey)}
-                    onBlur={() => setHoveredKey((k) => (k === nodeKey ? null : k))}
-                    onClick={() => onSelectScene(branch.branch_id, idx)}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        fontSize: '0.71rem',
-                        fontWeight: 700,
-                        gap: 4,
-                      }}
-                    >
-                      <span>Scene {sc.scene_id}</span>
-                      <span
-                        style={{
-                          padding: '1px 6px',
-                          borderRadius: 999,
-                          fontSize: '0.67rem',
-                          background: BADGE_STYLE[badge].background,
-                          color: BADGE_STYLE[badge].color,
-                        }}
-                      >
-                        {badge}
+                  <span className="snap-photo">
+                    {showImg && thumbUrl ? (
+                      <img
+                        src={thumbUrl}
+                        alt=""
+                        loading="lazy"
+                        onError={() =>
+                          setFailedThumbs((prev) =>
+                            prev[thumbUrl] ? prev : { ...prev, [thumbUrl]: true },
+                          )
+                        }
+                      />
+                    ) : (
+                      <span className={`snap-blank mood-${node.scene.lighting}`}>
+                        {node.scene.scene_id}
                       </span>
-                    </div>
-                    <div
-                      style={{
-                        fontSize: '0.76rem',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      {title}
-                    </div>
-                  </button>
-                </div>
+                    )}
+                    {node.endTag && (
+                      <span className={`snap-ribbon ${node.endTag === 'BE' ? 'be' : 'he'}`}>
+                        {node.endTag}
+                      </span>
+                    )}
+                  </span>
+                  <span className="snap-text">
+                    <span className="snap-title">{node.title}</span>
+                    {node.branchTag && (
+                      <span className={`snap-tag ${node.branchTag === 'Live' ? 'live' : ''}`}>
+                        {node.branchTag}
+                      </span>
+                    )}
+                  </span>
+                </button>
               );
             })}
           </div>
-        );
-      })}
-    </section>
+        </div>
+      </div>
+
+      {tip && tipNode && tipJudge && (
+        <div className="tree-tip" role="tooltip" style={{ left: tip.x, top: tip.y }}>
+          <strong>
+            Scene {tipNode.scene.scene_id} · {tipNode.title}
+          </strong>
+          <div>{tipNode.narration}</div>
+          <div className="tree-tip-meta">
+            {getBranchLabelEn(tipNode.branch)} ·{' '}
+            {liveBranchIds?.has(tipNode.branch.branch_id) ? 'Live branch' : 'Saved run'} ·{' '}
+            {tipNode.badge}
+            {tipNode.scene.reused_from_branch
+              ? ` from ${tipNode.scene.reused_from_branch}`
+              : ''}{' '}
+            · {tipJudge.judged ? `QA ${tipJudge.scorePct}%` : 'QA not judged'}
+          </div>
+        </div>
+      )}
+    </nav>
   );
 };

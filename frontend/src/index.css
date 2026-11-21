@@ -1131,13 +1131,12 @@ body::after {
   background: rgba(52, 211, 153, 0.1);
 }
 
-.mode-badge.mock {
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  color: #ffe4e6;
-  background: rgba(190, 18, 60, 0.45);
-  box-shadow: 0 0 0 1px #fb7185;
+.mode-badge.saved {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #e8e5f7;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 0 1px rgba(196, 181, 253, 0.35);
 }
 
 .icon-btn {
@@ -1170,8 +1169,6 @@ body::after {
 
 .icon-btn:focus-visible,
 .dock-btn:focus-visible,
-.tree-node:focus-visible,
-.tree-label:focus-visible,
 .menu-item:focus-visible,
 .qa-line:focus-visible,
 .stage-narration:focus-visible,
@@ -1635,18 +1632,20 @@ body::after {
   object-fit: contain;
 }
 
-/* ---- Zone 2: save tree ---- */
+/* ---- Zone 2: save tree of photo snapshots on a golden vine ---- */
 .tree {
   flex: 0 0 auto;
-  height: 168px;
+  height: clamp(176px, 26vh, 250px);
   min-height: 0;
   overflow: auto;
-  --row-h: 44px;
-  --label-w: 172px;
+  container-type: size;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245, 196, 81, 0.35) transparent;
 }
 
 .tree-inner {
-  min-width: 720px;
+  min-width: 760px;
+  --row-h: clamp(46px, calc((100cqh - 22px) / var(--rows)), 60px);
 }
 
 .tree-head {
@@ -1654,80 +1653,17 @@ body::after {
   top: 0;
   z-index: 3;
   display: grid;
-  grid-template-columns: var(--label-w) repeat(var(--cols), minmax(0, 1fr));
-  padding: 0 0 4px;
-  font-size: 0.62rem;
-  letter-spacing: 0.1em;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  height: 18px;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: #8f8ab0;
-  background: linear-gradient(180deg, rgba(17, 13, 44, 0.96) 70%, rgba(17, 13, 44, 0));
+  pointer-events: none;
 }
 
 .tree-head span {
-  text-align: center;
-}
-
-.tree-body {
-  display: grid;
-  grid-template-columns: var(--label-w) minmax(0, 1fr);
-}
-
-.tree-label {
-  height: var(--row-h);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  min-width: 0;
-  padding: 0 8px 0 4px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: #cfcae8;
-  text-align: left;
-}
-
-.tree-label:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.tree-label.active {
-  color: #fff;
-}
-
-.tree-label .tree-swatch {
-  width: 9px;
-  height: 9px;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: var(--accent);
-}
-
-.tree-label.active .tree-swatch {
-  box-shadow: 0 0 10px var(--accent);
-}
-
-.tree-label-text {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  line-height: 1.25;
-}
-
-.tree-label-text span {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.tree-label-name {
-  font-size: 0.74rem;
-  font-weight: 600;
-}
-
-.tree-label-sub {
-  font-size: 0.63rem;
-  color: #8f8ab0;
+  padding-left: calc(22% - 30px);
 }
 
 .tree-canvas {
@@ -1739,19 +1675,31 @@ body::after {
   inset: 0;
   width: 100%;
   height: 100%;
+  overflow: visible;
   pointer-events: none;
+  filter: drop-shadow(0 0 3px rgba(245, 196, 81, 0.75)) drop-shadow(0 0 9px rgba(245, 196, 81, 0.35));
 }
 
 .tree-links path {
   fill: none;
-  stroke-width: 1.75;
+  stroke-linecap: round;
   vector-effect: non-scaling-stroke;
-  opacity: 0.75;
+  opacity: 0.38;
+  transition: opacity 0.4s ease;
+}
+
+.tree-links path.lit {
+  opacity: 1;
 }
 
 .tree-links path.pending {
-  stroke-dasharray: 4 4;
-  opacity: 0.55;
+  stroke-dasharray: 2 6;
+}
+
+.tree-links path.tree-sparkle {
+  stroke: #fffaf0;
+  stroke-width: 3.2;
+  opacity: 0;
 }
 
 .tree-grid {
@@ -1761,111 +1709,192 @@ body::after {
   grid-auto-rows: var(--row-h);
 }
 
-.tree-node {
-  justify-self: center;
-  align-self: center;
-  width: 78%;
-  height: 36px;
+/* A snapshot hangs from the vine: its top centre sits on the hang point */
+.snap {
+  justify-self: start;
+  align-self: start;
+  margin: calc(var(--row-h) * 0.2 - 3px) 0 0 calc(22% - 30px);
+  max-width: calc(78% + 24px);
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 3px 8px 3px 4px;
-  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
-  border-radius: 9px;
-  background: #131029;
-  color: #ece9fb;
+  gap: 9px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #a9a4c9;
   text-align: left;
-  transition: box-shadow 0.2s ease, background 0.2s ease;
 }
 
-.tree-node:hover {
-  background: #1b1740;
-}
-
-.tree-node.pending {
-  border-style: dashed;
-  color: #b9b4d6;
-}
-
-.tree-node.degraded {
-  border-color: #fb7185;
-}
-
-.tree-node.active {
-  background: color-mix(in srgb, var(--accent) 16%, #131029);
-  box-shadow:
-    0 0 0 1px var(--accent),
-    0 0 18px color-mix(in srgb, var(--accent) 60%, transparent);
-}
-
-.tree-thumb {
-  width: 50px;
-  height: 28px;
+.snap-photo {
+  position: relative;
   flex: 0 0 auto;
-  border-radius: 5px;
+  width: 60px;
+  height: 37px;
+  padding: 2px 2px 4px;
+  border-radius: 2px;
+  background: #f6ead0;
+  box-shadow:
+    0 0 0 1px rgba(245, 196, 81, 0.75),
+    0 4px 10px rgba(0, 0, 0, 0.55),
+    0 0 12px rgba(245, 196, 81, 0.18);
+  transform: rotate(var(--tilt, 0deg));
+  transform-origin: 50% 0;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease;
+  opacity: 0.8;
+}
+
+.snap-photo img,
+.snap-blank {
+  width: 100%;
+  height: 100%;
+  display: block;
   object-fit: cover;
+  border-radius: 1px;
+}
+
+.snap-blank {
   display: grid;
   place-items: center;
-  font-size: 0.66rem;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.75);
+  font-family: var(--serif);
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.7);
   background: linear-gradient(135deg, #2a2456, #17143a);
 }
 
-.tree-thumb.mood-cold_blue {
+.snap-blank.mood-cold_blue {
   background: linear-gradient(135deg, #1e3a6b, #101c3d);
 }
 
-.tree-thumb.mood-warm_dim {
+.snap-blank.mood-warm_dim {
   background: linear-gradient(135deg, #4a3320, #1f1630);
 }
 
-.tree-thumb.mood-warm_transition {
+.snap-blank.mood-warm_transition {
   background: linear-gradient(135deg, #6b4a1e, #2a1a3d);
 }
 
-.tree-thumb.mood-warm_gold_snow {
+.snap-blank.mood-warm_gold_snow {
   background: linear-gradient(135deg, #8a6a1f, #3a2450);
 }
 
-.tree-node-text {
-  flex: 1;
+.snap.on-branch .snap-photo {
+  opacity: 1;
+}
+
+.snap:hover .snap-photo {
+  opacity: 1;
+  transform: rotate(var(--tilt, 0deg)) scale(1.08);
+}
+
+.snap.active .snap-photo {
+  opacity: 1;
+  z-index: 2;
+  transform: rotate(var(--tilt, 0deg)) scale(1.22);
+  box-shadow:
+    0 0 0 1.5px #ffe6a3,
+    0 6px 14px rgba(0, 0, 0, 0.6),
+    0 0 22px rgba(255, 214, 120, 0.75);
+}
+
+/* Unrendered scenes: faint ghost frames with a dashed outline */
+.snap.ghost .snap-photo {
+  background: transparent;
+  box-shadow: none;
+  outline: 1px dashed rgba(246, 234, 208, 0.6);
+  outline-offset: -1px;
+  opacity: 0.5;
+}
+
+.snap.ghost .snap-blank {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(246, 234, 208, 0.75);
+}
+
+.snap.ghost.active .snap-photo {
+  opacity: 0.95;
+  outline-color: #ffe6a3;
+  box-shadow: 0 0 18px rgba(255, 214, 120, 0.45);
+}
+
+.snap.degraded .snap-photo {
+  outline: 1px dashed #fb7185;
+}
+
+.snap-ribbon {
+  position: absolute;
+  top: -3px;
+  right: -7px;
+  width: 17px;
+  height: 21px;
+  padding-top: 2px;
+  font-size: 0.5rem;
+  font-weight: 800;
+  line-height: 1.3;
+  letter-spacing: 0.02em;
+  text-align: center;
+  color: #2a1a05;
+  background: linear-gradient(180deg, #ffe6a3, #f5c451);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 76%, 0 100%);
+}
+
+.snap-ribbon.be {
+  color: #fff1f2;
+  background: linear-gradient(180deg, #8b93b8, #5a6088);
+}
+
+.snap-text {
+  position: relative;
+  z-index: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: 1px;
+  margin-top: 9px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(17, 13, 44, 0.82);
   line-height: 1.2;
 }
 
-.tree-node-title {
-  font-size: 0.72rem;
-  font-weight: 600;
+.snap-title {
+  font-size: 0.7rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.tree-node-status {
-  font-size: 0.6rem;
-  color: #8f8ab0;
-  white-space: nowrap;
+.snap.on-branch .snap-title {
+  color: #e8e5f7;
 }
 
-.tree-end-tag {
-  flex: 0 0 auto;
-  font-size: 0.6rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  padding: 1px 5px;
-  border-radius: 5px;
-  color: #17122e;
-  background: var(--accent);
+.snap.active .snap-title {
+  color: #fff6dc;
+  font-weight: 600;
+}
+
+.snap-tag {
+  align-self: flex-start;
+  font-size: 0.56rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8f8ab0;
+}
+
+.snap-tag.live {
+  color: var(--gold);
+}
+
+.snap:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
 }
 
 .tree-tip {
   position: fixed;
   z-index: 80;
-  width: 280px;
+  width: 290px;
   padding: 10px 12px;
   border-radius: 10px;
   background: var(--panel);
@@ -1887,6 +1916,12 @@ body::after {
   margin-top: 5px;
   color: var(--ink-muted);
   font-size: 0.7rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tree-sparkle {
+    display: none;
+  }
 }
 
 /* ---- Zone 3: input dock pinned at the bottom ---- */
@@ -2089,14 +2124,19 @@ body::after {
   color: var(--ink-muted);
 }
 
-@media (max-height: 760px) {
-  .tree {
-    height: 150px;
-  }
-}
 
 @media (max-width: 900px) {
   .dock-btn span {
     display: none;
   }
+}
+
+.dock-input {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.dock-pop .text-input {
+  min-width: 0;
 }

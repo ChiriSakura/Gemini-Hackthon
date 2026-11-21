@@ -1,14 +1,17 @@
 /**
- * Unified Multimodal Director Control Bar (English-First UI).
+ * Director Input Dock (Zone 3 of the first view, pinned at the bottom).
  *
  * Feature & Use Cases:
- * - Combines camera + microphone into a single 3-second "Hold to Direct (3s Cam+Mic)"
- *   `.webm` capture button with live PiP preview.
- * - Includes "Snap Physical Prop" webcam capture panel wired to `POST /api/media/create-prop`.
- * - Provides text fallback input, target scene selector (1..4), quick hackathon
- *   demo preset chips, and inline contradiction confirmation.
+ * - One bar with a compact scene selector, a wide text field, and three
+ *   clearly separate controls: "Direct" (send the typed rewrite), "Hold to
+ *   talk" (press and hold to record up to 3 seconds of camera + microphone)
+ *   and "Show an object" (snap a physical prop with the camera and place it).
+ * - Example prompts live in a small "Examples" popover; choosing one fills the
+ *   text field so it is sent through the same live rewrite path.
+ * - Hosts the inline contradiction confirmation and camera/microphone hints.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { IconCamera, IconClapper, IconClose, IconList, IconMic } from './Icons';
 
 export type PropPlacement = 'table' | 'held' | 'floor';
 
@@ -89,22 +92,22 @@ function pickRecorderMime(hasVideo: boolean): string | undefined {
 const DEMO_PROMPTS: Array<{ sceneId: number; label: string; text: string }> = [
   {
     sceneId: 2,
-    label: 'HE · Scene 2 Starlight Gift',
+    label: 'Starlight gift',
     text: 'In Scene 2, Lia sets down her red umbrella and gently offers a glowing starlight token to soothe Nyx so the crystal vase stays intact.',
   },
   {
     sceneId: 2,
-    label: 'Shield · Umbrella Guard',
+    label: 'Umbrella guard',
     text: 'In Scene 2, Lia blocks the table with her red umbrella to protect the crystal vase from falling.',
   },
   {
     sceneId: 3,
-    label: 'Snow · Scene 3 Golden Snow',
+    label: 'Golden snow',
     text: 'In Scene 3, shift the conservatory lighting to warm golden snow as Nyx hops gently beside Lia.',
   },
   {
     sceneId: 3,
-    label: 'Conflict Test · Unbroken Vase',
+    label: 'Contradiction test',
     text: 'In Scene 3, Lia picks up the completely unbroken crystal vase from the table and hands it to Nyx.',
   },
 ];
@@ -125,6 +128,8 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
   const [recording, setRecording] = useState(false);
   const [remainingMs, setRemainingMs] = useState(MAX_CLIP_MS);
   const [holdHint, setHoldHint] = useState<string | null>(null);
+  const [examplesOpen, setExamplesOpen] = useState(false);
+  const textInputRef = useRef<HTMLInputElement | null>(null);
   const [audioLevel, setAudioLevel] = useState(0);
   const [camError, setCamError] = useState<string | null>(null);
   const [propPanelOpen, setPropPanelOpen] = useState(false);
@@ -188,6 +193,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
   };
 
   const handleTogglePropPanel = async () => {
+    setExamplesOpen(false);
     if (propPanelOpen) {
       stopPropCam();
       clearCapturedProp();
@@ -448,156 +454,101 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
   };
 
   return (
-    <section className="director-bar">
+    <section className="dock-input" aria-label="Director input">
       {contradictionWarning && (
-        <div
-          className="warning-banner"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 10,
-            flexWrap: 'wrap',
-          }}
-        >
+        <div className="notice error" role="alert">
           <span>
-            ⚠️ <strong>Contradiction Check:</strong> {contradictionWarning}
+            <strong>Contradiction check:</strong> {contradictionWarning}
           </span>
-          <span style={{ display: 'flex', gap: 8 }}>
-            {onDismissContradiction && (
-              <button
-                type="button"
-                className="pill-btn"
-                onClick={onDismissContradiction}
-              >
-                Cancel
-              </button>
-            )}
-            <button
-              type="button"
-              className="pill-btn active"
-              disabled={submitting}
-              onClick={() =>
-                onForceRewrite
-                  ? onForceRewrite()
-                  : onSubmitFork({ text, confirmContradiction: true })
-              }
-            >
-              Force Rewrite
+          {onDismissContradiction && (
+            <button type="button" className="notice-btn" onClick={onDismissContradiction}>
+              Cancel
             </button>
-          </span>
-        </div>
-      )}
-
-      {camError && <div className="warning-banner">{camError}</div>}
-      {holdHint && !camError && (
-        <div className="status-banner blue" role="status">
-          {holdHint}
-        </div>
-      )}
-
-      <form className="director-controls-row" onSubmit={handleTextSubmit}>
-        <button
-          type="button"
-          className={`hold-direct-btn ${recording ? 'recording' : ''}`}
-          onPointerDown={(e) => {
-            if (e.button !== 0) return;
-            void handleStartHold();
-          }}
-          onContextMenu={(e) => e.preventDefault()}
-          style={{ touchAction: 'none' }}
-          disabled={submitting}
-        >
-          {recording
-            ? `🔴 Recording (${(remainingMs / 1000).toFixed(1)}s left)`
-            : '🎥 Hold to Direct (3s Cam+Mic)'}
-        </button>
-
-        {onCreateProp && (
+          )}
           <button
             type="button"
-            className={`pill-btn ${propPanelOpen ? 'active' : ''}`}
-            onClick={handleTogglePropPanel}
-            disabled={creatingProp}
+            className="notice-btn strong"
+            disabled={submitting}
+            onClick={() =>
+              onForceRewrite
+                ? onForceRewrite()
+                : onSubmitFork({ text, confirmContradiction: true })
+            }
           >
-            {creatingProp ? '⏳ Creating Prop…' : '📷 Snap Physical Prop'}
+            Force rewrite
           </button>
-        )}
+        </div>
+      )}
 
-        {recording && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <video
-              ref={videoRef}
-              className="webcam-pip mirrored"
-              autoPlay
-              muted
-              playsInline
-            />
-            <div className="countdown-meter">
-              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#fde68a' }}>
-                {(remainingMs / 1000).toFixed(1)}s / 3.0s
-              </div>
-              <div className="countdown-track">
-                <div
-                  className="countdown-fill"
-                  style={{ width: `${Math.round((remainingMs / MAX_CLIP_MS) * 100)}%` }}
-                />
-              </div>
-              <div className="rms-row" title="Live microphone input RMS level">
-                <span style={{ fontSize: '0.66rem', color: '#94a3b8' }}>🎙️</span>
-                <div className="rms-track">
-                  <div
-                    className="rms-fill"
-                    style={{ width: `${Math.round(audioLevel * 100)}%` }}
-                  />
-                </div>
+      {camError && (
+        <div className="notice error" role="alert">
+          <span>{camError}</span>
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label="Dismiss"
+            title="Dismiss"
+            onClick={() => setCamError(null)}
+          >
+            <IconClose size={15} />
+          </button>
+        </div>
+      )}
+      {holdHint && !camError && (
+        <div className="notice" role="status">
+          <span>{holdHint}</span>
+        </div>
+      )}
+
+      {recording && (
+        <div className="dock-pop row" role="status">
+          <video ref={videoRef} className="webcam-pip mirrored" autoPlay muted playsInline />
+          <div className="countdown-meter">
+            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#fde68a' }}>
+              {(remainingMs / 1000).toFixed(1)}s left · release to send
+            </div>
+            <div className="countdown-track">
+              <div
+                className="countdown-fill"
+                style={{ width: `${Math.round((remainingMs / MAX_CLIP_MS) * 100)}%` }}
+              />
+            </div>
+            <div className="rms-row" title="Live microphone input level">
+              <IconMic size={13} />
+              <div className="rms-track">
+                <div className="rms-fill" style={{ width: `${Math.round(audioLevel * 100)}%` }} />
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        <select
-          className="select-input"
-          value={targetSceneId}
-          onChange={(e) => onTargetSceneChange(Number(e.target.value))}
-          aria-label="Target scene to rewrite"
-        >
-          <option value={1}>Rewrite Scene 1</option>
-          <option value={2}>Rewrite Scene 2</option>
-          <option value={3}>Rewrite Scene 3</option>
-          <option value={4}>Rewrite Scene 4</option>
-        </select>
-
-        <input
-          type="text"
-          className="text-input"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Type a one-sentence rewrite (e.g. In Scene 2, Lia offers a starlight gift to soothe Nyx...)"
-        />
-
-        <button
-          type="submit"
-          className="send-btn"
-          disabled={submitting || !text.trim()}
-        >
-          {submitting ? 'Working…' : '⚡ Fork & Direct'}
-        </button>
-      </form>
+      {examplesOpen && !cleanCaptureMode && (
+        <div className="dock-pop" role="dialog" aria-label="Example rewrites">
+          <div className="examples-list">
+            {DEMO_PROMPTS.map((preset, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => {
+                  setText(preset.text);
+                  onTargetSceneChange(preset.sceneId);
+                  setExamplesOpen(false);
+                  textInputRef.current?.focus();
+                }}
+              >
+                <small>
+                  Scene {preset.sceneId} · {preset.label}
+                </small>
+                {preset.text}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {propPanelOpen && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            flexWrap: 'wrap',
-            padding: '8px 10px',
-            borderRadius: 10,
-            background: 'rgba(15, 23, 42, 0.85)',
-            border: '1px solid rgba(56, 189, 248, 0.35)',
-          }}
-        >
+        <div className="dock-pop row" role="dialog" aria-label="Show an object to the camera">
           <video
             ref={propVideoRef}
             className="webcam-pip mirrored"
@@ -607,14 +558,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
             playsInline
           />
           {capturedPropPreviewUrl && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <img
-                src={capturedPropPreviewUrl}
-                alt="Captured prop snapshot"
-                className="webcam-pip"
-              />
-              <span className="qa-pill pass">Snapshot Ready</span>
-            </div>
+            <img src={capturedPropPreviewUrl} alt="Captured object snapshot" className="webcam-pip" />
           )}
           <input
             type="text"
@@ -622,9 +566,10 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
             style={{ maxWidth: 200 }}
             value={propName}
             onChange={(e) => setPropName(e.target.value)}
-            placeholder="Prop name (e.g. Starlight Shield)"
+            placeholder="Name this object"
+            aria-label="Object name"
           />
-          <div className="placement-chips" role="group" aria-label="Prop stage placement">
+          <div className="placement-chips" role="group" aria-label="Where to place it">
             {(
               [
                 { id: 'table', label: 'Table' },
@@ -645,11 +590,11 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
           {!capturedPropPreviewUrl ? (
             <button
               type="button"
-              className="pill-btn blue"
+              className="pill-btn"
               onClick={handleSnapPropPreview}
               disabled={creatingProp}
             >
-              📸 Snap Preview
+              Snap
             </button>
           ) : (
             <button
@@ -658,57 +603,122 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
               onClick={clearCapturedProp}
               disabled={creatingProp}
             >
-              🔄 Retake
+              Retake
             </button>
           )}
           <button
             type="button"
-            className="send-btn"
+            className="dock-btn primary"
             onClick={handleSubmitProp}
             disabled={creatingProp || !propName.trim()}
           >
-            {creatingProp
-              ? 'Generating…'
-              : capturedPropPreviewUrl
-                ? '✨ Place Snapshot on Stage'
-                : '📸 Capture & Place on Stage'}
+            {creatingProp ? 'Creating' : 'Place on stage'}
           </button>
           <button
             type="button"
-            className="pill-btn"
+            className="icon-btn"
+            aria-label="Close"
+            title="Close"
             onClick={handleTogglePropPanel}
           >
-            Close
+            <IconClose />
           </button>
         </div>
       )}
 
-      {!cleanCaptureMode && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.73rem', color: 'var(--text-muted)' }}>
-              Quick Presets:
-            </span>
-            {DEMO_PROMPTS.map((preset, idx) => (
-              <button
-                key={idx}
-                type="button"
-                className="pill-btn subtle"
-                style={{ fontSize: '0.72rem', padding: '3px 9px' }}
-                onClick={() => {
-                  setText(preset.text);
-                  onTargetSceneChange(preset.sceneId);
-                }}
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-          <div className="try-it-hint">
-            Try it: (1) Hold Cam+Mic for 3s · (2) Snap a desk object · (3) Compare BE vs HE side-by-side
-          </div>
+      <form className="dock-row" onSubmit={handleTextSubmit}>
+        <select
+          className="dock-scene"
+          value={targetSceneId}
+          onChange={(e) => onTargetSceneChange(Number(e.target.value))}
+          aria-label="Scene to rewrite"
+          title="Scene to rewrite"
+        >
+          <option value={1}>Scene 1</option>
+          <option value={2}>Scene 2</option>
+          <option value={3}>Scene 3</option>
+          <option value={4}>Scene 4</option>
+        </select>
+
+        <div className="dock-field">
+          <input
+            ref={textInputRef}
+            type="text"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Type what should change…"
+            aria-label="What should change"
+          />
+          {!cleanCaptureMode && (
+            <button
+              type="button"
+              className={`icon-btn ${examplesOpen ? 'on' : ''}`}
+              aria-label="Examples"
+              aria-expanded={examplesOpen}
+              title="Examples"
+              onClick={() => setExamplesOpen((v) => !v)}
+            >
+              <IconList />
+            </button>
+          )}
         </div>
-      )}
+
+        <button
+          type="submit"
+          className="dock-btn primary"
+          disabled={submitting || !text.trim()}
+          title="Rewrite the story from the selected scene"
+        >
+          <IconClapper />
+          <span>{submitting ? 'Working' : 'Direct'}</span>
+        </button>
+
+        <button
+          type="button"
+          className={`dock-btn ${recording ? 'recording' : ''}`}
+          onPointerDown={(e) => {
+            if (e.button !== 0) return;
+            setExamplesOpen(false);
+            void handleStartHold();
+          }}
+          onKeyDown={(e) => {
+            if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) {
+              e.preventDefault();
+              e.stopPropagation();
+              void handleStartHold();
+            }
+          }}
+          onKeyUp={(e) => {
+            if (e.key === ' ' || e.key === 'Enter') {
+              e.preventDefault();
+              e.stopPropagation();
+              handleRelease();
+            }
+          }}
+          onContextMenu={(e) => e.preventDefault()}
+          style={{ touchAction: 'none' }}
+          disabled={submitting}
+          aria-pressed={recording}
+          title="Press and hold to speak and gesture for up to 3 seconds"
+        >
+          <IconMic />
+          <span>{recording ? `${(remainingMs / 1000).toFixed(1)}s` : 'Hold to talk'}</span>
+        </button>
+
+        {onCreateProp && (
+          <button
+            type="button"
+            className={`dock-btn ${propPanelOpen ? 'on' : ''}`}
+            onClick={handleTogglePropPanel}
+            disabled={creatingProp}
+            aria-expanded={propPanelOpen}
+            title="Hold an object up to the camera and place it on the stage"
+          >
+            <IconCamera />
+            <span>{creatingProp ? 'Creating' : 'Show an object'}</span>
+          </button>
+        )}
+      </form>
     </section>
   );
 };

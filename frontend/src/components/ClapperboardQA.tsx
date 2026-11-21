@@ -1,26 +1,21 @@
 /**
- * Minimal Clapperboard QA Strip + Rule Memory Pill & Interactive Stage Prop Tray.
+ * Slim Clapperboard QA Line with Expandable Detail.
  *
  * Feature & Use Cases:
- * - Displays `judge()` confidence score, selected take (#1 or #2), auto-retry
- *   count, per-question pass/fail status pills, and active continuity rules.
+ * - At a glance shows only one small dot per judge question (green pass, red
+ *   fail, grey not judged). No numbers are shown until the line is opened.
+ * - Clicking the line expands the per-question detail (camera, question,
+ *   confidence, reason), the overall `judge()` score, selected take, retries,
+ *   the scene cues (lighting, voice, gesture, environment), active continuity
+ *   rules and the stage prop tray with live per-scene states.
  * - When the scene has no judge result of its own, every question is shown in a
  *   neutral "not judged" state and the score reads `judge() —`.
- * - Displays an interactive Stage Prop Tray with crisp thumbnails (automatically
- *   switching to `/assets/props/crystal_vase_broken.png` when broken) and live
- *   per-scene state badges (`intact` / `broken` / `held` / `glowing`).
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { PropRegistryItem, Scene } from '../types/schema';
 import { getPropNameEn } from '../utils/displayLocale';
 import { summarizeJudge } from '../utils/sceneMedia';
-
-function getPropFallbackEmoji(propId: string): string {
-  if (propId.includes('umbrella')) return '☂️';
-  if (propId.includes('vase')) return '🏺';
-  if (propId.includes('star')) return '⭐';
-  return '✨';
-}
+import { IconChevronDown, IconChevronUp, IconClapper } from './Icons';
 
 function parseCameraPrefix(question: string): { cam: 'CAM A' | 'CAM B' | null; text: string } {
   const match = question.match(/^\s*\[(CAM\s*[AB])\]\s*(.*)$/i);
@@ -45,11 +40,21 @@ export const ClapperboardQA: React.FC<ClapperboardQAProps> = ({
   cleanCaptureMode = false,
   hasOwnRender = true,
 }) => {
+  const [open, setOpen] = useState(false);
   const [failedThumbUrls, setFailedThumbUrls] = useState<Record<string, boolean>>({});
   const media = scene.media;
   const judge = summarizeJudge(scene, hasOwnRender);
-  const qaItems = judge.judged ? media.qa_result?.items : undefined;
+  const qaItems = judge.judged ? (media.qa_result?.items ?? []) : [];
   const propEntries = Object.entries(propsRegistry);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
 
   const resolveLivePropState = (propId: string, fallbackState: string): string => {
     const heldByActor = scene.actors.some((a) => a.holding_prop === propId);
@@ -58,140 +63,138 @@ export const ClapperboardQA: React.FC<ClapperboardQAProps> = ({
     return stageProp?.state ?? fallbackState;
   };
 
+  const summaryTitle = judge.judged
+    ? `judge() ${judge.scorePct}% · ${judge.passedCount}/${judge.total} checks passed — click for details`
+    : 'Not judged yet — click for details';
+
+  if (cleanCaptureMode) return null;
+
   return (
-    <div className="clapperboard-strip">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <span style={{ fontWeight: 700, fontSize: '0.82rem', color: '#fde68a' }}>
-          🎬 Clapperboard ·{' '}
-          {judge.judged ? `Take #${media.selected_candidate_index + 1}` : 'no take judged yet'}
-        </span>
-        {judge.judged ? (
-          <span
-            className={`qa-pill ${judge.allPassed ? 'pass' : 'fail'}`}
-            title={`${judge.passedCount}/${judge.total} checks passed`}
-          >
-            judge() {judge.scorePct}%
-          </span>
-        ) : (
-          <span className="qa-pill" title="No judge result for this scene yet">
-            judge() —
-          </span>
-        )}
-        {judge.judged && <span className="qa-pill">Retries: {media.qa_retries}</span>}
-        {media.fallback_to_preview && (
-          <span className="qa-pill fail">Degraded (2.5D Preview)</span>
-        )}
-        <span
-          className="qa-pill"
-          style={{ borderColor: 'rgba(167, 139, 250, 0.45)', color: '#ddd6fe' }}
-          title={rules.map((r, i) => `${i + 1}. ${r}`).join('\n')}
-        >
-          🧠 {rules.length} rules active
-        </span>
-      </div>
+    <div className="qa-wrap">
+      {open && (
+        <div className="qa-detail" role="region" aria-label="Judge details for this scene">
+          <div>
+            <h4>
+              {judge.judged
+                ? `Checks · judge() ${judge.scorePct}% · take ${media.selected_candidate_index + 1} · retries ${media.qa_retries}`
+                : 'Checks · judge() — · not judged yet'}
+            </h4>
+            {judge.judged
+              ? qaItems.map((item, idx) => {
+                  const parsed = parseCameraPrefix(item.question);
+                  return (
+                    <div key={idx} className="qa-row">
+                      <span className={`dot ${item.passed ? 'pass' : 'fail'}`} />
+                      <span className="qa-cam">{parsed.cam ?? ''}</span>
+                      <span>
+                        {parsed.text}
+                        {item.reason && <span className="qa-reason">{item.reason}</span>}
+                      </span>
+                      <span className="qa-conf">{Math.round(item.confidence * 100)}%</span>
+                    </div>
+                  );
+                })
+              : scene.qa_questions.map((q, idx) => {
+                  const parsed = parseCameraPrefix(q);
+                  return (
+                    <div key={idx} className="qa-row">
+                      <span className="dot" />
+                      <span className="qa-cam">{parsed.cam ?? ''}</span>
+                      <span>{parsed.text}</span>
+                      <span className="qa-conf">—</span>
+                    </div>
+                  );
+                })}
+          </div>
 
-      <div className="qa-pills">
-        {qaItems && qaItems.length > 0
-          ? qaItems.map((item, idx) => {
-              const parsed = parseCameraPrefix(item.question);
-              return (
-                <span
-                  key={idx}
-                  className={`qa-pill ${item.passed ? 'pass' : 'fail'}`}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                  title={item.reason ? `${parsed.text} — ${item.reason}` : parsed.text}
-                >
-                  {!cleanCaptureMode && parsed.cam && (
-                    <span className={`cam-mini-badge ${parsed.cam === 'CAM A' ? 'cam-a' : 'cam-b'}`}>
-                      {parsed.cam}
-                    </span>
-                  )}
-                  <span>
-                    {item.passed ? '✓' : '✗'} Q{idx + 1} (
-                    {Math.round(item.confidence * 100)}%)
-                  </span>
-                </span>
-              );
-            })
-          : scene.qa_questions.map((q, idx) => {
-              const parsed = parseCameraPrefix(q);
-              return (
-                <span
-                  key={idx}
-                  className="qa-pill"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    color: '#94a3b8',
-                  }}
-                  title={`${parsed.text} — not judged yet`}
-                >
-                  {!cleanCaptureMode && parsed.cam && (
-                    <span className={`cam-mini-badge ${parsed.cam === 'CAM A' ? 'cam-a' : 'cam-b'}`}>
-                      {parsed.cam}
-                    </span>
-                  )}
-                  <span>Q{idx + 1} · not judged</span>
-                </span>
-              );
-            })}
-      </div>
+          <div>
+            <h4>Scene cues</h4>
+            <dl className="qa-kv">
+              <dt>Lighting</dt>
+              <dd>{scene.lighting}</dd>
+              <dt>Voice</dt>
+              <dd>{scene.vocal_emotion}</dd>
+              <dt>Gesture</dt>
+              <dd>{scene.gesture_intent}</dd>
+              <dt>Environment</dt>
+              <dd>{scene.environment_notes || 'clean_stage'}</dd>
+            </dl>
 
-      {propEntries.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-            Props:
-          </span>
-          {propEntries.map(([id, item]) => {
-            const label = getPropNameEn(id, item);
-            const liveState = resolveLivePropState(id, item.state);
-            const preferredThumbUrl =
-              id === 'crystal_vase' && liveState === 'broken'
-                ? '/assets/props/crystal_vase_broken.png'
-                : item.image_url;
-            const resolvedThumbUrl = failedThumbUrls[preferredThumbUrl]
-              ? item.image_url
-              : preferredThumbUrl;
-            const showThumbImg =
-              Boolean(resolvedThumbUrl) && !failedThumbUrls[resolvedThumbUrl];
-            const stateClass =
-              liveState === 'broken'
-                ? 'fail'
-                : liveState === 'glowing' || liveState === 'intact'
-                  ? 'pass'
-                  : '';
+            <h4>{rules.length} continuity rules</h4>
+            <ol className="qa-list">
+              {rules.map((rule, idx) => (
+                <li key={idx}>{rule}</li>
+              ))}
+            </ol>
 
-            return (
-              <span
-                key={id}
-                className={`qa-pill ${stateClass}`}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}
-                title={`${label} · state=${liveState} · origin=${item.origin}`}
-              >
-                {showThumbImg ? (
-                  <img
-                    src={resolvedThumbUrl}
-                    alt={label}
-                    style={{ width: 18, height: 18, objectFit: 'contain' }}
-                    onError={() => {
-                      setFailedThumbUrls((prev) =>
-                        prev[resolvedThumbUrl]
-                          ? prev
-                          : { ...prev, [resolvedThumbUrl]: true },
-                      );
-                    }}
-                  />
-                ) : (
-                  <span aria-hidden="true">{getPropFallbackEmoji(id)}</span>
-                )}
-                <span>{label}</span>
-                <span className="prop-state-tag">{liveState}</span>
-              </span>
-            );
-          })}
+            {propEntries.length > 0 && (
+              <>
+                <h4>Props</h4>
+                <div className="qa-props">
+                  {propEntries.map(([id, item]) => {
+                    const label = getPropNameEn(id, item);
+                    const liveState = resolveLivePropState(id, item.state);
+                    const preferredThumbUrl =
+                      id === 'crystal_vase' && liveState === 'broken'
+                        ? '/assets/props/crystal_vase_broken.png'
+                        : item.image_url;
+                    const resolvedThumbUrl = failedThumbUrls[preferredThumbUrl]
+                      ? item.image_url
+                      : preferredThumbUrl;
+                    const showThumbImg =
+                      Boolean(resolvedThumbUrl) && !failedThumbUrls[resolvedThumbUrl];
+                    return (
+                      <span
+                        key={id}
+                        className="qa-prop"
+                        title={`${label} · state=${liveState} · origin=${item.origin}`}
+                      >
+                        {showThumbImg && (
+                          <img
+                            src={resolvedThumbUrl}
+                            alt=""
+                            onError={() => {
+                              setFailedThumbUrls((prev) =>
+                                prev[resolvedThumbUrl]
+                                  ? prev
+                                  : { ...prev, [resolvedThumbUrl]: true },
+                              );
+                            }}
+                          />
+                        )}
+                        <span>{label}</span>
+                        <span className="prop-state-tag">{liveState}</span>
+                      </span>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
+
+      <button
+        type="button"
+        className="qa-line"
+        aria-expanded={open}
+        aria-label={summaryTitle}
+        title={summaryTitle}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <IconClapper size={15} />
+        <span className="qa-dots">
+          {judge.judged
+            ? qaItems.map((item, idx) => (
+                <span key={idx} className={`dot ${item.passed ? 'pass' : 'fail'}`} />
+              ))
+            : scene.qa_questions.map((_, idx) => <span key={idx} className="dot" />)}
+        </span>
+        {!judge.judged && <span>Not judged yet</span>}
+        {media.fallback_to_preview && <span className="qa-score fail">Degraded to 2.5D preview</span>}
+        <span className="qa-grow" />
+        {open ? <IconChevronDown size={15} /> : <IconChevronUp size={15} />}
+      </button>
     </div>
   );
 };
