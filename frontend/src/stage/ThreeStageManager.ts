@@ -145,6 +145,16 @@ export class ThreeStageManager {
   private currentLighting: LightingPreset = 'warm_dim';
   private cameraShake = false;
   private cameraBTarget = new THREE.Vector3(0, 0.9, 0);
+  private currentCameraBTarget = new THREE.Vector3(0, 0.9, 0);
+  private targetBgColor = new THREE.Color('#0c101d');
+  private targetAmbientColor = new THREE.Color('#cbd5e1');
+  private targetAmbientIntensity = 0.8;
+  private targetSpotColor = new THREE.Color('#fde68a');
+  private targetSpotIntensity = 26;
+  private targetRimColor = new THREE.Color('#60a5fa');
+  private contextLostHandler = (ev: Event) => {
+    ev.preventDefault();
+  };
   private animFrameId: number | null = null;
   private clock = new THREE.Clock();
   private disposed = false;
@@ -205,6 +215,9 @@ export class ThreeStageManager {
     this.snowPoints = this.buildWeatherParticles(320, '#fde68a', 0.22);
     this.scene.add(this.rainPoints);
     this.scene.add(this.snowPoints);
+
+    this.canvasA.addEventListener('webglcontextlost', this.contextLostHandler);
+    this.canvasB.addEventListener('webglcontextlost', this.contextLostHandler);
 
     this.startLoop();
   }
@@ -634,6 +647,18 @@ export class ThreeStageManager {
       }
     }
 
+    // W2-T8F: Track non-vase props sharing the center table so they never overlap `crystal_vase`
+    const hasTableVase = propsToPlace.some(
+      (p) => p.id === 'crystal_vase' && !p.on_floor && !p.heldByActor,
+    );
+    const tableOffsets: Array<[number, number]> = [
+      [0.26, 0.1],
+      [-0.26, 0.12],
+      [0.22, -0.16],
+      [-0.22, -0.16],
+    ];
+    let extraTablePropIdx = 0;
+
     for (const prop of propsToPlace) {
       if (prop.id === 'red_umbrella' && !prop.on_floor) continue;
       activePropIds.add(prop.id);
@@ -645,7 +670,20 @@ export class ThreeStageManager {
         prop.id === 'crystal_vase' && isBroken
           ? '/assets/props/crystal_vase_broken.png'
           : baseImageUrl;
-      const { x, z } = gridToWorld(prop.grid);
+      const worldCoords = gridToWorld(prop.grid);
+      let x = worldCoords.x;
+      let z = worldCoords.z;
+      const nearCenterTable =
+        !prop.on_floor &&
+        !prop.heldByActor &&
+        Math.abs(prop.grid[0] - 1) < 0.35 &&
+        Math.abs(prop.grid[1] - 1) < 0.35;
+      if (hasTableVase && nearCenterTable && prop.id !== 'crystal_vase') {
+        const [ox, oz] = tableOffsets[extraTablePropIdx % tableOffsets.length];
+        x += ox;
+        z += oz;
+        extraTablePropIdx += 1;
+      }
       if (prop.id === 'crystal_vase' && isBroken) {
         anyBrokenVase = true;
       }
@@ -801,50 +839,70 @@ export class ThreeStageManager {
 
     switch (preset) {
       case 'warm_dim':
-        this.scene.background = new THREE.Color('#0c101d');
-        this.ambientLight.color.set('#cbd5e1');
-        this.ambientLight.intensity = 0.8;
-        this.spotLight.color.set('#fde68a');
-        this.spotLight.intensity = 26;
-        this.rimLight.color.set('#60a5fa');
+        this.targetBgColor.set('#0c101d');
+        this.targetAmbientColor.set('#cbd5e1');
+        this.targetAmbientIntensity = 0.8;
+        this.targetSpotColor.set('#fde68a');
+        this.targetSpotIntensity = 26;
+        this.targetRimColor.set('#60a5fa');
         break;
       case 'cold_blue':
-        this.scene.background = new THREE.Color('#050b18');
-        this.ambientLight.color.set('#60a5fa');
-        this.ambientLight.intensity = 0.65;
-        this.spotLight.color.set('#93c5fd');
-        this.spotLight.intensity = 22;
-        this.rimLight.color.set('#38bdf8');
+        this.targetBgColor.set('#050b18');
+        this.targetAmbientColor.set('#60a5fa');
+        this.targetAmbientIntensity = 0.65;
+        this.targetSpotColor.set('#93c5fd');
+        this.targetSpotIntensity = 22;
+        this.targetRimColor.set('#38bdf8');
         break;
       case 'warm_transition':
-        this.scene.background = new THREE.Color('#131122');
-        this.ambientLight.color.set('#fcd34d');
-        this.ambientLight.intensity = 0.95;
-        this.spotLight.color.set('#fef08a');
-        this.spotLight.intensity = 32;
-        this.rimLight.color.set('#f59e0b');
+        this.targetBgColor.set('#131122');
+        this.targetAmbientColor.set('#fcd34d');
+        this.targetAmbientIntensity = 0.95;
+        this.targetSpotColor.set('#fef08a');
+        this.targetSpotIntensity = 32;
+        this.targetRimColor.set('#f59e0b');
         break;
       case 'warm_gold_snow':
-        this.scene.background = new THREE.Color('#1a1423');
-        this.ambientLight.color.set('#fde68a');
-        this.ambientLight.intensity = 1.1;
-        this.spotLight.color.set('#fbbf24');
-        this.spotLight.intensity = 38;
-        this.rimLight.color.set('#f472b6');
+        this.targetBgColor.set('#1a1423');
+        this.targetAmbientColor.set('#fde68a');
+        this.targetAmbientIntensity = 1.1;
+        this.targetSpotColor.set('#fbbf24');
+        this.targetSpotIntensity = 38;
+        this.targetRimColor.set('#f472b6');
         break;
     }
+  }
+
+  private updateLighting(dt: number): void {
+    const t = Math.min(1, dt * 4.5);
+    if (this.scene.background instanceof THREE.Color) {
+      this.scene.background.lerp(this.targetBgColor, t);
+    }
+    if (this.scene.fog instanceof THREE.FogExp2) {
+      this.scene.fog.color.lerp(this.targetBgColor, t);
+    }
+    this.ambientLight.color.lerp(this.targetAmbientColor, t);
+    this.ambientLight.intensity += (this.targetAmbientIntensity - this.ambientLight.intensity) * t;
+    this.spotLight.color.lerp(this.targetSpotColor, t);
+    this.spotLight.intensity += (this.targetSpotIntensity - this.spotLight.intensity) * t;
+    this.rimLight.color.lerp(this.targetRimColor, t);
   }
 
   private startLoop(): void {
     const tick = () => {
       if (this.disposed) return;
       this.animFrameId = requestAnimationFrame(tick);
+      if (typeof document !== 'undefined' && document.hidden) {
+        this.clock.getDelta();
+        return;
+      }
       const dt = Math.min(this.clock.getDelta(), 0.05);
       const elapsed = this.clock.elapsedTime;
 
+      this.updateLighting(dt);
       this.updateEntities(dt, elapsed);
       this.updateWeather(dt, elapsed);
-      this.updateCameras(elapsed);
+      this.updateCameras(dt, elapsed);
 
       this.rendererA.render(this.scene, this.cameraA);
       this.rendererB.render(this.scene, this.cameraB);
@@ -898,6 +956,10 @@ export class ThreeStageManager {
         const pulse = 1 + Math.sin(elapsed * 4) * 0.08;
         ent.sprite.scale.set(ent.baseScale[0] * pulse, ent.baseScale[1] * pulse, 1);
         ent.sprite.position.y = ent.targetPos.y + Math.sin(elapsed * 2.6) * 0.06;
+      } else {
+        const sx = ent.sprite.scale.x + (ent.baseScale[0] - ent.sprite.scale.x) * lerpFactor;
+        const sy = ent.sprite.scale.y + (ent.baseScale[1] - ent.sprite.scale.y) * lerpFactor;
+        ent.sprite.scale.set(sx, sy, 1);
       }
     }
   }
@@ -932,15 +994,16 @@ export class ThreeStageManager {
     }
   }
 
-  private updateCameras(elapsed: number): void {
+  private updateCameras(dt: number, elapsed: number): void {
     const shakeX = this.cameraShake ? Math.sin(elapsed * 38) * 0.08 : 0;
     const shakeY = this.cameraShake ? Math.cos(elapsed * 43) * 0.06 : 0;
 
     this.cameraA.position.set(shakeX, 2.75 + shakeY, 6.2);
     this.cameraA.lookAt(0, 0.9, 0);
 
+    this.currentCameraBTarget.lerp(this.cameraBTarget, Math.min(1, dt * 5.0));
     this.cameraB.position.set(3.25 + shakeX * 0.8, 1.95 + shakeY * 0.8, 3.55);
-    this.cameraB.lookAt(this.cameraBTarget);
+    this.cameraB.lookAt(this.currentCameraBTarget);
   }
 
   /**
@@ -1062,6 +1125,8 @@ export class ThreeStageManager {
 
   public dispose(): void {
     this.disposed = true;
+    this.canvasA.removeEventListener('webglcontextlost', this.contextLostHandler);
+    this.canvasB.removeEventListener('webglcontextlost', this.contextLostHandler);
     if (this.animFrameId !== null) {
       cancelAnimationFrame(this.animFrameId);
     }

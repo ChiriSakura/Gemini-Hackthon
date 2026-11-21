@@ -1,22 +1,22 @@
 {
   "agent": "P3_frontend",
   "branch": "feat/w2-frontend",
-  "current_milestone": "T7_FINAL_READY",
-  "status": "all_10_t6_t7_booth_polish_tasks_completed_ready_for_master_merge",
+  "current_milestone": "T8_FINAL_SHOWCASE",
+  "status": "all_10_t8_final_showcase_tasks_completed_ready_for_master_merge",
   "capture_stream_mode": "webm_with_png_fallback",
   "auto_poll_enabled": true,
   "completed_items": [
-    "W2-T6E: Added non-black tail-frame <video poster=...> transition frames and adjacent-scene MP4 metadata preloading during AI Render / Play 1->4 in DualCameraStage.tsx",
-    "W2-T6F: Added collapsible Storyboard Filmstrip (/assets/showcase_storyboard_strip.png) & 1-Min Pitch Reel (/assets/finals/pitch_demo_reel_1min.mp4) preview section with graceful onError handling in EvalModal.tsx",
-    "W2-T6G: Added compact '?' keyboard cheat-sheet popover next to Eval (hidden in Clean Mode) and bound 'R' shortcut to Reset Demo in App.tsx",
-    "W2-T6H: Added 3-chip Physical Prop Placement Picker (Table / Held / Floor) in DirectControlBar.tsx wired directly to StagePropState & actor holding_prop in App.tsx",
-    "W2-T6I: Tuned responsive zero-scroll projector layout breakpoints (max-height 920px & 800px) in index.css for 1280x800 and 1440x900 screens",
-    "W2-T6J: Verified 0 CJK UI strings across frontend/src + index.html and clean `npx tsc --noEmit && npm run build` (594ms, 0 errors)",
-    "W2-T7A: Added mutually exclusive Side-by-Side Comparison audio toggles (Audio: Baseline / Audio: Active / Muted) in DualCameraStage.tsx with zero audio overlap",
-    "W2-T7B: Added toggleable warm-gold floor diff halo ring under actors whose action or holding_prop changed in forked scenes (ThreeStageManager.ts + DualCameraStage.tsx)",
-    "W2-T7C: Added non-blocking '>35s' live demo safety pill ('Switch to Cached Starlight Branch') jumping cleanly to branch_v3_starlight_cached without losing poise on stage",
-    "W2-T7D: Completed final pre-freeze E2E verification (offline Vite /assets 200 OK, multi-branch v1..v3+ switcher, shortcuts, prop placement, audio toggles, clean build)"
+    "W2-T8A: Added Submission & Storyboard Showcase Gallery inside EvalModal.tsx (hook_10s_dualcam_twist.mp4, eval_dashboard_12s.mp4, eval_charts_board.png, showcase_storyboard_strip.png) plus all 3 desk props (showcase_desk_brass_key/coffee_mug/paper_heart.png) with graceful onError fallbacks",
+    "W2-T8B: Added 1-click 4-branch preset switcher pills (BE / HE Star / Twist V3 / Shield V4) along StoryBranchTree header",
+    "W2-T8C: Added hover/focus 120x68px cam_a_tail_frame_url preview tooltip with QA score on StoryBranchTree scene nodes",
+    "W2-T8D: Made Mock Fallback Mode header badge clickable ('Mock Fallback Mode · ↻ Retry API') to re-ping fetchBranches() & fetchDirectorRules() without reloading",
+    "W2-T8E: Created zero-dependency Web Audio confirmation chime (frontend/src/utils/soundCue.ts, <0.25s harmonic fifth) gated on soundEnabled for fork & render completion",
+    "W2-T8F: Added center-table prop de-overlap staggering (+0.26 X / +0.10 Z etc.) in ThreeStageManager.ts so extra desk props never overlap crystal_vase",
+    "W2-T8G: Added concise 1-line 3-step Try-It guide below Quick Presets in DirectControlBar.tsx (hidden cleanly in Clean View)",
+    "W2-T8H: Polished high-contrast booth projector labels (--text-muted #b4c2d4, >=4.5:1 contrast) and crisp gold :focus-visible outlines in index.css",
+    "W2-T8I: Added narrow-screen (<=960px) responsive stacking guard and overflow-x: hidden in index.css",
+    "W2-T8J: Passed `npx tsc --noEmit && npm run build` (590ms, 0 errors), 0 CJK UI strings across frontend/src + index.html, verified 32/32 MP4 links across branch_v1..v4 + 7/7 submission & desk showcase assets + offline Vite /assets 200 OK"
   ],
   "blockers": [],
-  "last_updated": "2026-11-21T13:38:10-05:00"
+  "last_updated": "2026-11-21T13:45:45-05:00"
 }

@@ -32,6 +32,7 @@ import { INITIAL_MOCK_BRANCHES } from './data/mockBranches';
 import type { PreviewExportResult } from './stage/ThreeStageManager';
 import type { BranchState, Scene } from './types/schema';
 import { getBranchLabelEn } from './utils/displayLocale';
+import { playCompletionChime } from './utils/soundCue';
 
 interface PendingForkInput {
   parentBranchId: string;
@@ -44,6 +45,8 @@ interface PendingForkInput {
 export default function App(): React.ReactElement {
   const [branches, setBranches] = useState<BranchState[]>(INITIAL_MOCK_BRANCHES);
   const [isMockMode, setIsMockMode] = useState(true);
+  const [reconnectingApi, setReconnectingApi] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(false);
   const [activeBranchId, setActiveBranchId] = useState<string>('branch_v1');
   const [compareBranchId, setCompareBranchId] = useState<string | null>(null);
   const [activeSceneIndex, setActiveSceneIndex] = useState<number>(0);
@@ -66,19 +69,33 @@ export default function App(): React.ReactElement {
   );
   const [statusNote, setStatusNote] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchBranches().then(({ branches: loaded, fromMock }) => {
-      setBranches(loaded);
-      setIsMockMode(fromMock);
-      if (loaded.length > 0) {
-        setActiveBranchId(loaded[0].branch_id);
-        // If live backend returns cached Omni Flash MP4s, let judges switch easily
-        if (!fromMock && loaded[0].scenes[0]?.media.cam_a_final_url) {
-          setViewMode('final');
-        }
+  const loadBackendState = async (showFeedback = false) => {
+    setReconnectingApi(true);
+    const { branches: loaded, fromMock } = await fetchBranches();
+    setBranches(loaded);
+    setIsMockMode(fromMock);
+    if (loaded.length > 0) {
+      setActiveBranchId((curr) =>
+        loaded.some((b) => b.branch_id === curr) ? curr : loaded[0].branch_id,
+      );
+      if (!fromMock && loaded[0].scenes[0]?.media.cam_a_final_url) {
+        setViewMode('final');
       }
-    });
-    fetchDirectorRules().then(setRules);
+    }
+    const fetchedRules = await fetchDirectorRules();
+    setRules(fetchedRules);
+    setReconnectingApi(false);
+    if (showFeedback) {
+      setStatusNote(
+        fromMock
+          ? 'Backend still offline — staying in Mock Fallback Mode.'
+          : `Connected to Live FastAPI (${loaded.length} branches loaded)!`,
+      );
+    }
+  };
+
+  useEffect(() => {
+    loadBackendState(false);
   }, []);
 
   const activeBranch = useMemo(
@@ -278,6 +295,7 @@ export default function App(): React.ReactElement {
     setActiveSceneIndex(Math.max(0, effectiveTargetSceneId - 1));
     setTargetSceneId(effectiveTargetSceneId);
     setCompareEnabled(true);
+    playCompletionChime(soundEnabled);
     setStatusNote(
       simulated
         ? 'Offline mock simulation: forked new timeline on 2.5D stage.'
@@ -347,6 +365,7 @@ export default function App(): React.ReactElement {
       ),
     );
     setViewMode('final');
+    playCompletionChime(soundEnabled);
     setStatusNote(
       result.media.fallback_to_preview
         ? `Scene ${scene.scene_id} degraded to 2.5D preview after QA retries.`
@@ -370,6 +389,7 @@ export default function App(): React.ReactElement {
       prev.map((b) => (b.branch_id === updated.branch_id ? updated : b)),
     );
     setViewMode('final');
+    playCompletionChime(soundEnabled);
     setStatusNote(`All affected scenes rendered for ${getBranchLabelEn(updated)}!`);
   };
 
@@ -487,11 +507,23 @@ export default function App(): React.ReactElement {
           <span className="brand-subtitle">
             One-Sentence Dual-Camera 2.5D Stage Director
           </span>
-          {!cleanCaptureMode && (
-            <span className="cam-tag" style={{ fontSize: '0.7rem' }}>
-              {isMockMode ? 'Mock Mode' : 'Live FastAPI'}
-            </span>
-          )}
+          {!cleanCaptureMode &&
+            (isMockMode ? (
+              <button
+                type="button"
+                className="pill-btn subtle"
+                style={{ fontSize: '0.7rem', padding: '3px 9px' }}
+                onClick={() => loadBackendState(true)}
+                disabled={reconnectingApi}
+                title="Re-ping FastAPI backend without reloading the page"
+              >
+                {reconnectingApi ? '⏳ Reconnecting…' : 'Mock Fallback Mode · ↻ Retry API'}
+              </button>
+            ) : (
+              <span className="cam-tag ai-ready" style={{ fontSize: '0.7rem' }}>
+                Live FastAPI
+              </span>
+            ))}
         </div>
 
         <div className="toolbar-actions">
@@ -627,6 +659,8 @@ export default function App(): React.ReactElement {
         renderingScene={renderingScene}
         renderProgress={renderProgress}
         isPlayingStory={isPlayingStory}
+        soundEnabled={soundEnabled}
+        onSoundEnabledChange={setSoundEnabled}
         cleanCaptureMode={cleanCaptureMode}
         onSelectCompareBranch={setCompareBranchId}
         onSwitchToCachedSafeBranch={handleSwitchToCachedSafeBranch}

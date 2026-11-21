@@ -29,6 +29,8 @@ interface DualCameraStageProps {
   renderingScene: boolean;
   renderProgress?: RenderProgressSnapshot | null;
   isPlayingStory: boolean;
+  soundEnabled: boolean;
+  onSoundEnabledChange: (enabled: boolean) => void;
   cleanCaptureMode?: boolean;
   onSelectCompareBranch?: (branchId: string) => void;
   onSwitchToCachedSafeBranch?: () => void;
@@ -48,6 +50,8 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
   renderingScene,
   renderProgress = null,
   isPlayingStory,
+  soundEnabled,
+  onSoundEnabledChange,
   cleanCaptureMode = false,
   onSelectCompareBranch,
   onSwitchToCachedSafeBranch,
@@ -66,7 +70,6 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
   const [exporting, setExporting] = useState(false);
   const [autoCutEnabled, setAutoCutEnabled] = useState(false);
   const [activeCutCam, setActiveCutCam] = useState<'A' | 'B'>('A');
-  const [soundEnabled, setSoundEnabled] = useState(false);
   const [compareAudioSource, setCompareAudioSource] = useState<'none' | 'baseline' | 'active'>('none');
   const [diffHaloEnabled, setDiffHaloEnabled] = useState(true);
   const [failedVideoUrls, setFailedVideoUrls] = useState<Record<string, boolean>>({});
@@ -158,7 +161,7 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
   const handleSelectCompareAudio = (target: 'baseline' | 'active') => {
     setCompareAudioSource((prev) => {
       const next = prev === target ? 'none' : target;
-      if (next !== 'none') setSoundEnabled(false);
+      if (next !== 'none') onSoundEnabledChange(false);
       return next;
     });
   };
@@ -305,13 +308,11 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
               type="button"
               className={`pill-btn ${soundEnabled ? 'active' : ''}`}
               onClick={() => {
-                setSoundEnabled((v) => {
-                  const next = !v;
-                  if (next) setCompareAudioSource('none');
-                  return next;
-                });
+                const next = !soundEnabled;
+                onSoundEnabledChange(next);
+                if (next) setCompareAudioSource('none');
               }}
-              title="Toggle native Omni Flash audio track (Cam A)"
+              title="Toggle native Omni Flash audio track (Cam A) & UI chime"
             >
               {soundEnabled ? '🔊 Sound On' : '🔇 Muted'}
             </button>

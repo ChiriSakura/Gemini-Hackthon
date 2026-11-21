@@ -549,24 +549,29 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
       )}
 
       {!cleanCaptureMode && (
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.73rem', color: 'var(--text-muted)' }}>
-            Quick Presets:
-          </span>
-          {DEMO_PROMPTS.map((preset, idx) => (
-            <button
-              key={idx}
-              type="button"
-              className="pill-btn subtle"
-              style={{ fontSize: '0.72rem', padding: '3px 9px' }}
-              onClick={() => {
-                setText(preset.text);
-                onTargetSceneChange(preset.sceneId);
-              }}
-            >
-              {preset.label}
-            </button>
-          ))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.73rem', color: 'var(--text-muted)' }}>
+              Quick Presets:
+            </span>
+            {DEMO_PROMPTS.map((preset, idx) => (
+              <button
+                key={idx}
+                type="button"
+                className="pill-btn subtle"
+                style={{ fontSize: '0.72rem', padding: '3px 9px' }}
+                onClick={() => {
+                  setText(preset.text);
+                  onTargetSceneChange(preset.sceneId);
+                }}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+          <div className="try-it-hint">
+            Try it: (1) Hold Cam+Mic for 3s · (2) Snap a desk object · (3) Compare BE vs HE side-by-side
+          </div>
         </div>
       )}
     </section>
