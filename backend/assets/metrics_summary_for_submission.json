@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-11-21T15:54:54",
+  "generated_at": "2026-11-21T16:03:22",
   "project": "StageState — Time-Travel Dual-Camera AI Stage Director",
   "models": {
     "director_planner": "gemini-4-neon",
     "multimodal_judge": "gemini-4-hydrogen",
     "decisions_v1beta": "models/gemini-decision-1",
     "video_synthesis": "gemini-omni-flash-preview",
-    "prop_cutout": "gemini-3.1-flash-image"
+    "prop_cutout": "gemini-nano-banana-2.1"
   },
   "dual_cam_consistency": {
     "cross_camera_consistency_rate": 0.929,

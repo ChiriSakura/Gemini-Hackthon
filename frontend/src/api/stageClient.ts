@@ -100,12 +100,20 @@ export interface PerceiveRequestPayload {
   text?: string;
 }
 
+export interface InjectedPropPayload {
+  prop_id: string;
+  item: PropRegistryItem;
+  placement?: 'table' | 'held' | 'floor';
+  entry_motion?: PropEntryMotion;
+}
+
 export interface ExtendStoryPayload {
   branchId: string;
   fromSceneId?: number;
   clip?: Blob | null;
   text?: string;
   parsedDirective?: DirectorInputParsed | null;
+  injectedProp?: InjectedPropPayload | null;
   endFreezeMode?: 'sculpture' | 'none';
   detectThrowPeak?: boolean;
 }
@@ -244,6 +252,9 @@ export async function extendDirectorStory(
   }
   if (payload.parsedDirective) {
     formData.append('parsed_directive_json', JSON.stringify(payload.parsedDirective));
+  }
+  if (payload.injectedProp) {
+    formData.append('injected_prop_json', JSON.stringify(payload.injectedProp));
   }
   formData.append('end_freeze_mode', payload.endFreezeMode ?? 'sculpture');
   formData.append('detect_throw_peak', String(payload.detectThrowPeak ?? true));

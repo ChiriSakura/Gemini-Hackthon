@@ -55,7 +55,7 @@ from backend.media.video_renderer import (
     subscribe_render_progress,
     unsubscribe_render_progress,
 )
-from backend.schemas import BranchState, DirectorInputParsed, Scene, SceneMedia, StagePropState
+from backend.schemas import BranchState, DirectorInputParsed, PropRegistryItem, Scene, SceneMedia, StagePropState
 
 _ALLOWED_PREVIEW_EXTS: set[str] = {".webm", ".mp4", ".png", ".jpg", ".jpeg"}
 _BRANCH_WRITE_LOCKS: dict[str, asyncio.Lock] = {}
@@ -474,6 +474,7 @@ async def api_director_extend(
     end_freeze_mode: str = Form("sculpture"),
     detect_throw_peak: bool = Form(True),
     parsed_directive_json: Optional[str] = Form(None),
+    injected_prop_json: Optional[str] = Form(None),
     clip: Optional[UploadFile] = File(None),
 ) -> BranchState:
     """
@@ -514,11 +515,29 @@ async def api_director_extend(
 
     updated_registry = dict(parent.props_registry)
     thrown_prop_id: Optional[str] = None
+    injected_placement: str = "table"
+    injected_motion: Optional[str] = None
     explicit_handoff = any(
         kw in (parsed.instruction or "").lower()
         for kw in ("hand you", "give you", "toss", "throw", "catch", "pass you", "to lia", "for you", "for lia", "递给", "给你", "扔给", "丢给")
     )
-    if parsed.has_physical_prop and parsed.prop_name:
+    if injected_prop_json and injected_prop_json.strip():
+        try:
+            inj = json.loads(injected_prop_json)
+            inj_id = str(inj.get("prop_id") or "").strip()
+            inj_item_raw = inj.get("item")
+            if inj_id and isinstance(inj_item_raw, dict):
+                inj_item = PropRegistryItem.model_validate(inj_item_raw)
+                updated_registry[inj_id] = inj_item
+                thrown_prop_id = inj_id
+                injected_placement = str(inj.get("placement") or "table")
+                raw_m = inj.get("entry_motion")
+                injected_motion = str(raw_m) if raw_m in ("place", "throw_arc", "held") else None
+                if getattr(inj_item, "appearance_summary", ""):
+                    parsed.prop_description = inj_item.appearance_summary
+        except Exception:
+            pass
+    if thrown_prop_id is None and parsed.has_physical_prop and parsed.prop_name:
         thrown_prop_id, prop_item = await _invoke_create_prop(
             name=parsed.prop_name,
             description=parsed.prop_description or parsed.prop_name,
@@ -538,17 +557,35 @@ async def api_director_extend(
         end_freeze_mode=end_freeze_mode,
     )
     if thrown_prop_id:
-        if not any(p.id == thrown_prop_id for p in next_scene.stage_props):
-            next_scene.stage_props.append(
-                StagePropState(
-                    id=thrown_prop_id,
-                    grid=[1.05, 1.1],
-                    on_floor=False,
-                    state="glowing",
-                    entry_motion="throw_arc" if explicit_handoff else "place",
-                    entry_origin=[1.0, 2.2, 0.8] if explicit_handoff else None,
+        eff_motion = injected_motion or ("throw_arc" if explicit_handoff else "place")
+        on_floor = injected_placement == "floor"
+        prop_grid = [1.05, 1.1] if not on_floor else [1.15, 1.48]
+        if injected_placement == "held":
+            for actor in next_scene.actors:
+                if actor.id == "lia":
+                    actor.holding_prop = thrown_prop_id
+            next_scene.stage_props = [p for p in next_scene.stage_props if p.id != thrown_prop_id]
+        else:
+            existing_sp = next((p for p in next_scene.stage_props if p.id == thrown_prop_id), None)
+            if existing_sp:
+                existing_sp.entry_motion = eff_motion  # type: ignore[assignment]
+                if eff_motion == "throw_arc" and not existing_sp.entry_origin:
+                    existing_sp.entry_origin = [1.0, 2.2, 0.8]
+            else:
+                next_scene.stage_props.append(
+                    StagePropState(
+                        id=thrown_prop_id,
+                        grid=prop_grid,
+                        on_floor=on_floor,
+                        state="glowing",
+                        entry_motion=eff_motion,  # type: ignore[assignment]
+                        entry_origin=[1.0, 2.2, 0.8] if eff_motion == "throw_arc" else None,
+                    )
                 )
-            )
+        if eff_motion == "throw_arc":
+            for actor in next_scene.actors:
+                if actor.id == "lia":
+                    actor.action = "catch_from_camera"
         prop_app = (getattr(updated_registry[thrown_prop_id], "appearance_summary", "") or "").strip()
         active_ids = {p.id for p in next_scene.stage_props} | {a.holding_prop for a in next_scene.actors if a.holding_prop}
         next_scene.environment_notes = _upsert_prop_appearance_note(

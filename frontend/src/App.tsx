@@ -23,6 +23,7 @@ import {
   requestSceneRender,
   submitDirectorFork,
   subscribeRenderProgress,
+  type InjectedPropPayload,
   type RenderProgressSnapshot,
 } from './api/stageClient';
 import {
@@ -416,6 +417,7 @@ export default function App(): React.ReactElement {
     text?: string;
     clip?: Blob | null;
     parsedDirective?: DirectorInputParsed | null;
+    injectedProp?: InjectedPropPayload | null;
   }): Promise<boolean> => {
     setBusy({
       label: `Continuing story into Scene ${opts.fromSceneId + 1}`,
@@ -431,6 +433,7 @@ export default function App(): React.ReactElement {
       text: opts.text,
       clip: clipToForward,
       parsedDirective: opts.parsedDirective,
+      injectedProp: opts.injectedProp,
       endFreezeMode: 'sculpture',
       detectThrowPeak: true,
     });
@@ -987,13 +990,15 @@ export default function App(): React.ReactElement {
                         entry_origin: isExplicitToss ? [1.0, 1.5, 0.8] : null,
                       },
                     ];
-            // W2-V3-02: Append `<prop_id>: <appearance_summary>` to environment_notes for render fidelity
+            // W2-V3-02: Upsert `<prop_id>: <appearance_summary>` via `|` delimiter without bloating multi-turn notes
             let nextEnvNotes = s.environment_notes || '';
             if (appearanceSummary) {
-              const cue = `${created.prop_id}: ${appearanceSummary}`;
-              if (!nextEnvNotes.includes(cue)) {
-                nextEnvNotes = nextEnvNotes ? `${nextEnvNotes} ${cue}`.trim() : cue;
-              }
+              const filteredParts = nextEnvNotes
+                .split(/\s*\|\s*/)
+                .map((p) => p.trim())
+                .filter((p) => p.length > 0 && !p.startsWith(`${created.prop_id}:`));
+              filteredParts.push(`${created.prop_id}: ${appearanceSummary}`);
+              nextEnvNotes = filteredParts.join(' | ');
             }
             return {
               ...s,
@@ -1044,6 +1049,16 @@ export default function App(): React.ReactElement {
           ? `${queued.text} (ACTION REQUIREMENT: The viewer explicitly tossed "${created.item.name}" [${matchedLabel}, id=${created.prop_id}] to Lia — Lia catches it, puts aside her umbrella if needed, and visibly performs: "${queued.text}".)`
           : `${queued.text} (ACTION REQUIREMENT: The viewer placed "${created.item.name}" [${matchedLabel}, id=${created.prop_id}] on the ${payload.placement} — Lia puts aside her umbrella if needed, interacts with "${created.item.name}", and visibly performs: "${queued.text}".)`,
         clip: queued.clip,
+        injectedProp: {
+          prop_id: created.prop_id,
+          item: created.item,
+          placement: payload.placement,
+          entry_motion: isExplicitToss
+            ? 'throw_arc'
+            : payload.placement === 'held'
+              ? 'held'
+              : 'place',
+        },
       });
       submittingRef.current = false;
       setSubmitting(false);
