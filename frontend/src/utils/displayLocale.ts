@@ -20,22 +20,28 @@ import type {
 
 const HAS_CJK = /[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/;
 
-const PROP_NAME_EN: Record<string, string> = {
-  red_umbrella: 'Red Umbrella',
-  crystal_vase: 'Crystal Vase',
-  star_token: 'Starlight Token',
+export const PROP_NAME_EN: Record<string, string> = {
+  red_umbrella: 'Crimson Vintage Umbrella',
+  crystal_vase: 'Blue Rose Crystal Vase',
+  star_token: 'Starlight Keepsake',
+  brass_key: 'Brass Conservatory Key',
+  coffee_mug: 'Warm Ceramic Mug',
+  paper_heart: 'Origami Paper Heart',
+  crystal_shield: 'Crystal Ward Shield',
+  star_lantern: 'Starlight Lantern',
 };
 
-const ACTOR_NAME_EN: Record<string, string> = {
+export const ACTOR_NAME_EN: Record<string, string> = {
   lia: 'Lia',
   nyx: 'Nyx',
 };
 
-const BRANCH_LABEL_EN: Record<string, string> = {
+export const BRANCH_LABEL_EN: Record<string, string> = {
   branch_v1: 'BE · Rainy Flight & Shattered Vase (Cached Baseline)',
   branch_v2: 'HE · Starlight Trust & Shared Umbrella (Forked Scene 2)',
   branch_v2_cached: 'HE · Starlight Trust & Shared Umbrella (Cached Fork)',
-  branch_v3_starlight_cached: 'HE · Golden Snow & Starlight Trust (Cached Variant)',
+  branch_v3_starlight_cached: 'HE · Starlight Vigil & Shared Shelter (3rd Cached Variant)',
+  branch_v4_umbrella_shield_cached: 'HE · Umbrella Shield & Intact Vase (4th Cached Variant)',
 };
 
 const FALLBACK_RULES_EN: string[] = [

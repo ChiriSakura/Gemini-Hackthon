@@ -7,11 +7,13 @@
  *   curves, localized rerender savings, 360p vs 720p cost savings, 5-prop
  *   transparent cutout showcase, and embedded BE vs. HE comparison reel.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface EvalModalProps {
   open: boolean;
   onClose: () => void;
+  isMockMode?: boolean;
+  branchCount?: number;
 }
 
 const ACTOR_CURVE = [
@@ -48,12 +50,35 @@ const SHOWCASE_PROPS = [
   { label: 'Desk: Paper Heart', url: '/assets/props/showcase_desk_paper_heart.png' },
 ];
 
-export const EvalModal: React.FC<EvalModalProps> = ({ open, onClose }) => {
+export const EvalModal: React.FC<EvalModalProps> = ({
+  open,
+  onClose,
+  isMockMode = false,
+  branchCount = 4,
+}) => {
   const [reelOpen, setReelOpen] = useState(false);
   const [reelError, setReelError] = useState(false);
   const [pitchSectionOpen, setPitchSectionOpen] = useState(false);
   const [missingMedia, setMissingMedia] = useState<Record<string, boolean>>({});
   const [failedProps, setFailedProps] = useState<Record<string, boolean>>({});
+  const [micReady, setMicReady] = useState<boolean | null>(null);
+  const [camReady, setCamReady] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!open || typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) {
+      return;
+    }
+    navigator.mediaDevices
+      .enumerateDevices()
+      .then((devices) => {
+        setMicReady(devices.some((d) => d.kind === 'audioinput'));
+        setCamReady(devices.some((d) => d.kind === 'videoinput'));
+      })
+      .catch(() => {
+        setMicReady(false);
+        setCamReady(false);
+      });
+  }, [open]);
 
   const markMediaMissing = (key: string) => {
     setMissingMedia((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
@@ -84,6 +109,37 @@ export const EvalModal: React.FC<EvalModalProps> = ({ open, onClose }) => {
           <button type="button" className="pill-btn" onClick={onClose}>
             ✕ Close
           </button>
+        </div>
+
+        {/* W2-T9F: Live Booth Checklist */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            flexWrap: 'wrap',
+            padding: '7px 10px',
+            marginBottom: 10,
+            borderRadius: 10,
+            background: 'rgba(15, 23, 42, 0.85)',
+            border: '1px solid var(--border-subtle)',
+          }}
+        >
+          <span style={{ fontSize: '0.73rem', fontWeight: 700, color: '#fde68a' }}>
+            Live Booth Checklist:
+          </span>
+          <span className={`qa-pill ${micReady === false ? 'fail' : 'pass'}`}>
+            {micReady === false ? '✗ Mic Missing' : '✓ Mic Ready'}
+          </span>
+          <span className={`qa-pill ${camReady === false ? 'fail' : 'pass'}`}>
+            {camReady === false ? '✗ Cam Missing' : '✓ Cam Ready'}
+          </span>
+          <span className={`qa-pill ${isMockMode ? '' : 'pass'}`}>
+            {isMockMode ? '⚠ Mock Fallback' : '✓ API Live'}
+          </span>
+          <span className="qa-pill pass">
+            ✓ {branchCount} {branchCount === 1 ? 'Branch' : 'Branches'} Loaded
+          </span>
         </div>
 
         {/* Highlight KPIs */}

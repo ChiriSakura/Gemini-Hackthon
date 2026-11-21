@@ -660,6 +660,7 @@ export default function App(): React.ReactElement {
         renderProgress={renderProgress}
         isPlayingStory={isPlayingStory}
         soundEnabled={soundEnabled}
+        modalOpen={evalModalOpen}
         onSoundEnabledChange={setSoundEnabled}
         cleanCaptureMode={cleanCaptureMode}
         onSelectCompareBranch={setCompareBranchId}
@@ -698,7 +699,12 @@ export default function App(): React.ReactElement {
         onSubmitFork={handleSubmitFork}
       />
 
-      <EvalModal open={evalModalOpen} onClose={() => setEvalModalOpen(false)} />
+      <EvalModal
+        open={evalModalOpen}
+        onClose={() => setEvalModalOpen(false)}
+        isMockMode={isMockMode}
+        branchCount={branches.length}
+      />
     </div>
   );
 }

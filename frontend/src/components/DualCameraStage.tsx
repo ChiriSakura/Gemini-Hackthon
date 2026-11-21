@@ -30,6 +30,7 @@ interface DualCameraStageProps {
   renderProgress?: RenderProgressSnapshot | null;
   isPlayingStory: boolean;
   soundEnabled: boolean;
+  modalOpen?: boolean;
   onSoundEnabledChange: (enabled: boolean) => void;
   cleanCaptureMode?: boolean;
   onSelectCompareBranch?: (branchId: string) => void;
@@ -51,6 +52,7 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
   renderProgress = null,
   isPlayingStory,
   soundEnabled,
+  modalOpen = false,
   onSoundEnabledChange,
   cleanCaptureMode = false,
   onSelectCompareBranch,
@@ -83,6 +85,27 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
   useEffect(() => {
     setFailedVideoUrls({});
   }, [activeBranch.branch_id, compareBranch?.branch_id]);
+
+  // W2-T9D: Pause & mute background stage videos while EvalModal is open to prevent overlapping audio
+  useEffect(() => {
+    const videos = [
+      videoARef.current,
+      videoBRef.current,
+      compareOldVideoRef.current,
+      compareNewVideoRef.current,
+    ];
+    for (const vid of videos) {
+      if (!vid) continue;
+      if (modalOpen) {
+        vid.pause();
+      } else {
+        const p = vid.play();
+        if (p && typeof p.catch === 'function') {
+          p.catch(() => {});
+        }
+      }
+    }
+  }, [modalOpen]);
 
   useEffect(() => {
     if (!renderingScene) {
@@ -440,7 +463,7 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
               controls
               autoPlay
               loop
-              muted={!soundEnabled}
+              muted={!soundEnabled || modalOpen}
               playsInline
               onError={() => markVideoFailed(camAUrl)}
             />
@@ -574,7 +597,7 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
                 controls
                 autoPlay
                 loop
-                muted={compareAudioSource !== 'baseline'}
+                muted={compareAudioSource !== 'baseline' || modalOpen}
                 playsInline
                 onError={() => markVideoFailed(compareCamAUrl)}
                 style={{ width: '100%', maxHeight: 148, borderRadius: 8, background: '#000' }}
@@ -629,7 +652,7 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
                 controls
                 autoPlay
                 loop
-                muted={compareAudioSource !== 'active'}
+                muted={compareAudioSource !== 'active' || modalOpen}
                 playsInline
                 onError={() => markVideoFailed(camAUrl)}
                 style={{ width: '100%', maxHeight: 148, borderRadius: 8, background: '#000' }}

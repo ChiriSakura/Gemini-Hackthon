@@ -152,14 +152,42 @@ export class ThreeStageManager {
   private targetSpotColor = new THREE.Color('#fde68a');
   private targetSpotIntensity = 26;
   private targetRimColor = new THREE.Color('#60a5fa');
-  private contextLostHandler = (ev: Event) => {
-    ev.preventDefault();
-  };
   private animFrameId: number | null = null;
   private clock = new THREE.Clock();
   private disposed = false;
+  private contextLost = false;
   private pixelArtMode = false;
   private diffHaloEnabled = true;
+
+  private handleContextLost = (event: Event): void => {
+    event.preventDefault();
+    this.contextLost = true;
+    if (this.animFrameId !== null) {
+      cancelAnimationFrame(this.animFrameId);
+      this.animFrameId = null;
+    }
+  };
+
+  private handleContextRestored = (): void => {
+    this.contextLost = false;
+    const width = this.pixelArtMode ? 160 : 640;
+    const height = this.pixelArtMode ? 90 : 360;
+    const dpr = this.pixelArtMode ? 1 : Math.min(window.devicePixelRatio, 2);
+    this.rendererA.setPixelRatio(dpr);
+    this.rendererA.setSize(width, height, false);
+    this.rendererB.setPixelRatio(dpr);
+    this.rendererB.setSize(width, height, false);
+
+    for (const tex of this.textureCache.values()) {
+      tex.needsUpdate = true;
+    }
+    for (const tex of this.flippedTextureCache.values()) {
+      tex.needsUpdate = true;
+    }
+    if (!this.disposed && this.animFrameId === null) {
+      this.startLoop();
+    }
+  };
 
   /**
    * Initialize the shared 3D world and attach two WebGLRenderers for Camera A & B.
@@ -216,8 +244,10 @@ export class ThreeStageManager {
     this.scene.add(this.rainPoints);
     this.scene.add(this.snowPoints);
 
-    this.canvasA.addEventListener('webglcontextlost', this.contextLostHandler);
-    this.canvasB.addEventListener('webglcontextlost', this.contextLostHandler);
+    this.canvasA.addEventListener('webglcontextlost', this.handleContextLost, false);
+    this.canvasB.addEventListener('webglcontextlost', this.handleContextLost, false);
+    this.canvasA.addEventListener('webglcontextrestored', this.handleContextRestored, false);
+    this.canvasB.addEventListener('webglcontextrestored', this.handleContextRestored, false);
 
     this.startLoop();
   }
@@ -890,7 +920,7 @@ export class ThreeStageManager {
 
   private startLoop(): void {
     const tick = () => {
-      if (this.disposed) return;
+      if (this.disposed || this.contextLost) return;
       this.animFrameId = requestAnimationFrame(tick);
       if (typeof document !== 'undefined' && document.hidden) {
         this.clock.getDelta();
@@ -1125,10 +1155,13 @@ export class ThreeStageManager {
 
   public dispose(): void {
     this.disposed = true;
-    this.canvasA.removeEventListener('webglcontextlost', this.contextLostHandler);
-    this.canvasB.removeEventListener('webglcontextlost', this.contextLostHandler);
+    this.canvasA.removeEventListener('webglcontextlost', this.handleContextLost);
+    this.canvasB.removeEventListener('webglcontextlost', this.handleContextLost);
+    this.canvasA.removeEventListener('webglcontextrestored', this.handleContextRestored);
+    this.canvasB.removeEventListener('webglcontextrestored', this.handleContextRestored);
     if (this.animFrameId !== null) {
       cancelAnimationFrame(this.animFrameId);
+      this.animFrameId = null;
     }
     this.rendererA.dispose();
     this.rendererB.dispose();

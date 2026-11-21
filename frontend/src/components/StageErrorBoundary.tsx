@@ -16,6 +16,7 @@ interface StageErrorBoundaryProps {
 interface StageErrorBoundaryState {
   hasError: boolean;
   errorMessage: string;
+  recoveryKey: number;
 }
 
 export class StageErrorBoundary extends React.Component<
@@ -27,10 +28,11 @@ export class StageErrorBoundary extends React.Component<
     this.state = {
       hasError: false,
       errorMessage: '',
+      recoveryKey: 0,
     };
   }
 
-  static getDerivedStateFromError(error: Error): StageErrorBoundaryState {
+  static getDerivedStateFromError(error: Error): Partial<StageErrorBoundaryState> {
     return {
       hasError: true,
       errorMessage: error?.message || 'Unexpected stage rendering error.',
@@ -42,7 +44,11 @@ export class StageErrorBoundary extends React.Component<
   }
 
   private handleReset = (): void => {
-    this.setState({ hasError: false, errorMessage: '' });
+    this.setState((prev) => ({
+      hasError: false,
+      errorMessage: '',
+      recoveryKey: prev.recoveryKey + 1,
+    }));
   };
 
   private handleReload = (): void => {
@@ -51,7 +57,11 @@ export class StageErrorBoundary extends React.Component<
 
   render(): React.ReactNode {
     if (!this.state.hasError) {
-      return this.props.children;
+      return (
+        <React.Fragment key={this.state.recoveryKey}>
+          {this.props.children}
+        </React.Fragment>
+      );
     }
 
     return (
