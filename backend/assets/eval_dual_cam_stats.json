@@ -1,0 +1,235 @@
+{
+  "model": "models/gemini-decision-1",
+  "total_scene_pairs": 7,
+  "total_checks": 28,
+  "passed_checks": 25,
+  "cross_camera_consistency_rate": 0.893,
+  "all_consistent_scene_rate": 0.571,
+  "avg_latency_sec": 3.92,
+  "scenes": [
+    {
+      "branch_id": "branch_v1",
+      "scene_id": 1,
+      "title": "雨夜初遇",
+      "cam_a_tail": "/assets/tails/scene_1_cam_a_tail.png",
+      "cam_b_tail": "/assets/tails/scene_1_cam_b_tail.png",
+      "elapsed_sec": 4.15,
+      "checks": {
+        "actor_presence": {
+          "p_true": 0.911,
+          "confidence": 0.911,
+          "passed": true
+        },
+        "spatial_layout": {
+          "p_true": 0.838,
+          "confidence": 0.838,
+          "passed": true
+        },
+        "prop_state": {
+          "p_true": 0.904,
+          "confidence": 0.904,
+          "passed": true
+        },
+        "lighting_weather": {
+          "p_true": 0.87,
+          "confidence": 0.87,
+          "passed": true
+        }
+      },
+      "scene_consistency_rate": 1.0,
+      "all_consistent": true
+    },
+    {
+      "branch_id": "branch_v1",
+      "scene_id": 2,
+      "title": "受惊碎瓶",
+      "cam_a_tail": "/assets/tails/scene_2_cam_a_tail.png",
+      "cam_b_tail": "/assets/tails/scene_2_cam_b_tail.png",
+      "elapsed_sec": 5.89,
+      "checks": {
+        "actor_presence": {
+          "p_true": 0.87,
+          "confidence": 0.87,
+          "passed": true
+        },
+        "spatial_layout": {
+          "p_true": 0.63,
+          "confidence": 0.63,
+          "passed": true
+        },
+        "prop_state": {
+          "p_true": 0.548,
+          "confidence": 0.548,
+          "passed": true
+        },
+        "lighting_weather": {
+          "p_true": 0.881,
+          "confidence": 0.881,
+          "passed": true
+        }
+      },
+      "scene_consistency_rate": 1.0,
+      "all_consistent": true
+    },
+    {
+      "branch_id": "branch_v1",
+      "scene_id": 3,
+      "title": "警惕躲避",
+      "cam_a_tail": "/assets/tails/scene_3_cam_a_tail.png",
+      "cam_b_tail": "/assets/tails/scene_3_cam_b_tail.png",
+      "elapsed_sec": 5.2,
+      "checks": {
+        "actor_presence": {
+          "p_true": 0.781,
+          "confidence": 0.781,
+          "passed": true
+        },
+        "spatial_layout": {
+          "p_true": 0.628,
+          "confidence": 0.628,
+          "passed": true
+        },
+        "prop_state": {
+          "p_true": 0.207,
+          "confidence": 0.793,
+          "passed": false
+        },
+        "lighting_weather": {
+          "p_true": 0.854,
+          "confidence": 0.854,
+          "passed": true
+        }
+      },
+      "scene_consistency_rate": 0.75,
+      "all_consistent": false
+    },
+    {
+      "branch_id": "branch_v1",
+      "scene_id": 4,
+      "title": "BE · 雨夜独留",
+      "cam_a_tail": "/assets/tails/scene_4_cam_a_tail.png",
+      "cam_b_tail": "/assets/tails/scene_4_cam_b_tail.png",
+      "elapsed_sec": 5.07,
+      "checks": {
+        "actor_presence": {
+          "p_true": 0.762,
+          "confidence": 0.762,
+          "passed": true
+        },
+        "spatial_layout": {
+          "p_true": 0.354,
+          "confidence": 0.646,
+          "passed": false
+        },
+        "prop_state": {
+          "p_true": 0.663,
+          "confidence": 0.663,
+          "passed": true
+        },
+        "lighting_weather": {
+          "p_true": 0.71,
+          "confidence": 0.71,
+          "passed": true
+        }
+      },
+      "scene_consistency_rate": 0.75,
+      "all_consistent": false
+    },
+    {
+      "branch_id": "branch_v2_cached",
+      "scene_id": 2,
+      "title": "抛伞递星光礼",
+      "cam_a_tail": "/assets/tails/branch_v2_scene_2_cam_a_tail.png",
+      "cam_b_tail": "/assets/tails/branch_v2_scene_2_cam_b_tail.png",
+      "elapsed_sec": 1.97,
+      "checks": {
+        "actor_presence": {
+          "p_true": 0.776,
+          "confidence": 0.776,
+          "passed": true
+        },
+        "spatial_layout": {
+          "p_true": 0.598,
+          "confidence": 0.598,
+          "passed": true
+        },
+        "prop_state": {
+          "p_true": 0.493,
+          "confidence": 0.507,
+          "passed": false
+        },
+        "lighting_weather": {
+          "p_true": 0.736,
+          "confidence": 0.736,
+          "passed": true
+        }
+      },
+      "scene_consistency_rate": 0.75,
+      "all_consistent": false
+    },
+    {
+      "branch_id": "branch_v2_cached",
+      "scene_id": 3,
+      "title": "因果反转 · 守护信物",
+      "cam_a_tail": "/assets/tails/branch_v2_scene_3_cam_a_tail.png",
+      "cam_b_tail": "/assets/tails/branch_v2_scene_3_cam_b_tail.png",
+      "elapsed_sec": 2.33,
+      "checks": {
+        "actor_presence": {
+          "p_true": 0.862,
+          "confidence": 0.862,
+          "passed": true
+        },
+        "spatial_layout": {
+          "p_true": 0.61,
+          "confidence": 0.61,
+          "passed": true
+        },
+        "prop_state": {
+          "p_true": 0.822,
+          "confidence": 0.822,
+          "passed": true
+        },
+        "lighting_weather": {
+          "p_true": 0.8,
+          "confidence": 0.8,
+          "passed": true
+        }
+      },
+      "scene_consistency_rate": 1.0,
+      "all_consistent": true
+    },
+    {
+      "branch_id": "branch_v2_cached",
+      "scene_id": 4,
+      "title": "HE · 星雪共伞",
+      "cam_a_tail": "/assets/tails/branch_v2_scene_4_cam_a_tail.png",
+      "cam_b_tail": "/assets/tails/branch_v2_scene_4_cam_b_tail.png",
+      "elapsed_sec": 2.86,
+      "checks": {
+        "actor_presence": {
+          "p_true": 0.889,
+          "confidence": 0.889,
+          "passed": true
+        },
+        "spatial_layout": {
+          "p_true": 0.561,
+          "confidence": 0.561,
+          "passed": true
+        },
+        "prop_state": {
+          "p_true": 0.797,
+          "confidence": 0.797,
+          "passed": true
+        },
+        "lighting_weather": {
+          "p_true": 0.694,
+          "confidence": 0.694,
+          "passed": true
+        }
+      },
+      "scene_consistency_rate": 1.0,
+      "all_consistent": true
+    }
+  ]
+}
