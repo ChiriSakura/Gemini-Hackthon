@@ -2,8 +2,8 @@
   "agent": "P2_media",
   "contributor": "ChiriSakura",
   "branch": "feat/w1-media",
-  "current_milestone": "V2_INFINITE_SCULPTURE_READY",
-  "status": "all_v2_tasks_w1_v2_01_to_08_completed_and_verified",
+  "current_milestone": "V2_INFINITE_SCULPTURE_BENCHMARKED",
+  "status": "all_v2_and_bonus_b1_b2_tasks_completed_and_verified",
   "omni_flash_latency_sec": 18.64,
   "omni_flash_total_with_io_sec": 22.65,
   "omni_flash_dual_take_parallel_sec": 25.47,
@@ -158,17 +158,53 @@
     "W1-V2-05: Regenerated dynamic R-06 eval_charts_board.png, eval_dashboard_12s.mp4 & synced build_press_kit.py + TTS narrated video + voiceover script (80.9% -> 87.2% -> 97.9%, 0.95 calib)",
     "W1-V2-06: Confirmed zero stray branch_v5.json (R-34) & audited 14/14 RGBA props with 0 green halo pixels",
     "W1-V2-07: Added regression test suite test_v2_infinite_sculpture.py (30s >150-frame throw peak, fast_live_mode + sculpture freeze, /api/director/extend Scene 5+)",
-    "W1-V2-08: Passed full P2 battery (test_v2_infinite_sculpture, test_webm_prop, test_english_enforced, test_failover_rehearsal, test_media_smoke, audit_props 14/14, preflight_check 29/29 MP4s w/ audio)"
+    "W1-V2-08: Passed full P2 battery (test_v2_infinite_sculpture, test_webm_prop, test_english_enforced, test_failover_rehearsal, test_media_smoke, audit_props 14/14, preflight_check 29/29 MP4s w/ audio)",
+    "W1-V2-B1: Measured live fixed-room dual-cam Scene 2 pair (conservatory_cam_a/b.png + red_umbrella_closed + wooden_chair, CROSS_CAM_THRESHOLD=0.80) -> 5/5 (100.0%) pass@0.80 (mean P=0.8754, room P=0.8875, QA=0.917, 0 retries) -> backend/assets/eval_dual_cam_fixed_room.json",
+    "W1-V2-B2: Benchmarked & pre-cached fast_live_mode=True extended Scene 5 (catch_from_camera + showcase_desk_coffee_mug.png + sculpture freeze) -> warm dual-cam 28.16s (parallel ref upload 4.6s vs 13.5s serial = 2.9x faster), QA=0.895, all_passed=true, 0 retries -> backend/assets/eval_fast_live_latency.json",
+    "W1-V2-OPT: Fixed 4 subtle bugs on main — per-key concurrent Files API upload coalescing (-9s cold upload), instant softened retry on fast content_blocked (R-39), _merge_dual_cam_qa 0.0-confidence error scoring, word-boundary SI prop height matching (soda/snack/laptop/chair), and Panel 3 dynamic R-06 Best-of-2 chart sync (49 shots: 81.6% -> 87.8% -> 98.0%)"
   ],
   "w1_v2_summary": {
     "props_audited_zero_halo": "14/14",
     "preflight_mp4s_h264_and_audio": "29/29",
+    "v2_benchmark_sample_mp4s_h264": "4/4",
     "cached_blueprints_total": 26,
     "stage_room_refs": ["backend/assets/stages/conservatory_cam_a.png", "backend/assets/stages/conservatory_cam_b.png"],
     "isolated_stage_props": ["red_umbrella_closed.png", "red_umbrella_open.png", "wooden_chair.png"],
     "webm_throw_peak_max_frames": 1200,
     "cross_cam_threshold": 0.8
   },
+  "w1_v2_b1_fixed_room_consistency": {
+    "report_file": "backend/assets/eval_dual_cam_fixed_room.json",
+    "before_baseline_consistency_rate": 0.929,
+    "before_all_consistent_scene_rate": 0.714,
+    "after_5_criteria_pass_at_0_80": "5/5 (1.000)",
+    "after_mean_p_true": 0.8754,
+    "after_room_architecture_p_true": 0.8875,
+    "renderer_qa_score": 0.917,
+    "qa_retries": 0,
+    "sample_clips": [
+      "/assets/finals/scene_2_fixed_room_cam_a.mp4",
+      "/assets/finals/scene_2_fixed_room_cam_b.mp4"
+    ]
+  },
+  "w1_v2_b2_fast_live_scene5": {
+    "report_file": "backend/assets/eval_fast_live_latency.json",
+    "scene_id": 5,
+    "everyday_prop": "showcase_desk_coffee_mug.png",
+    "actor_action": "catch_from_camera",
+    "end_freeze_mode": "sculpture",
+    "parallel_ref_upload_sec": 4.6,
+    "serial_upload_before_fix_sec": 13.5,
+    "warm_dual_cam_wall_clock_sec": 28.16,
+    "cold_total_wall_clock_sec": 32.76,
+    "qa_score": 0.895,
+    "all_passed": true,
+    "qa_retries": 0,
+    "sample_clips": [
+      "/assets/finals/scene_5_fast_live_cam_a.mp4",
+      "/assets/finals/scene_5_fast_live_cam_b.mp4"
+    ]
+  },
   "blockers": [],
-  "last_updated": "2026-11-21T15:09:00-05:00"
+  "last_updated": "2026-11-21T15:24:00-05:00"
 }

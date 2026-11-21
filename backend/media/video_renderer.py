@@ -57,6 +57,7 @@ EVAL_STATS_PATH = config.ASSETS_DIR / "eval_media_stats.jsonl"
 # In-memory cache mapping (resolved_path, mtime_ns, size) -> (file_uri, mime_type, uploaded_at).
 _UPLOAD_CACHE_TTL_SEC = 12 * 3600.0
 _UPLOAD_CACHE: dict[tuple[str, int, int], tuple[str, str, float]] = {}
+_UPLOAD_INFLIGHT: dict[tuple[str, int, int], asyncio.Task[tuple[str, str]]] = {}
 _UPLOAD_LOCK = asyncio.Lock()
 
 # In-memory render progress tracker for parallel render progress polling (W1-T3B).
@@ -207,23 +208,46 @@ def _evict_upload_cache(paths: list[Path]) -> None:
 
 
 async def _get_or_upload_uri(path: Path, use_cache: bool = True) -> tuple[str, str]:
-    """Upload a local asset once and reuse its Files API URI across concurrent takes (mtime & TTL safe)."""
+    """
+    Upload a local asset once and reuse its Files API URI across concurrent takes (mtime & TTL safe).
+
+    Uses per-key in-flight coalescing rather than holding `_UPLOAD_LOCK` during network I/O so
+    all distinct reference assets upload concurrently (~2s instead of ~13s serial) while identical
+    assets shared across Camera A and Camera B still upload only once.
+    """
+    if not use_cache:
+        return await asyncio.to_thread(_upload_file_sync, path)
+
     key = _upload_cache_key(path)
     now = time.time()
-    if use_cache and key in _UPLOAD_CACHE:
-        uri, mime, ts = _UPLOAD_CACHE[key]
-        if (now - ts) < _UPLOAD_CACHE_TTL_SEC:
-            return uri, mime
+    cached = _UPLOAD_CACHE.get(key)
+    if cached is not None and (now - cached[2]) < _UPLOAD_CACHE_TTL_SEC:
+        return cached[0], cached[1]
+
+    loop = asyncio.get_running_loop()
     async with _UPLOAD_LOCK:
         now = time.time()
-        if use_cache and key in _UPLOAD_CACHE:
-            uri, mime, ts = _UPLOAD_CACHE[key]
-            if (now - ts) < _UPLOAD_CACHE_TTL_SEC:
-                return uri, mime
-        uri, mime = await asyncio.to_thread(_upload_file_sync, path)
-        if use_cache:
-            _UPLOAD_CACHE[key] = (uri, mime, time.time())
-        return uri, mime
+        cached = _UPLOAD_CACHE.get(key)
+        if cached is not None and (now - cached[2]) < _UPLOAD_CACHE_TTL_SEC:
+            return cached[0], cached[1]
+
+        inflight = _UPLOAD_INFLIGHT.get(key)
+        if inflight is None or inflight.done() or inflight.get_loop() is not loop:
+            async def _do_upload() -> tuple[str, str]:
+                try:
+                    uri, mime = await asyncio.to_thread(_upload_file_sync, path)
+                    _UPLOAD_CACHE[key] = (uri, mime, time.time())
+                    return uri, mime
+                finally:
+                    if _UPLOAD_INFLIGHT.get(key) is task:
+                        _UPLOAD_INFLIGHT.pop(key, None)
+
+            task: asyncio.Task[tuple[str, str]] = asyncio.create_task(_do_upload())
+            _UPLOAD_INFLIGHT[key] = task
+        else:
+            task = inflight
+
+    return await task
 
 
 def _write_png_safe(path: Path, frame: np.ndarray) -> bool:
@@ -533,8 +557,8 @@ def _select_scene_ref_images(
             seen_paths.add(resolved_key)
             companion_refs.append(p)
 
-    # Actors first, then active props, then fixed room ref, then companion frames.
-    selected = prioritized_actors + prioritized_props + stage_refs + companion_refs
+    # Actors + fixed room ref first (never evicted by extra props), then active props, then companion frames.
+    selected = prioritized_actors + stage_refs + prioritized_props + companion_refs
     return selected[:max_refs]
 
 
@@ -750,14 +774,42 @@ async def _run_candidate_take(
                 timeout=PER_TAKE_TIMEOUT_SEC,
             )
         except Exception as first_exc:
+            first_lower = str(first_exc).lower()
             # If video-edit mode rejects preview duration/format (400), retry once with image-start anchor only.
-            if uploaded_preview is not None and ("400" in str(first_exc) or "duration" in str(first_exc).lower()):
+            if uploaded_preview is not None and ("400" in str(first_exc) or "duration" in first_lower):
                 fallback_parts = [p for p in input_parts if p.get("type") != "video"]
                 meta = await asyncio.wait_for(
                     asyncio.to_thread(
                         _generate_omni_take_sync,
                         model_id,
                         fallback_parts,
+                        duration_int,
+                        config.VIDEO_RESOLUTION,
+                        config.VIDEO_ASPECT_RATIO,
+                        out_video,
+                    ),
+                    timeout=PER_TAKE_TIMEOUT_SEC,
+                )
+            elif any(tok in first_lower for tok in ("content_blocked", "safety", "blocked", "moderation")):
+                # R-39: Omni Flash input filter occasionally blocks benign prompts (~2-6s fast fail);
+                # retry once immediately with concise, calm, lower-cased storybook phrasing.
+                cam_soft = (
+                    "wide front-center full-stage establishing angle showing the entire glass conservatory room"
+                    if cam_id == "cam_a"
+                    else "level 45-degree front-right side close-up across the central round wooden table (vertical pillars straight, level floor, no Dutch tilt)"
+                )
+                soft_prompt = _milden_safety_phrasing(
+                    f"{config.STYLE_ANCHOR_PROMPT} Full-bleed borderless nighttime anime film scene inside the glass conservatory, "
+                    f"{cam_soft}. Gentle storybook action: {scene.narration} Lighting: nighttime {scene.lighting} mood with warm lanterns. "
+                    "Keep exact room architecture, character designs, realistic small black cat size, and props matching the reference images, "
+                    "settling calmly into a balanced still frame at the end."
+                )
+                soft_parts = [p for p in input_parts if p.get("type") != "text"] + [{"type": "text", "text": soft_prompt}]
+                meta = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        _generate_omni_take_sync,
+                        model_id,
+                        soft_parts,
                         duration_int,
                         config.VIDEO_RESOLUTION,
                         config.VIDEO_ASPECT_RATIO,
@@ -1040,15 +1092,15 @@ async def _check_cross_camera_consistency(
         res = await create_decision(payload, q_map)
         answers = getattr(res, "answers", None) or {}
         probs = [float(getattr(answers.get(k), "noul", 0.5)) if answers.get(k) is not None else 0.5 for k in q_map]
-        all_ok = all(p >= 0.5 for p in probs)
+        all_ok = all(p >= CROSS_CAM_THRESHOLD for p in probs)
         min_p = min(probs)
         avg_p = sum(probs) / len(probs)
-        conf = max(avg_p, 1.0 - min_p)
+        conf = avg_p if all_ok else max(0.0, 1.0 - min_p)
         return JudgeItem(
             question="[Dual-Cam] Camera A & Camera B room, actor, and vase consistency",
             passed=all_ok,
             confidence=round(conf, 3),
-            reason=f"Cross-Cam Decision-1 P(room={probs[0]:.2f}, actors={probs[1]:.2f}, vase={probs[2]:.2f})",
+            reason=f"Cross-Cam Decision-1 (thresh={CROSS_CAM_THRESHOLD:.2f}) P(room={probs[0]:.2f}, actors={probs[1]:.2f}, vase={probs[2]:.2f})",
         )
     except Exception:
         return None
@@ -1083,11 +1135,14 @@ def _merge_dual_cam_qa(
         )
     if cross_cam_item is not None:
         merged_items.append(cross_cam_item)
+    def _item_p_true(it: JudgeItem) -> float:
+        if it.passed:
+            return it.confidence
+        # Error/blocked items carry passed=False & confidence=0.0 -> score 0.0 (not 1.0 - 0.0 = 1.0).
+        return 0.0 if it.confidence <= 0.0 else max(0.0, 1.0 - it.confidence)
+
     overall = (
-        round(
-            sum(it.confidence if it.passed else (1.0 - it.confidence) for it in merged_items) / len(merged_items),
-            3,
-        )
+        round(sum(_item_p_true(it) for it in merged_items) / len(merged_items), 3)
         if merged_items
         else round((qa_a.overall_score + qa_b.overall_score) / 2, 3)
     )
@@ -1136,9 +1191,9 @@ async def render_scene_media(
     )
 
     cross_item = None if fast_live_mode else await _check_cross_camera_consistency(scene, res_a[1], res_b[1])
-    # If cameras contradict each other (standard quality mode), retry ONLY the weaker camera once conditioned on the
-    # stronger camera's tail frame as a visual lighting/prop consistency reference (with regression guard).
-    if (not fast_live_mode) and cross_item is not None and not cross_item.passed and cross_item.confidence >= CROSS_CAM_THRESHOLD:
+    # If cameras contradict each other (< CROSS_CAM_THRESHOLD=0.80 on any check in standard quality mode),
+    # retry ONLY the weaker camera once conditioned on the stronger camera's tail frame (with regression guard).
+    if (not fast_live_mode) and cross_item is not None and not cross_item.passed:
         if res_b[2].overall_score <= res_a[2].overall_score:
             conditioned_refs = list(reference_images) + ([res_a[1]] if res_a[1] else [])
             cand_b = await render_single_camera_shot(

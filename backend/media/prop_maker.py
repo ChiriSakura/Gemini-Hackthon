@@ -56,12 +56,72 @@ _PROP_HEIGHT_KEYWORDS: list[tuple[tuple[str, ...], float]] = [
     (("key", "ring", "coin", "brooch", "badge", "钥匙", "戒指", "硬币", "胸牌"), 0.08),
     (("heart", "origami", "crane", "watch", "pocket_watch", "pocket watch", "心", "千纸鹤", "怀表"), 0.09),
     (("star", "token", "charm", "星", "信物"), 0.10),
-    (("cup", "mug", "can", "cola", "coffee", "apple", "teacup", "杯", "罐", "可乐", "咖啡"), 0.13),
-    (("quill", "pen", "feather", "wand", "book", "diary", "letter", "phone", "bottle", "jar", "羽毛笔", "书", "信", "瓶"), 0.22),
+    (
+        (
+            "soda",
+            "drink",
+            "beverage",
+            "cup",
+            "mug",
+            "can",
+            "cola",
+            "coke",
+            "pepsi",
+            "coffee",
+            "tea",
+            "juice",
+            "milk",
+            "apple",
+            "teacup",
+            "杯",
+            "罐",
+            "可乐",
+            "咖啡",
+            "饮料",
+            "汽水",
+        ),
+        0.13,
+    ),
+    (
+        (
+            "snack",
+            "chips",
+            "crisps",
+            "cookie",
+            "biscuit",
+            "chocolate",
+            "candy",
+            "pocky",
+            "popcorn",
+            "cracker",
+            "quill",
+            "pen",
+            "feather",
+            "wand",
+            "book",
+            "diary",
+            "letter",
+            "phone",
+            "bottle",
+            "thermos",
+            "jar",
+            "零食",
+            "薯片",
+            "饼干",
+            "糖果",
+            "羽毛笔",
+            "书",
+            "信",
+            "瓶",
+        ),
+        0.22,
+    ),
     (("lantern", "lamp", "candle", "bouquet", "flower", "rose", "灯", "花束"), 0.28),
+    (("laptop", "macbook", "notebook", "computer", "ipad", "tablet", "keyboard", "笔记本", "电脑", "平板"), 0.30),
     (("vase", "crystal_vase", "花瓶"), 0.32),
     (("plush", "bear", "doll", "box", "gift", "bag", "礼盒", "玩偶"), 0.36),
     (("shield", "guitar", "violin", "cello", "盾", "琴"), 0.65),
+    (("chair", "wooden_chair", "wooden chair", "stool", "椅子", "凳子"), 0.85),
     (("umbrella", "parasol", "伞"), 0.86),
     (("sword", "staff", "cane", "剑", "法杖"), 0.95),
 ]
@@ -69,10 +129,15 @@ _PROP_HEIGHT_KEYWORDS: list[tuple[tuple[str, ...], float]] = [
 
 def estimate_prop_height_m(name: str, description: str = "") -> float:
     """Estimate realistic SI metric height in meters (clamped to 0.08m..1.20m) for a prop."""
-    blob = f"{name} {description}".lower()
-    for keywords, height_m in _PROP_HEIGHT_KEYWORDS:
-        if any(k in blob for k in keywords):
-            return height_m
+    def _matches(text: str, kw: str) -> bool:
+        if kw.isascii():
+            return bool(re.search(rf"(?<![a-z0-9]){re.escape(kw)}(?![a-z0-9])", text))
+        return kw in text
+
+    for scope in (name.lower().replace("_", " "), f"{name} {description}".lower().replace("_", " ")):
+        for keywords, height_m in _PROP_HEIGHT_KEYWORDS:
+            if any(_matches(scope, k) for k in keywords):
+                return height_m
     return 0.22
 
 

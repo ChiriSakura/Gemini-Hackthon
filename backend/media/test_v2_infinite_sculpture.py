@@ -15,7 +15,12 @@ from fastapi.testclient import TestClient
 from backend import config
 from backend.director.state_tree import get_branch
 from backend.main import app
-from backend.media.prop_maker import _detect_throw_peak_frame_idx, _extract_image_from_bytes, create_prop
+from backend.media.prop_maker import (
+    _detect_throw_peak_frame_idx,
+    _extract_image_from_bytes,
+    create_prop,
+    estimate_prop_height_m,
+)
 from backend.media.video_renderer import (
     CROSS_CAM_THRESHOLD,
     _build_shot_prompt,
@@ -56,6 +61,14 @@ def test_30s_throw_peak_window_and_degraded_flag() -> None:
         assert mime == "image/jpeg" and len(jpg_bytes) > 500
     finally:
         avi_tmp.unlink(missing_ok=True)
+
+    # Verify everyday thrown-item SI heights & ASCII word-boundary matching (no 'can' in 'canopy', no 'pen' in 'open')
+    assert estimate_prop_height_m("Iced Soda Can", "cold drink") == 0.13
+    assert estimate_prop_height_m("Potato Chips Snack Bag") == 0.22
+    assert estimate_prop_height_m("Silver Laptop", "compact notebook computer") == 0.30
+    assert estimate_prop_height_m("Conservatory Wooden Chair") == 0.85
+    assert estimate_prop_height_m("Closed Red Umbrella", "slim silhouette, no open canopy") == 0.86
+    assert estimate_prop_height_m("Open Red Umbrella", "fully open dome canopy") == 0.86
 
     # Verify R-18 explicit fallback flag under DEMO_MODE=True
     prev_demo = config.DEMO_MODE
@@ -115,6 +128,41 @@ def test_fast_live_mode_sculpture_prompt_and_border_trim() -> None:
     prompt_a = _build_shot_prompt(scene5, "cam_a", has_first_frame=False, has_preview_video=False)
     assert "frozen-sculpture pose" in prompt_a
     assert "edge to edge from the very first frame" in prompt_a
+    assert "Explicit hand-off/toss beat" in prompt_a
+
+    # Default non-throw scene must NOT trigger forward camera-grab beat
+    calm_scene = Scene(
+        scene_id=2,
+        title="Calm Table",
+        narration="Lia stands quietly beside the table with her closed umbrella and wooden chair.",
+        lighting="warm_dim",
+        actors=[
+            ActorState(id="lia", name="Lia", asset_url="/assets/actors/lia.png", grid=[0.6, 1.1], action="stand", holding_prop="red_umbrella"),
+            ActorState(id="nyx", name="Nyx", asset_url="/assets/actors/nyx.png", grid=[1.4, 1.1], action="sit"),
+        ],
+        stage_props=[
+            StagePropState(id="crystal_vase", grid=[1.0, 1.0], state="intact", on_floor=False),
+            StagePropState(id="wooden_chair", grid=[0.4, 1.1], state="intact", on_floor=True),
+        ],
+    )
+    calm_prompt = _build_shot_prompt(calm_scene, "cam_a", has_first_frame=False, has_preview_video=False)
+    assert "Explicit hand-off/toss beat" not in calm_prompt
+
+    # Even with 3 active props + max_refs=5, fixed empty room ref must NEVER be evicted
+    refs_crowded = _select_scene_ref_images(
+        calm_scene,
+        [
+            str(config.SHARED_ASSETS_DIR / "lia.png"),
+            str(config.SHARED_ASSETS_DIR / "nyx.png"),
+            str(config.SHARED_ASSETS_DIR / "crystal_vase.png"),
+            str(config.PROPS_DIR / "red_umbrella_closed.png"),
+            str(config.PROPS_DIR / "wooden_chair.png"),
+        ],
+        max_refs=5,
+        cam_id="cam_a",
+    )
+    assert any(p.name == "conservatory_cam_a.png" for p in refs_crowded), f"Room ref evicted in {refs_crowded}"
+
     refs_a = _select_scene_ref_images(scene5, [str(config.SHARED_ASSETS_DIR / "lia.png"), str(config.SHARED_ASSETS_DIR / "nyx.png")], max_refs=5, cam_id="cam_a")
     assert any(p.name == "conservatory_cam_a.png" for p in refs_a), f"Room ref missing in {refs_a}"
 
