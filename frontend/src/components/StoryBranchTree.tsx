@@ -89,6 +89,11 @@ function tiltFor(key: string): number {
   return Number(raw.toFixed(1));
 }
 
+const PINNED_SHOWCASE_BRANCH_IDS = new Set([
+  'branch_v2_sleep_head_cached',
+  'branch_v3_sleep_table_cached',
+]);
+
 export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
   branches,
   activeBranchId,
@@ -108,6 +113,7 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
       (b) =>
         b.branch_id === activeBranchId ||
         b.branch_id === 'branch_v1' ||
+        PINNED_SHOWCASE_BRANCH_IDS.has(b.branch_id) ||
         liveBranchIds?.has(b.branch_id),
     );
     return filtered.length > 0 ? filtered : branches.slice(0, 1);
