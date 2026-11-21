@@ -13,6 +13,7 @@ Feature & Use Cases:
   - `POST /api/media/render-scene`: Renders a scene (or whole branch) concurrently via Omni Flash + `judge()`.
 """
 
+import asyncio
 import base64
 import inspect
 import json
@@ -27,6 +28,7 @@ from fastapi.staticfiles import StaticFiles
 from backend import config
 from backend.director.hydrogen_judge import (
     check_contradiction,
+    classify_rewrite_intent,
     filter_affected_scenes,
     inspect_tail_frame,
     parse_director_input,
@@ -101,6 +103,37 @@ def api_get_render_progress(branch_id: str) -> dict:
     return get_render_progress(branch_id)
 
 
+def _read_json_optional(path: Path) -> Optional[dict]:
+    """Safely load an empirical report JSON if present on disk."""
+    if not path.is_file():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+@app.get("/api/eval/summary")
+@log_function_call
+def api_get_eval_summary() -> dict:
+    """Return consolidated empirical evaluation reports across P1 (eval/) and P2 (backend/assets/)."""
+    return {
+        "stress_report": _read_json_optional(config.BASE_DIR / "eval" / "stress_report.json"),
+        "latest_eval": _read_json_optional(config.BASE_DIR / "eval" / "latest_report.json"),
+        "dual_cam_stats": _read_json_optional(config.ASSETS_DIR / "eval_dual_cam_stats.json"),
+        "calibration_20_clips": _read_json_optional(config.ASSETS_DIR / "calibration_20_clips.json"),
+        "decisions_multimodal": _read_json_optional(config.ASSETS_DIR / "eval_decisions_multimodal.json"),
+        "audio_mood": _read_json_optional(config.ASSETS_DIR / "eval_audio_mood.json"),
+        "branch_matrix": _read_json_optional(config.ASSETS_DIR / "eval_branch_matrix.json"),
+        "prop_persistence": _read_json_optional(config.ASSETS_DIR / "eval_prop_persistence.json"),
+        "cache_savings": _read_json_optional(config.ASSETS_DIR / "eval_cache_savings.json"),
+        "resolution_bench": _read_json_optional(config.ASSETS_DIR / "eval_720p_vs_360p.json"),
+        "failover_rehearsal": _read_json_optional(config.ASSETS_DIR / "eval_failover_rehearsal.json"),
+        "submission_summary": _read_json_optional(config.ASSETS_DIR / "metrics_summary_for_submission.json"),
+        "preflight": _read_json_optional(config.ASSETS_DIR / "preflight_report.json"),
+    }
+
+
 def _next_branch_id() -> str:
     """Allocate a collision-free sequential `branch_v<N>` ID across persisted branches."""
     max_num = 1
@@ -165,8 +198,12 @@ async def api_director_fork(
         updated_registry[prop_id] = prop_item
 
     prior_scenes = [s for s in parent.scenes if s.scene_id < parsed.target_scene_id]
+    # Run Decisions API intent routing (`choice`) concurrently with contradiction check (`noul`)
     if not ignore_conflict and prior_scenes:
-        has_conflict, reason = await check_contradiction(parsed.instruction, prior_scenes)
+        (has_conflict, reason), _intent_route = await asyncio.gather(
+            check_contradiction(parsed.instruction, prior_scenes),
+            classify_rewrite_intent(parsed.instruction),
+        )
         if has_conflict:
             return BranchState(
                 branch_id=f"{parent_branch_id}_conflict",
@@ -178,6 +215,8 @@ async def api_director_fork(
                 props_registry=updated_registry,
                 scenes=parent.scenes,
             )
+    else:
+        await classify_rewrite_intent(parsed.instruction)
 
     new_scenes = await plan_scenes(
         parsed_input=parsed,
@@ -233,10 +272,11 @@ async def api_media_create_prop(
     description: str = Form(""),
     branch_id: str = Form("branch_v1"),
     scene_id: int = Form(1),
+    placement: str = Form("table"),
     frame_timestamp_sec: Optional[float] = Form(None),
     image: Optional[UploadFile] = File(None),
 ) -> dict:
-    """Create a transparent 2D stage prop from text or a camera image snapshot and sync it to `branch.scenes`."""
+    """Create a transparent 2D stage prop from text or a camera image snapshot and sync placement to `branch.scenes`."""
     img_bytes = await image.read() if image else None
     prop_id, item = await _invoke_create_prop(
         name=name,
@@ -244,15 +284,35 @@ async def api_media_create_prop(
         camera_frame_bytes=img_bytes,
         frame_timestamp_sec=frame_timestamp_sec,
     )
+    norm_placement = placement if placement in ("table", "held", "floor") else "table"
+    on_floor = norm_placement == "floor"
+    prop_state = "held" if norm_placement == "held" else "glowing"
+    prop_grid = [1.08, 1.08] if norm_placement == "table" else ([1.15, 1.48] if on_floor else [0.92, 1.15])
+    item.state = prop_state
+
     branch = get_branch(branch_id)
     if branch:
         branch.props_registry[prop_id] = item
         for s in branch.scenes:
-            if s.scene_id >= scene_id and not any(p.id == prop_id for p in s.stage_props):
-                s.stage_props.append(StagePropState(id=prop_id, grid=[1.15, 1.35], on_floor=False, state="glowing"))
+            if s.scene_id >= scene_id:
+                if norm_placement == "held":
+                    for actor in s.actors:
+                        if actor.id == "lia":
+                            actor.holding_prop = prop_id
+                    s.stage_props = [p for p in s.stage_props if p.id != prop_id]
+                else:
+                    existing = next((p for p in s.stage_props if p.id == prop_id), None)
+                    if existing:
+                        existing.grid = prop_grid
+                        existing.on_floor = on_floor
+                        existing.state = prop_state
+                    else:
+                        s.stage_props.append(
+                            StagePropState(id=prop_id, grid=prop_grid, on_floor=on_floor, state=prop_state)
+                        )
                 s.needs_rerender = True
         save_branch(branch)
-    return {"prop_id": prop_id, "image_url": item.image_url, "item": item}
+    return {"prop_id": prop_id, "image_url": item.image_url, "item": item, "placement": norm_placement}
 
 
 async def _save_preview_file(
