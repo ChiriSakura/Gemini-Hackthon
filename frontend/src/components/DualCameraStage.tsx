@@ -29,8 +29,12 @@ interface DualCameraStageProps {
   renderingScene: boolean;
   renderProgress?: RenderProgressSnapshot | null;
   isPlayingStory: boolean;
+  soundEnabled: boolean;
+  modalOpen?: boolean;
+  onSoundEnabledChange: (enabled: boolean) => void;
   cleanCaptureMode?: boolean;
   onSelectCompareBranch?: (branchId: string) => void;
+  onSwitchToCachedSafeBranch?: () => void;
   onTogglePlayStory: () => void;
   onExportComplete?: (result: PreviewExportResult) => void;
   onRenderScene?: (scene: Scene, preview: PreviewExportResult) => void;
@@ -47,8 +51,12 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
   renderingScene,
   renderProgress = null,
   isPlayingStory,
+  soundEnabled,
+  modalOpen = false,
+  onSoundEnabledChange,
   cleanCaptureMode = false,
   onSelectCompareBranch,
+  onSwitchToCachedSafeBranch,
   onTogglePlayStory,
   onExportComplete,
   onRenderScene,
@@ -64,13 +72,40 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
   const [exporting, setExporting] = useState(false);
   const [autoCutEnabled, setAutoCutEnabled] = useState(false);
   const [activeCutCam, setActiveCutCam] = useState<'A' | 'B'>('A');
-  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [compareAudioSource, setCompareAudioSource] = useState<'none' | 'baseline' | 'active'>('none');
+  const [diffHaloEnabled, setDiffHaloEnabled] = useState(true);
   const [failedVideoUrls, setFailedVideoUrls] = useState<Record<string, boolean>>({});
   const [renderElapsedSec, setRenderElapsedSec] = useState(0);
 
   const markVideoFailed = (url: string) => {
     setFailedVideoUrls((prev) => (prev[url] ? prev : { ...prev, [url]: true }));
   };
+
+  // W2-T6D: Reset transient video error flags cleanly whenever active/compare branch changes
+  useEffect(() => {
+    setFailedVideoUrls({});
+  }, [activeBranch.branch_id, compareBranch?.branch_id]);
+
+  // W2-T9D: Pause & mute background stage videos while EvalModal is open to prevent overlapping audio
+  useEffect(() => {
+    const videos = [
+      videoARef.current,
+      videoBRef.current,
+      compareOldVideoRef.current,
+      compareNewVideoRef.current,
+    ];
+    for (const vid of videos) {
+      if (!vid) continue;
+      if (modalOpen) {
+        vid.pause();
+      } else {
+        const p = vid.play();
+        if (p && typeof p.catch === 'function') {
+          p.catch(() => {});
+        }
+      }
+    }
+  }, [modalOpen]);
 
   useEffect(() => {
     if (!renderingScene) {
@@ -106,6 +141,32 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
   };
 
   useEffect(() => {
+    if (viewMode !== 'final') return;
+    const syncTimer = window.setInterval(() => {
+      const master = videoARef.current;
+      if (!master || master.paused || master.readyState < 2) return;
+      const followers = [
+        videoBRef.current,
+        compareOldVideoRef.current,
+        compareNewVideoRef.current,
+      ];
+      for (const vid of followers) {
+        if (!vid || vid.paused || vid.readyState < 2) continue;
+        const duration = Number.isFinite(vid.duration) && vid.duration > 0 ? vid.duration : null;
+        if (duration && master.currentTime >= duration) continue;
+        if (Math.abs(vid.currentTime - master.currentTime) > 0.25) {
+          try {
+            vid.currentTime = master.currentTime;
+          } catch {
+            // Ignore seek errors while media buffer updates
+          }
+        }
+      }
+    }, 1500);
+    return () => window.clearInterval(syncTimer);
+  }, [viewMode, activeSceneIndex, activeBranch.branch_id, compareBranch?.branch_id]);
+
+  useEffect(() => {
     if (!autoCutEnabled) return;
     const timer = window.setInterval(() => {
       setActiveCutCam((prev) => (prev === 'A' ? 'B' : 'A'));
@@ -137,8 +198,22 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
 
   useEffect(() => {
     if (!managerRef.current || !scene) return;
-    managerRef.current.applyScene(scene, activeBranch.props_registry);
-  }, [scene, activeBranch.props_registry]);
+    managerRef.current.applyScene(scene, activeBranch.props_registry, compareScene);
+  }, [scene, activeBranch.props_registry, compareScene]);
+
+  useEffect(() => {
+    if (!managerRef.current) return;
+    managerRef.current.setDiffHaloEnabled(diffHaloEnabled);
+  }, [diffHaloEnabled]);
+
+  // Keep compare audio and main Cam A audio mutually exclusive to avoid overlap
+  const handleSelectCompareAudio = (target: 'baseline' | 'active') => {
+    setCompareAudioSource((prev) => {
+      const next = prev === target ? 'none' : target;
+      if (next !== 'none') onSoundEnabledChange(false);
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!managerRef.current) return;
@@ -170,7 +245,34 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
 
   const camAUrl = scene?.media.cam_a_final_url ?? null;
   const camBUrl = scene?.media.cam_b_final_url ?? null;
+  const camAPoster = scene?.media.cam_a_tail_frame_url ?? undefined;
+  const camBPoster = scene?.media.cam_b_tail_frame_url ?? undefined;
   const compareCamAUrl = compareScene?.media.cam_a_final_url ?? null;
+  const compareCamAPoster = compareScene?.media.cam_a_tail_frame_url ?? undefined;
+
+  // W2-T6E: Preload adjacent scene MP4 metadata during AI Render / Play 1->4 to avoid black transition flashes
+  useEffect(() => {
+    if (viewMode !== 'final' && !isPlayingStory) return;
+    const nextScene = activeBranch.scenes[activeSceneIndex + 1];
+    if (!nextScene) return;
+    const urls = [
+      nextScene.media.cam_a_final_url,
+      nextScene.media.cam_b_final_url,
+    ].filter((u): u is string => Boolean(u));
+    const preloadEls: HTMLVideoElement[] = urls.map((url) => {
+      const v = document.createElement('video');
+      v.preload = 'metadata';
+      v.muted = true;
+      v.src = url;
+      return v;
+    });
+    return () => {
+      for (const v of preloadEls) {
+        v.removeAttribute('src');
+        v.load();
+      }
+    };
+  }, [activeBranch.scenes, activeSceneIndex, viewMode, isPlayingStory]);
 
   const showFinalA =
     viewMode === 'final' &&
@@ -240,12 +342,26 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
           >
             {autoCutEnabled ? `🎞️ Auto-Cut: CAM ${activeCutCam}` : '🎞️ Auto-Cut A/B'}
           </button>
+          {viewMode === 'preview' && !cleanCaptureMode && (
+            <button
+              type="button"
+              className={`pill-btn subtle ${diffHaloEnabled ? 'active' : ''}`}
+              onClick={() => setDiffHaloEnabled((v) => !v)}
+              title="Toggle warm-gold floor diff halo under modified actors in forked scenes"
+            >
+              ✨ Diff Halo
+            </button>
+          )}
           {viewMode === 'final' && (
             <button
               type="button"
               className={`pill-btn ${soundEnabled ? 'active' : ''}`}
-              onClick={() => setSoundEnabled((v) => !v)}
-              title="Toggle native Omni Flash audio track (Cam A)"
+              onClick={() => {
+                const next = !soundEnabled;
+                onSoundEnabledChange(next);
+                if (next) setCompareAudioSource('none');
+              }}
+              title="Toggle native Omni Flash audio track (Cam A) & UI chime"
             >
               {soundEnabled ? '🔊 Sound On' : '🔇 Muted'}
             </button>
@@ -318,6 +434,30 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
         </div>
       )}
 
+      {renderingScene && renderElapsedSec >= 35 && onSwitchToCachedSafeBranch && (
+        <div
+          className="warning-banner"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 10,
+            flexWrap: 'wrap',
+          }}
+        >
+          <span>
+            ⏱️ Live render taking longer than usual ({renderElapsedSec}s). Keep demo momentum smooth:
+          </span>
+          <button
+            type="button"
+            className="pill-btn active"
+            onClick={onSwitchToCachedSafeBranch}
+          >
+            ⚡ Switch to Cached Starlight Branch
+          </button>
+        </div>
+      )}
+
       {/* Dual-Camera 2.5D Stage (Always mounted so Three.js loop stays live) */}
       <div className="dual-cam-grid">
         <div
@@ -344,10 +484,12 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
               ref={videoARef}
               key={camAUrl}
               src={camAUrl}
+              poster={camAPoster}
+              preload="auto"
               controls
               autoPlay
               loop
-              muted={!soundEnabled}
+              muted={!soundEnabled || modalOpen}
               playsInline
               onError={() => markVideoFailed(camAUrl)}
             />
@@ -393,6 +535,8 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
               ref={videoBRef}
               key={camBUrl}
               src={camBUrl}
+              poster={camBPoster}
+              preload="auto"
               controls
               autoPlay
               loop
@@ -420,7 +564,13 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
       {/* Side-by-Side Old vs New Branch Comparison */}
       {compareEnabled && compareBranch && compareScene && compareSceneText && (
         <div className="compare-grid">
-          <div className="compare-card">
+          <div
+            className="compare-card"
+            style={{
+              borderColor:
+                compareAudioSource === 'baseline' ? 'var(--accent-rose)' : undefined,
+            }}
+          >
             <div
               style={{
                 display: 'flex',
@@ -433,33 +583,47 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
               <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fda4af' }}>
                 Baseline: {getBranchLabelEn(compareBranch)} (Scene {compareScene.scene_id})
               </span>
-              {allBranches.length > 2 && onSelectCompareBranch && !cleanCaptureMode && (
-                <select
-                  className="select-input"
-                  style={{ padding: '3px 8px', fontSize: '0.72rem', maxWidth: 220 }}
-                  value={compareBranch.branch_id}
-                  onChange={(e) => onSelectCompareBranch(e.target.value)}
-                  aria-label="Select baseline branch for left comparison slot"
-                >
-                  {allBranches
-                    .filter((b) => b.branch_id !== activeBranch.branch_id)
-                    .map((b) => (
-                      <option key={b.branch_id} value={b.branch_id}>
-                        Compare: {getBranchLabelEn(b)}
-                      </option>
-                    ))}
-                </select>
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {showCompareOldVideo && (
+                  <button
+                    type="button"
+                    className={`pill-btn subtle ${compareAudioSource === 'baseline' ? 'active' : ''}`}
+                    onClick={() => handleSelectCompareAudio('baseline')}
+                    title="Unmute only Baseline comparison audio"
+                  >
+                    {compareAudioSource === 'baseline' ? '🔊 Audio: Baseline' : '🔇 Listen'}
+                  </button>
+                )}
+                {allBranches.length > 2 && onSelectCompareBranch && !cleanCaptureMode && (
+                  <select
+                    className="select-input"
+                    style={{ padding: '3px 8px', fontSize: '0.72rem', maxWidth: 200 }}
+                    value={compareBranch.branch_id}
+                    onChange={(e) => onSelectCompareBranch(e.target.value)}
+                    aria-label="Select baseline branch for left comparison slot"
+                  >
+                    {allBranches
+                      .filter((b) => b.branch_id !== activeBranch.branch_id)
+                      .map((b) => (
+                        <option key={b.branch_id} value={b.branch_id}>
+                          Compare: {getBranchLabelEn(b)}
+                        </option>
+                      ))}
+                  </select>
+                )}
+              </div>
             </div>
             {showCompareOldVideo && compareCamAUrl && (
               <video
                 ref={compareOldVideoRef}
                 key={compareCamAUrl}
                 src={compareCamAUrl}
+                poster={compareCamAPoster}
+                preload="auto"
                 controls
                 autoPlay
                 loop
-                muted
+                muted={compareAudioSource !== 'baseline' || modalOpen}
                 playsInline
                 onError={() => markVideoFailed(compareCamAUrl)}
                 style={{ width: '100%', maxHeight: 148, borderRadius: 8, background: '#000' }}
@@ -474,19 +638,47 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
             </div>
           </div>
 
-          <div className="compare-card">
-            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#6ee7b7' }}>
-              Active: {getBranchLabelEn(activeBranch)} (Scene {scene.scene_id})
+          <div
+            className="compare-card"
+            style={{
+              borderColor:
+                compareAudioSource === 'active' ? 'var(--accent-emerald)' : undefined,
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 8,
+                flexWrap: 'wrap',
+              }}
+            >
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#6ee7b7' }}>
+                Active: {getBranchLabelEn(activeBranch)} (Scene {scene.scene_id})
+              </span>
+              {showCompareNewVideo && (
+                <button
+                  type="button"
+                  className={`pill-btn subtle ${compareAudioSource === 'active' ? 'active' : ''}`}
+                  onClick={() => handleSelectCompareAudio('active')}
+                  title="Unmute only Active comparison audio"
+                >
+                  {compareAudioSource === 'active' ? '🔊 Audio: Active' : '🔇 Listen'}
+                </button>
+              )}
             </div>
             {showCompareNewVideo && camAUrl && (
               <video
                 ref={compareNewVideoRef}
                 key={camAUrl}
                 src={camAUrl}
+                poster={camAPoster}
+                preload="auto"
                 controls
                 autoPlay
                 loop
-                muted
+                muted={compareAudioSource !== 'active' || modalOpen}
                 playsInline
                 onError={() => markVideoFailed(camAUrl)}
                 style={{ width: '100%', maxHeight: 148, borderRadius: 8, background: '#000' }}

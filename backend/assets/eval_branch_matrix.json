@@ -1,0 +1,104 @@
+{
+  "generated_at": "2026-11-21T13:38:50",
+  "model": "models/gemini-decision-1",
+  "branches_evaluated": [
+    "branch_v1",
+    "branch_v2_cached",
+    "branch_v3_starlight_cached",
+    "branch_v4_umbrella_shield_cached"
+  ],
+  "checks_total": 8,
+  "checks_matched": 7,
+  "matrix_accuracy": 0.875,
+  "avg_latency_sec": 3.88,
+  "results": [
+    {
+      "branch_id": "branch_v1",
+      "scene_id": 2,
+      "clip_url": "/assets/finals/scene_2_cam_a.mp4",
+      "question": "Are there shattered glass shards or spilled blue rose petals on the conservatory floor?",
+      "expected": true,
+      "predicted": true,
+      "matched": true,
+      "p_true": 0.742,
+      "latency_sec": 4.54
+    },
+    {
+      "branch_id": "branch_v1",
+      "scene_id": 4,
+      "clip_url": "/assets/finals/scene_4_cam_a.mp4",
+      "question": "Is the crystal vase broken and Lia standing alone in cold rainy moonlight?",
+      "expected": true,
+      "predicted": true,
+      "matched": true,
+      "p_true": 0.806,
+      "latency_sec": 3.95
+    },
+    {
+      "branch_id": "branch_v2_cached",
+      "scene_id": 2,
+      "clip_url": "/assets/finals/branch_v2_scene_2_cam_a.mp4",
+      "question": "Is the blue-rose crystal vase still intact on the center table without shattered glass?",
+      "expected": true,
+      "predicted": true,
+      "matched": true,
+      "p_true": 0.847,
+      "latency_sec": 4.05
+    },
+    {
+      "branch_id": "branch_v2_cached",
+      "scene_id": 4,
+      "clip_url": "/assets/finals/branch_v2_scene_4_cam_a.mp4",
+      "question": "Are Lia and the small black cat sheltered warmly under golden starlight and snow with the vase intact?",
+      "expected": true,
+      "predicted": false,
+      "matched": false,
+      "p_true": 0.424,
+      "latency_sec": 3.9
+    },
+    {
+      "branch_id": "branch_v3_starlight_cached",
+      "scene_id": 2,
+      "clip_url": "/assets/finals/branch_v3_scene_2_cam_a.mp4",
+      "question": "Is the glowing golden star keepsake visible with the crystal vase intact on the table?",
+      "expected": true,
+      "predicted": true,
+      "matched": true,
+      "p_true": 0.752,
+      "latency_sec": 3.25
+    },
+    {
+      "branch_id": "branch_v3_starlight_cached",
+      "scene_id": 4,
+      "clip_url": "/assets/finals/branch_v3_scene_4_cam_a.mp4",
+      "question": "Are both the golden star keepsake and intact blue-rose crystal vase preserved together in Scene 4?",
+      "expected": true,
+      "predicted": true,
+      "matched": true,
+      "p_true": 0.808,
+      "latency_sec": 3.56
+    },
+    {
+      "branch_id": "branch_v4_umbrella_shield_cached",
+      "scene_id": 2,
+      "clip_url": "/assets/finals/branch_v4_scene_2_cam_a.mp4",
+      "question": "Is Lia using her crimson umbrella near the center table while the crystal vase stays intact?",
+      "expected": true,
+      "predicted": true,
+      "matched": true,
+      "p_true": 0.817,
+      "latency_sec": 3.85
+    },
+    {
+      "branch_id": "branch_v4_umbrella_shield_cached",
+      "scene_id": 4,
+      "clip_url": "/assets/finals/branch_v4_scene_4_cam_a.mp4",
+      "question": "Are Lia and the black cat resting safely near the crimson umbrella with the blue-rose crystal vase still intact?",
+      "expected": true,
+      "predicted": true,
+      "matched": true,
+      "p_true": 0.726,
+      "latency_sec": 3.95
+    }
+  ]
+}

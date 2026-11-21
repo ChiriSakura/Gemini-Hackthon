@@ -10,6 +10,8 @@
  */
 import React, { useRef, useState } from 'react';
 
+export type PropPlacement = 'table' | 'held' | 'floor';
+
 interface DirectControlBarProps {
   targetSceneId: number;
   onTargetSceneChange: (sceneId: number) => void;
@@ -19,7 +21,11 @@ interface DirectControlBarProps {
   cleanCaptureMode?: boolean;
   onDismissContradiction?: () => void;
   onForceRewrite?: () => void;
-  onCreateProp?: (opts: { name: string; imageBlob?: Blob | null }) => void;
+  onCreateProp?: (opts: {
+    name: string;
+    imageBlob?: Blob | null;
+    placement: PropPlacement;
+  }) => void;
   onSubmitFork: (opts: {
     clip?: Blob | null;
     text?: string;
@@ -65,9 +71,11 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
   const [text, setText] = useState('');
   const [recording, setRecording] = useState(false);
   const [remainingMs, setRemainingMs] = useState(3000);
+  const [audioLevel, setAudioLevel] = useState(0);
   const [camError, setCamError] = useState<string | null>(null);
   const [propPanelOpen, setPropPanelOpen] = useState(false);
   const [propName, setPropName] = useState('Starlight Shield');
+  const [propPlacement, setPropPlacement] = useState<PropPlacement>('table');
   const [capturedPropBlob, setCapturedPropBlob] = useState<Blob | null>(null);
   const [capturedPropPreviewUrl, setCapturedPropPreviewUrl] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -77,6 +85,8 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<number | null>(null);
   const countdownIntervalRef = useRef<number | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const meterRafRef = useRef<number | null>(null);
 
   const clearCapturedProp = () => {
     if (capturedPropPreviewUrl) {
@@ -146,7 +156,11 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
   const handleSubmitProp = () => {
     if (!onCreateProp || !propName.trim() || creatingProp) return;
     if (capturedPropBlob) {
-      onCreateProp({ name: propName.trim(), imageBlob: capturedPropBlob });
+      onCreateProp({
+        name: propName.trim(),
+        imageBlob: capturedPropBlob,
+        placement: propPlacement,
+      });
       stopPropCam();
       clearCapturedProp();
       setPropPanelOpen(false);
@@ -160,13 +174,21 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
       const ctx = canvas.getContext('2d');
       ctx?.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
       canvas.toBlob((blob) => {
-        onCreateProp({ name: propName.trim(), imageBlob: blob });
+        onCreateProp({
+          name: propName.trim(),
+          imageBlob: blob,
+          placement: propPlacement,
+        });
         stopPropCam();
         clearCapturedProp();
         setPropPanelOpen(false);
       }, 'image/png');
     } else {
-      onCreateProp({ name: propName.trim(), imageBlob: null });
+      onCreateProp({
+        name: propName.trim(),
+        imageBlob: null,
+        placement: propPlacement,
+      });
       stopPropCam();
       clearCapturedProp();
       setPropPanelOpen(false);
@@ -182,6 +204,15 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
       window.clearInterval(countdownIntervalRef.current);
       countdownIntervalRef.current = null;
     }
+    if (meterRafRef.current !== null) {
+      cancelAnimationFrame(meterRafRef.current);
+      meterRafRef.current = null;
+    }
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close().catch(() => {});
+      audioCtxRef.current = null;
+    }
+    setAudioLevel(0);
     setRemainingMs(3000);
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
@@ -189,6 +220,38 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
     }
     if (videoRef.current) {
       videoRef.current.srcObject = null;
+    }
+  };
+
+  const startAudioMeter = (stream: MediaStream) => {
+    try {
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx || stream.getAudioTracks().length === 0) return;
+      const ctx = new AudioCtx();
+      audioCtxRef.current = ctx;
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      const data = new Uint8Array(analyser.fftSize);
+
+      const sample = () => {
+        if (!audioCtxRef.current) return;
+        analyser.getByteTimeDomainData(data);
+        let sumSq = 0;
+        for (let i = 0; i < data.length; i++) {
+          const norm = (data[i] - 128) / 128;
+          sumSq += norm * norm;
+        }
+        const rms = Math.sqrt(sumSq / data.length);
+        setAudioLevel(Math.min(1, rms * 3.8));
+        meterRafRef.current = requestAnimationFrame(sample);
+      };
+      sample();
+    } catch {
+      // Ignore Web Audio API restrictions gracefully
     }
   };
 
@@ -204,6 +267,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
+      startAudioMeter(stream);
 
       const chunks: BlobPart[] = [];
       const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
@@ -329,7 +393,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <video
               ref={videoRef}
-              className="webcam-pip"
+              className="webcam-pip mirrored"
               autoPlay
               muted
               playsInline
@@ -343,6 +407,15 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
                   className="countdown-fill"
                   style={{ width: `${Math.round((remainingMs / 3000) * 100)}%` }}
                 />
+              </div>
+              <div className="rms-row" title="Live microphone input RMS level">
+                <span style={{ fontSize: '0.66rem', color: '#94a3b8' }}>🎙️</span>
+                <div className="rms-track">
+                  <div
+                    className="rms-fill"
+                    style={{ width: `${Math.round(audioLevel * 100)}%` }}
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -392,7 +465,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
         >
           <video
             ref={propVideoRef}
-            className="webcam-pip"
+            className="webcam-pip mirrored"
             style={{ display: capturedPropPreviewUrl ? 'none' : 'block' }}
             autoPlay
             muted
@@ -411,11 +484,29 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
           <input
             type="text"
             className="text-input"
-            style={{ maxWidth: 220 }}
+            style={{ maxWidth: 200 }}
             value={propName}
             onChange={(e) => setPropName(e.target.value)}
             placeholder="Prop name (e.g. Starlight Shield)"
           />
+          <div className="placement-chips" role="group" aria-label="Prop stage placement">
+            {(
+              [
+                { id: 'table', label: 'Table' },
+                { id: 'held', label: 'Held' },
+                { id: 'floor', label: 'Floor' },
+              ] as Array<{ id: PropPlacement; label: string }>
+            ).map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                className={`pill-btn subtle ${propPlacement === opt.id ? 'active' : ''}`}
+                onClick={() => setPropPlacement(opt.id)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
           {!capturedPropPreviewUrl ? (
             <button
               type="button"
@@ -458,24 +549,29 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
       )}
 
       {!cleanCaptureMode && (
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.73rem', color: 'var(--text-muted)' }}>
-            Quick Presets:
-          </span>
-          {DEMO_PROMPTS.map((preset, idx) => (
-            <button
-              key={idx}
-              type="button"
-              className="pill-btn subtle"
-              style={{ fontSize: '0.72rem', padding: '3px 9px' }}
-              onClick={() => {
-                setText(preset.text);
-                onTargetSceneChange(preset.sceneId);
-              }}
-            >
-              {preset.label}
-            </button>
-          ))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.73rem', color: 'var(--text-muted)' }}>
+              Quick Presets:
+            </span>
+            {DEMO_PROMPTS.map((preset, idx) => (
+              <button
+                key={idx}
+                type="button"
+                className="pill-btn subtle"
+                style={{ fontSize: '0.72rem', padding: '3px 9px' }}
+                onClick={() => {
+                  setText(preset.text);
+                  onTargetSceneChange(preset.sceneId);
+                }}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+          <div className="try-it-hint">
+            Try it: (1) Hold Cam+Mic for 3s · (2) Snap a desk object · (3) Compare BE vs HE side-by-side
+          </div>
         </div>
       )}
     </section>

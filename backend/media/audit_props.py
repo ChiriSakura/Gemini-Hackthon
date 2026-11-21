@@ -42,11 +42,11 @@ def _compute_green_halo_mask(rgba: np.ndarray) -> np.ndarray:
     b = rgb[:, :, 2].astype(np.int16)
     green_excess = g - np.maximum(r, b)
     return (
-        (hsv[:, :, 0] >= 34)
-        & (hsv[:, :, 0] <= 96)
-        & (hsv[:, :, 1] >= 45)
+        (hsv[:, :, 0] >= 38)
+        & (hsv[:, :, 0] <= 74)
+        & (hsv[:, :, 1] >= 85)
         & (hsv[:, :, 2] >= 45)
-        & (green_excess > 18)
+        & (green_excess > 24)
     )
 
 

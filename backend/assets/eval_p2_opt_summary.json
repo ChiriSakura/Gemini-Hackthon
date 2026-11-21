@@ -1,0 +1,35 @@
+{
+  "branch": "feat/w1-media-opt",
+  "zero_conflict_additive_only": true,
+  "owned_paths_verified": ["backend/media/**", "backend/assets/**"],
+  "completed_optimizations": [
+    "Opt-1: Built pure-backend 3D->2.5D perspective blueprint renderer (backend/media/stage_blueprint.py) matching Three.js Cam A (44deg front wide) & Cam B (36deg 45-deg oblique close-up) geometry; pre-rendered 14 fallback 640x360 PNGs under backend/assets/previews/blueprint_*.png + ran live Omni Flash Layer-3 A/B ablation (spatial P(true) 0.256 -> 0.325, QA 0.859 -> 0.875; flat schematic frame-0 reduces anime depth -> best used as instant preview/reference)",
+    "Opt-2: Benchmarked Omni Flash native 48kHz stereo AAC audio-visual alignment directly on 14 cached .mp4 clips + 4 negative controls via models/gemini-decision-1 -> 100% audio-mood match (14/14), 100% audio-visual sync (14/14), 100% clean audio (14/14), 100% negative control rejection (4/4 TNR), 1.51s avg latency (backend/assets/eval_audio_mood.json)",
+    "Opt-3: Completed the Decisions API trifecta by calibrating choice intent routing (15 bilingual EN+ZH directives across all 5 classes -> 100% accuracy, 1.31s avg) and score clip alignment rubric (12 matched vs mismatched .mp4 pairs -> 0.874 matched vs 0.088 mismatched, +0.786 separation, 1.000 pairwise AUC, 0.66s avg) (backend/assets/eval_decisions_multimodal.json)",
+    "Opt-4: Built T5 1-minute submission video asset pipeline (backend/media/build_submission_assets.py) generating drop-in HD H.264+AAC 10.0s Dual-Cam + Past-Rewrite Quad-Split hook (hook_10s_dualcam_twist.mp4, 1280x720, 2.16MB), 1920x1080 Full HD 4-panel dark-theme empirical benchmark board (eval_charts_board.png), and 12.0s animated HD H.264 outro (eval_dashboard_12s.mp4, 0.28MB)",
+    "Opt-5: Built Zero-Panic Live-Demo Pre-Flight Verifier (backend/media/preflight_check.py) validating /api/health, /api/branches, /api/media/progress/{branch_id}, Pydantic schemas, CJK counts, Unicode-safe H.264 + audio probes, RGBA props, and all 14 blueprint frames in 3.22s (backend/assets/preflight_report.json)"
+  ],
+  "metrics": {
+    "stage_blueprints_generated": 14,
+    "blueprint_ab_spatial_baseline_p": 0.256,
+    "blueprint_ab_spatial_anchored_p": 0.325,
+    "blueprint_ab_qa_score": 0.875,
+    "audio_mood_match_rate": 1.0,
+    "audio_visual_sync_rate": 1.0,
+    "audio_clean_rate": 1.0,
+    "audio_negative_control_tnr": 1.0,
+    "audio_decision_avg_latency_sec": 1.51,
+    "decisions_choice_accuracy_15_en_zh": 1.0,
+    "decisions_choice_avg_latency_sec": 1.31,
+    "decisions_score_mean_matched": 0.874,
+    "decisions_score_mean_mismatched": 0.088,
+    "decisions_score_separation_margin": 0.786,
+    "decisions_score_pairwise_auc": 1.0,
+    "decisions_score_avg_latency_sec": 0.66,
+    "submission_hook_10s_h264_aac": true,
+    "submission_outro_12s_h264": true,
+    "preflight_passed": true,
+    "preflight_elapsed_sec": 3.22
+  },
+  "last_updated": "2026-11-21T13:38:00-05:00"
+}

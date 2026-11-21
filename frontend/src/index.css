@@ -4,9 +4,9 @@
   --bg-theater: #090b12;
   --bg-stage-panel: #101420;
   --bg-card: #151b2b;
-  --border-subtle: rgba(148, 163, 184, 0.16);
-  --text-primary: #f1f5f9;
-  --text-muted: #94a3b8;
+  --border-subtle: rgba(148, 163, 184, 0.22);
+  --text-primary: #f8fafc;
+  --text-muted: #b4c2d4;
   --accent-gold: #fbbf24;
   --accent-blue: #38bdf8;
   --accent-rose: #fb7185;
@@ -263,28 +263,45 @@ button {
   background: var(--bg-stage-panel);
   border: 1px solid var(--border-subtle);
   border-radius: 14px;
-  padding: 12px 14px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 7px;
+  max-height: 220px;
+  overflow-y: auto;
 }
 
 .branch-row {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 8px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+@media (max-width: 960px) {
+  .branch-row {
+    flex-wrap: wrap;
+  }
 }
 
 .branch-label-btn {
-  min-width: 220px;
+  flex: 0 0 215px;
+  min-width: 0;
   text-align: left;
-  padding: 8px 12px;
+  padding: 6px 10px;
   border-radius: 10px;
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   color: var(--text-primary);
-  font-size: 0.82rem;
+  font-size: 0.78rem;
+  overflow: hidden;
+}
+
+.branch-label-btn > div {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .branch-label-btn.active {
@@ -293,17 +310,18 @@ button {
 }
 
 .scene-node-btn {
-  flex: 1;
-  min-width: 150px;
+  flex: 1 1 0;
+  min-width: 118px;
   text-align: left;
-  padding: 8px 10px;
+  padding: 6px 8px;
   border-radius: 10px;
   background: rgba(15, 23, 42, 0.72);
   border: 1px solid var(--border-subtle);
   color: var(--text-primary);
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
+  overflow: hidden;
 }
 
 .scene-node-btn.active {
@@ -465,11 +483,13 @@ button {
 }
 
 .modal-card {
-  width: min(820px, 100%);
+  width: min(860px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
   background: #101626;
   border: 1px solid rgba(251, 191, 36, 0.35);
   border-radius: 16px;
-  padding: 18px 20px;
+  padding: 16px 18px;
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.65);
 }
 
@@ -653,4 +673,282 @@ button {
   border-radius: 999px;
   background: linear-gradient(90deg, #f59e0b, #ef4444);
   transition: width 50ms linear;
+}
+
+.webcam-pip.mirrored {
+  transform: scaleX(-1);
+}
+
+.rms-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.rms-track {
+  width: 78px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.22);
+  overflow: hidden;
+}
+
+.rms-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #34d399, #fbbf24, #fb7185);
+  transition: width 40ms linear;
+}
+
+.showcase-prop-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+@media (max-width: 680px) {
+  .showcase-prop-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.showcase-prop-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 6px;
+}
+
+.checkerboard-thumb {
+  width: 58px;
+  height: 58px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-image:
+    linear-gradient(45deg, #1e293b 25%, transparent 25%),
+    linear-gradient(-45deg, #1e293b 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #1e293b 75%),
+    linear-gradient(-45deg, transparent 75%, #1e293b 75%);
+  background-size: 12px 12px;
+  background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+  background-color: #0f172a;
+}
+
+.checkerboard-thumb img {
+  max-width: 52px;
+  max-height: 52px;
+  object-fit: contain;
+}
+
+.showcase-prop-label {
+  font-size: 0.68rem;
+  color: #cbd5e1;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.placement-chips {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.shortcut-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 218px;
+  background: #0f1629;
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.shortcut-title {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #fde68a;
+  margin-bottom: 2px;
+}
+
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: #cbd5e1;
+}
+
+.shortcut-row kbd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.68rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.16);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #f8fafc;
+}
+
+/* W2-T6I: Zero-scroll projector layout polish for 1280x800 and 1440x900 */
+@media (max-height: 920px) {
+  .app-shell {
+    padding: 8px 14px 10px;
+    gap: 6px;
+  }
+
+  .stage-theater {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  .scene-narration {
+    padding: 5px 10px;
+    font-size: 0.84rem;
+    line-height: 1.35;
+  }
+
+  .cam-frame {
+    max-height: 31vh;
+  }
+
+  .clapperboard-strip {
+    padding: 6px 10px;
+    gap: 8px;
+  }
+
+  .branch-tree-panel {
+    padding: 7px 10px;
+    gap: 5px;
+    max-height: 175px;
+  }
+
+  .director-bar {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+}
+
+@media (max-height: 800px) {
+  .cam-frame {
+    max-height: 28vh;
+  }
+
+  .branch-tree-panel {
+    max-height: 145px;
+  }
+}
+
+/* W2-T8B & W2-T8C: Preset switcher pills & hover/focus scene thumbnail tooltip */
+.preset-branch-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.scene-node-wrap {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 118px;
+  display: flex;
+}
+
+.scene-node-wrap .scene-node-btn {
+  width: 100%;
+}
+
+.scene-thumb-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 124px;
+  background: #0b1120;
+  border: 1px solid rgba(251, 191, 36, 0.55);
+  border-radius: 8px;
+  padding: 2px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.72);
+  z-index: 80;
+  pointer-events: none;
+}
+
+.scene-thumb-tooltip img {
+  display: block;
+  width: 120px;
+  height: 68px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: #000;
+}
+
+.scene-thumb-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #fde68a;
+  padding: 2px 4px 1px;
+}
+
+.try-it-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  opacity: 0.92;
+}
+
+/* W2-T8H: High-contrast projector focus-visible & accessibility outlines */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent-gold);
+  outline-offset: 2px;
+}
+
+.pill-btn.subtle {
+  color: #cbd5e1;
+}
+
+.showcase-prop-strip {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* W2-T8I: Narrow-screen responsive stacking guard (<= 960px) */
+html,
+body {
+  overflow-x: hidden;
+}
+
+@media (max-width: 960px) {
+  .dual-cam-grid,
+  .compare-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cam-frame {
+    max-height: none;
+  }
+
+  .branch-row {
+    flex-wrap: wrap;
+  }
+
+  .branch-label-btn {
+    flex: 1 1 100%;
+  }
+
+  .scene-node-wrap {
+    flex: 1 1 calc(50% - 6px);
+    min-width: 130px;
+  }
 }

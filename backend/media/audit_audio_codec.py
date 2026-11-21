@@ -107,7 +107,16 @@ def inspect_mp4_clip(mp4_path: Path, ffmpeg_exe: str) -> dict:
 def run_audio_codec_audit() -> dict:
     """Audit all cached branch MP4s across branch_v1, branch_v2_cached, and branch_v3_starlight_cached."""
     ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
-    target_branches = ("branch_v1", "branch_v2_cached", "branch_v3_starlight_cached")
+    target_branches = tuple(
+        bid
+        for bid in (
+            "branch_v1",
+            "branch_v2_cached",
+            "branch_v3_starlight_cached",
+            "branch_v4_umbrella_shield_cached",
+        )
+        if get_branch(bid) is not None
+    )
 
     clip_refs: dict[str, list[str]] = {}
     clip_paths: dict[str, Path] = {}

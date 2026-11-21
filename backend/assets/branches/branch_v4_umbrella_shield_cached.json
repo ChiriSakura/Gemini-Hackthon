@@ -1,0 +1,585 @@
+{
+  "branch_id": "branch_v4_umbrella_shield_cached",
+  "branch_label": "Shield · Umbrella Guard (Intact Vase Preset)",
+  "parent_branch_id": "branch_v1",
+  "forked_from_scene": 2,
+  "rewrite_summary": "In Scene 2, Lia blocks the table with her red umbrella to protect the crystal vase from falling.",
+  "contradiction_warning": null,
+  "props_registry": {
+    "red_umbrella": {
+      "name": "Crimson Vintage Umbrella",
+      "image_url": "/assets/actors/lia.png",
+      "state": "held",
+      "origin": "preset"
+    },
+    "crystal_vase": {
+      "name": "Blue Rose Crystal Vase",
+      "image_url": "/assets/props/crystal_vase.png",
+      "state": "intact",
+      "origin": "preset"
+    }
+  },
+  "scenes": [
+    {
+      "scene_id": 1,
+      "title": "Rainy Night Encounter",
+      "duration_sec": 4.0,
+      "narration": "Under warm dim lantern light, Lia stands on the left side of the glass conservatory holding a crimson umbrella while black cat Nyx sits on the right gazing at the blue-rose crystal vase on the center table.",
+      "vocal_emotion": "neutral",
+      "gesture_intent": "none",
+      "direction_hint": "none",
+      "lighting": "warm_dim",
+      "camera_shake": false,
+      "audio_mood": "soft_rain_and_quiet_glasshouse_ambience",
+      "environment_notes": "rain_outside_glass_windows glowing_blue_rose_in_crystal_vase warm_wall_lanterns_lit herringbone_wooden_floor potted_corner_plants open_red_umbrella_indoors dark_nighttime_conservatory",
+      "needs_rerender": false,
+      "reused_from_branch": "branch_v1",
+      "actors": [
+        {
+          "id": "lia",
+          "name": "Lia",
+          "asset_url": "/assets/actors/lia.png",
+          "grid": [
+            0.0,
+            1.0
+          ],
+          "facing": "right",
+          "action": "stand",
+          "holding_prop": "red_umbrella"
+        },
+        {
+          "id": "nyx",
+          "name": "Nyx",
+          "asset_url": "/assets/actors/nyx.png",
+          "grid": [
+            2.0,
+            1.0
+          ],
+          "facing": "left",
+          "action": "sit",
+          "holding_prop": null
+        }
+      ],
+      "stage_props": [
+        {
+          "id": "crystal_vase",
+          "grid": [
+            1.0,
+            1.0
+          ],
+          "on_floor": false,
+          "state": "intact"
+        }
+      ],
+      "qa_questions": [
+        "Is the silver-haired girl standing on the left holding a red umbrella?",
+        "Is the black cat with a golden moon collar sitting on the right?",
+        "Is the crystal vase with a blue rose standing intact on the center round table?",
+        "Do Camera A (front wide) and Camera B (45-degree close-up) match actor positions?",
+        "Are there no extra unintended human characters in the scene?"
+      ],
+      "media": {
+        "cam_a_preview_url": null,
+        "cam_b_preview_url": null,
+        "cam_a_final_url": "/assets/finals/scene_1_cam_a.mp4",
+        "cam_b_final_url": "/assets/finals/scene_1_cam_b.mp4",
+        "cam_a_tail_frame_url": "/assets/tails/scene_1_cam_a_tail.png",
+        "cam_b_tail_frame_url": "/assets/tails/scene_1_cam_b_tail.png",
+        "qa_result": {
+          "overall_score": 0.861,
+          "all_passed": true,
+          "items": [
+            {
+              "question": "Is the silver-haired girl standing on the left holding a red umbrella?",
+              "passed": true,
+              "confidence": 0.939,
+              "reason": "Decision-1 P(true)=0.94"
+            },
+            {
+              "question": "Is the black cat with a golden moon collar sitting on the right?",
+              "passed": true,
+              "confidence": 0.943,
+              "reason": "Decision-1 P(true)=0.94"
+            },
+            {
+              "question": "Is the crystal vase with a blue rose standing intact on the center round table?",
+              "passed": true,
+              "confidence": 0.93,
+              "reason": "Decision-1 P(true)=0.93"
+            },
+            {
+              "question": "[Cam B] Do Camera A (front wide) and Camera B (45-degree close-up) match actor positions?",
+              "passed": true,
+              "confidence": 0.62,
+              "reason": "Decision-1 P(true)=0.62 [LOW_CONFIDENCE: escalate]"
+            },
+            {
+              "question": "Are there no extra unintended human characters in the scene?",
+              "passed": true,
+              "confidence": 0.902,
+              "reason": "Decision-1 P(true)=0.90"
+            },
+            {
+              "question": "[Cam B] Is the black cat realistically small (below the girl's knee height) with all characters and props resting naturally on surfaces without floating?",
+              "passed": true,
+              "confidence": 0.752,
+              "reason": "Decision-1 P(true)=0.75"
+            },
+            {
+              "question": "Is this a clean full-bleed nighttime anime frame with NO black borders, NO coordinate axes or numbers, NO duplicate umbrellas or duplicate star tokens, and consistent nighttime atmosphere?",
+              "passed": true,
+              "confidence": 0.909,
+              "reason": "Decision-1 P(true)=0.91"
+            },
+            {
+              "question": "[Dual-Cam] Camera A & Camera B spatial, prop, and nighttime lighting consistency",
+              "passed": true,
+              "confidence": 0.891,
+              "reason": "Cross-Cam Decision-1 P(true)=0.89"
+            }
+          ]
+        },
+        "qa_score": 0.879,
+        "qa_retries": 1,
+        "selected_candidate_index": 1,
+        "fallback_to_preview": false
+      }
+    },
+    {
+      "scene_id": 2,
+      "title": "Shield · Umbrella Guard Intervention",
+      "duration_sec": 4.0,
+      "narration": "As sudden thunder cracks outside, Lia swiftly extends her crimson umbrella across the edge of the center table, shielding the blue-rose crystal vase so startled Nyx lands safely without knocking it over.",
+      "vocal_emotion": "urgent_emotional",
+      "gesture_intent": "point_center",
+      "direction_hint": "center",
+      "lighting": "warm_transition",
+      "camera_shake": false,
+      "audio_mood": "muffled_thunder_cloth_whoosh_warm_chime",
+      "environment_notes": "rain_streaked_glass_dome open_red_umbrella glowing_blue_rose glass_vase_on_table black_cat_on_table window_shadows_on_floor open_archway_to_balcony starry_night_sky",
+      "needs_rerender": false,
+      "reused_from_branch": null,
+      "actors": [
+        {
+          "id": "lia",
+          "name": "Lia",
+          "asset_url": "/assets/actors/lia.png",
+          "grid": [
+            0.6,
+            1.05
+          ],
+          "facing": "right",
+          "action": "reach",
+          "holding_prop": "red_umbrella"
+        },
+        {
+          "id": "nyx",
+          "name": "Nyx",
+          "asset_url": "/assets/actors/nyx.png",
+          "grid": [
+            1.7,
+            1.05
+          ],
+          "facing": "left",
+          "action": "jump",
+          "holding_prop": null
+        }
+      ],
+      "stage_props": [
+        {
+          "id": "crystal_vase",
+          "grid": [
+            1.0,
+            1.0
+          ],
+          "on_floor": false,
+          "state": "intact"
+        }
+      ],
+      "qa_questions": [
+        "Is the silver-haired girl using her red umbrella to shield the center table?",
+        "Is the blue-rose crystal vase still standing intact on the center table (unbroken)?",
+        "Is the small black cat safely halted near the right side of the table?",
+        "Do Camera A and Camera B stay spatially consistent?"
+      ],
+      "media": {
+        "cam_a_preview_url": null,
+        "cam_b_preview_url": null,
+        "cam_a_final_url": "/assets/finals/branch_v4_scene_2_cam_a.mp4",
+        "cam_b_final_url": "/assets/finals/branch_v4_scene_2_cam_b.mp4",
+        "cam_a_tail_frame_url": "/assets/tails/branch_v4_scene_2_cam_a_tail.png",
+        "cam_b_tail_frame_url": "/assets/tails/branch_v4_scene_2_cam_b_tail.png",
+        "qa_result": {
+          "overall_score": 0.85,
+          "all_passed": false,
+          "items": [
+            {
+              "question": "[CAM A] Is the silver-haired girl using her red umbrella to shield the center table?",
+              "passed": true,
+              "confidence": 0.92,
+              "reason": "Decision-1 P(true)=0.92"
+            },
+            {
+              "question": "[CAM A] Is the blue-rose crystal vase still standing intact on the center table (unbroken)?",
+              "passed": true,
+              "confidence": 0.962,
+              "reason": "Decision-1 P(true)=0.96"
+            },
+            {
+              "question": "[CAM A] Is the small black cat safely halted near the right side of the table?",
+              "passed": true,
+              "confidence": 0.798,
+              "reason": "Decision-1 P(true)=0.80"
+            },
+            {
+              "question": "[CAM A] Do Camera A and Camera B stay spatially consistent?",
+              "passed": true,
+              "confidence": 0.859,
+              "reason": "Decision-1 P(true)=0.86"
+            },
+            {
+              "question": "[CAM A] Is the black cat realistically small (below the girl's knee height) with all characters and props resting naturally on surfaces without floating?",
+              "passed": true,
+              "confidence": 0.902,
+              "reason": "Decision-1 P(true)=0.90"
+            },
+            {
+              "question": "[CAM A] Is this a clean full-bleed nighttime anime frame with NO black borders, NO coordinate axes or numbers, NO duplicate umbrellas or duplicate star tokens, and consistent nighttime atmosphere?",
+              "passed": true,
+              "confidence": 0.913,
+              "reason": "Decision-1 P(true)=0.91"
+            },
+            {
+              "question": "[CAM B] Is the silver-haired girl using her red umbrella to shield the center table?",
+              "passed": true,
+              "confidence": 0.946,
+              "reason": "Decision-1 P(true)=0.95"
+            },
+            {
+              "question": "[CAM B] Is the blue-rose crystal vase still standing intact on the center table (unbroken)?",
+              "passed": true,
+              "confidence": 0.935,
+              "reason": "Decision-1 P(true)=0.94"
+            },
+            {
+              "question": "[CAM B] Is the small black cat safely halted near the right side of the table?",
+              "passed": true,
+              "confidence": 0.846,
+              "reason": "Decision-1 P(true)=0.85"
+            },
+            {
+              "question": "[CAM B] Do Camera A and Camera B stay spatially consistent?",
+              "passed": false,
+              "confidence": 0.529,
+              "reason": "Decision-1 P(true)=0.47 [LOW_CONFIDENCE: escalate]"
+            },
+            {
+              "question": "[CAM B] Is the black cat realistically small (below the girl's knee height) with all characters and props resting naturally on surfaces without floating?",
+              "passed": true,
+              "confidence": 0.862,
+              "reason": "Decision-1 P(true)=0.86"
+            },
+            {
+              "question": "[CAM B] Is this a clean full-bleed nighttime anime frame with NO black borders, NO coordinate axes or numbers, NO duplicate umbrellas or duplicate star tokens, and consistent nighttime atmosphere?",
+              "passed": true,
+              "confidence": 0.892,
+              "reason": "Decision-1 P(true)=0.89"
+            },
+            {
+              "question": "[Dual-Cam] Camera A & Camera B spatial, prop, and nighttime lighting consistency",
+              "passed": true,
+              "confidence": 0.75,
+              "reason": "Cross-Cam Decision-1 P(true)=0.75"
+            }
+          ]
+        },
+        "qa_score": 0.859,
+        "qa_retries": 0,
+        "selected_candidate_index": 1,
+        "fallback_to_preview": false
+      }
+    },
+    {
+      "scene_id": 3,
+      "title": "Quiet Relief Beside the Intact Vase",
+      "duration_sec": 4.0,
+      "narration": "With the vase saved intact on the table, Lia lowers her crimson umbrella to kneel beside Nyx, softly comforting the calm black cat as warm golden lantern glow fills the glass conservatory.",
+      "vocal_emotion": "gentle_whisper",
+      "gesture_intent": "beckon_soothe",
+      "direction_hint": "center",
+      "lighting": "warm_transition",
+      "camera_shake": false,
+      "audio_mood": "gentle_rain_soft_purring_warm_piano",
+      "environment_notes": "arched_glass_conservatory starry_night_sky warm_wall_lanterns lantern_window_reflections wooden_parquet_floor glowing_blue_rose_in_vase open_red_umbrella_on_floor round_pedestal_table",
+      "needs_rerender": false,
+      "reused_from_branch": null,
+      "actors": [
+        {
+          "id": "lia",
+          "name": "Lia",
+          "asset_url": "/assets/actors/lia.png",
+          "grid": [
+            0.65,
+            1.15
+          ],
+          "facing": "right",
+          "action": "kneel",
+          "holding_prop": "red_umbrella"
+        },
+        {
+          "id": "nyx",
+          "name": "Nyx",
+          "asset_url": "/assets/actors/nyx.png",
+          "grid": [
+            1.5,
+            1.15
+          ],
+          "facing": "left",
+          "action": "sit",
+          "holding_prop": null
+        }
+      ],
+      "stage_props": [
+        {
+          "id": "crystal_vase",
+          "grid": [
+            1.0,
+            1.0
+          ],
+          "on_floor": false,
+          "state": "intact"
+        }
+      ],
+      "qa_questions": [
+        "Is Lia kneeling near the small black cat with warm golden lighting?",
+        "Is the crystal vase with its blue rose still intact on the center round table?",
+        "Do Camera A and Camera B match character placement cleanly?"
+      ],
+      "media": {
+        "cam_a_preview_url": null,
+        "cam_b_preview_url": null,
+        "cam_a_final_url": "/assets/finals/branch_v4_scene_3_cam_a.mp4",
+        "cam_b_final_url": "/assets/finals/branch_v4_scene_3_cam_b.mp4",
+        "cam_a_tail_frame_url": "/assets/tails/branch_v4_scene_3_cam_a_tail.png",
+        "cam_b_tail_frame_url": "/assets/tails/branch_v4_scene_3_cam_b_tail.png",
+        "qa_result": {
+          "overall_score": 0.883,
+          "all_passed": true,
+          "items": [
+            {
+              "question": "[CAM A] Is Lia kneeling near the small black cat with warm golden lighting?",
+              "passed": true,
+              "confidence": 0.925,
+              "reason": "Decision-1 P(true)=0.93"
+            },
+            {
+              "question": "[CAM A] Is the crystal vase with its blue rose still intact on the center round table?",
+              "passed": true,
+              "confidence": 0.957,
+              "reason": "Decision-1 P(true)=0.96"
+            },
+            {
+              "question": "[CAM A] Do Camera A and Camera B match character placement cleanly?",
+              "passed": true,
+              "confidence": 0.766,
+              "reason": "Decision-1 P(true)=0.77"
+            },
+            {
+              "question": "[CAM A] Is the black cat realistically small (below the girl's knee height) with all characters and props resting naturally on surfaces without floating?",
+              "passed": true,
+              "confidence": 0.909,
+              "reason": "Decision-1 P(true)=0.91"
+            },
+            {
+              "question": "[CAM A] Is this a clean full-bleed nighttime anime frame with NO black borders, NO coordinate axes or numbers, NO duplicate umbrellas or duplicate star tokens, and consistent nighttime atmosphere?",
+              "passed": true,
+              "confidence": 0.898,
+              "reason": "Decision-1 P(true)=0.90"
+            },
+            {
+              "question": "[CAM B] Is Lia kneeling near the small black cat with warm golden lighting?",
+              "passed": true,
+              "confidence": 0.922,
+              "reason": "Decision-1 P(true)=0.92"
+            },
+            {
+              "question": "[CAM B] Is the crystal vase with its blue rose still intact on the center round table?",
+              "passed": true,
+              "confidence": 0.96,
+              "reason": "Decision-1 P(true)=0.96"
+            },
+            {
+              "question": "[CAM B] Do Camera A and Camera B match character placement cleanly?",
+              "passed": true,
+              "confidence": 0.724,
+              "reason": "Decision-1 P(true)=0.72"
+            },
+            {
+              "question": "[CAM B] Is the black cat realistically small (below the girl's knee height) with all characters and props resting naturally on surfaces without floating?",
+              "passed": true,
+              "confidence": 0.894,
+              "reason": "Decision-1 P(true)=0.89"
+            },
+            {
+              "question": "[CAM B] Is this a clean full-bleed nighttime anime frame with NO black borders, NO coordinate axes or numbers, NO duplicate umbrellas or duplicate star tokens, and consistent nighttime atmosphere?",
+              "passed": true,
+              "confidence": 0.909,
+              "reason": "Decision-1 P(true)=0.91"
+            },
+            {
+              "question": "[Dual-Cam] Camera A & Camera B spatial, prop, and nighttime lighting consistency",
+              "passed": true,
+              "confidence": 0.852,
+              "reason": "Cross-Cam Decision-1 P(true)=0.85"
+            }
+          ]
+        },
+        "qa_score": 0.887,
+        "qa_retries": 0,
+        "selected_candidate_index": 1,
+        "fallback_to_preview": false
+      }
+    },
+    {
+      "scene_id": 4,
+      "title": "Safe Under the Crimson Canopy",
+      "duration_sec": 4.0,
+      "narration": "Under warm golden light, Lia and Nyx rest close together beneath the crimson umbrella while the intact blue-rose crystal vase glows peacefully on the center table.",
+      "vocal_emotion": "joyful",
+      "gesture_intent": "none",
+      "direction_hint": "center",
+      "lighting": "warm_gold_snow",
+      "camera_shake": false,
+      "audio_mood": "peaceful_night_rain_warm_strings",
+      "environment_notes": "starry_night_sky glass_conservatory_roof warm_wooden_floor window_frame_shadows glowing_blue_rose glass_vase_on_table open_red_umbrella two_potted_plants warm_overhead_light stone_balustrade_outside",
+      "needs_rerender": false,
+      "reused_from_branch": null,
+      "actors": [
+        {
+          "id": "lia",
+          "name": "Lia",
+          "asset_url": "/assets/actors/lia.png",
+          "grid": [
+            0.85,
+            1.15
+          ],
+          "facing": "right",
+          "action": "shared_umbrella",
+          "holding_prop": "red_umbrella"
+        },
+        {
+          "id": "nyx",
+          "name": "Nyx",
+          "asset_url": "/assets/actors/nyx.png",
+          "grid": [
+            1.4,
+            1.15
+          ],
+          "facing": "left",
+          "action": "nuzzle",
+          "holding_prop": null
+        }
+      ],
+      "stage_props": [
+        {
+          "id": "crystal_vase",
+          "grid": [
+            1.0,
+            1.0
+          ],
+          "on_floor": false,
+          "state": "intact"
+        }
+      ],
+      "qa_questions": [
+        "Are Lia and the small black cat resting warmly together under one crimson umbrella?",
+        "Is the crystal vase with the blue rose still standing intact on the center table?",
+        "Do Camera A and Camera B stay consistent without duplicate umbrellas?"
+      ],
+      "media": {
+        "cam_a_preview_url": null,
+        "cam_b_preview_url": null,
+        "cam_a_final_url": "/assets/finals/branch_v4_scene_4_cam_a.mp4",
+        "cam_b_final_url": "/assets/finals/branch_v4_scene_4_cam_b.mp4",
+        "cam_a_tail_frame_url": "/assets/tails/branch_v4_scene_4_cam_a_tail.png",
+        "cam_b_tail_frame_url": "/assets/tails/branch_v4_scene_4_cam_b_tail.png",
+        "qa_result": {
+          "overall_score": 0.87,
+          "all_passed": true,
+          "items": [
+            {
+              "question": "[CAM A] Are Lia and the small black cat resting warmly together under one crimson umbrella?",
+              "passed": true,
+              "confidence": 0.926,
+              "reason": "Decision-1 P(true)=0.93"
+            },
+            {
+              "question": "[CAM A] Is the crystal vase with the blue rose still standing intact on the center table?",
+              "passed": true,
+              "confidence": 0.952,
+              "reason": "Decision-1 P(true)=0.95"
+            },
+            {
+              "question": "[CAM A] Do Camera A and Camera B stay consistent without duplicate umbrellas?",
+              "passed": true,
+              "confidence": 0.845,
+              "reason": "Decision-1 P(true)=0.84"
+            },
+            {
+              "question": "[CAM A] Is the black cat realistically small (below the girl's knee height) with all characters and props resting naturally on surfaces without floating?",
+              "passed": true,
+              "confidence": 0.869,
+              "reason": "Decision-1 P(true)=0.87"
+            },
+            {
+              "question": "[CAM A] Is this a clean full-bleed nighttime anime frame with NO black borders, NO coordinate axes or numbers, NO duplicate umbrellas or duplicate star tokens, and consistent nighttime atmosphere?",
+              "passed": true,
+              "confidence": 0.922,
+              "reason": "Decision-1 P(true)=0.92"
+            },
+            {
+              "question": "[CAM B] Are Lia and the small black cat resting warmly together under one crimson umbrella?",
+              "passed": true,
+              "confidence": 0.877,
+              "reason": "Decision-1 P(true)=0.88"
+            },
+            {
+              "question": "[CAM B] Is the crystal vase with the blue rose still standing intact on the center table?",
+              "passed": true,
+              "confidence": 0.936,
+              "reason": "Decision-1 P(true)=0.94"
+            },
+            {
+              "question": "[CAM B] Do Camera A and Camera B stay consistent without duplicate umbrellas?",
+              "passed": true,
+              "confidence": 0.789,
+              "reason": "Decision-1 P(true)=0.79"
+            },
+            {
+              "question": "[CAM B] Is the black cat realistically small (below the girl's knee height) with all characters and props resting naturally on surfaces without floating?",
+              "passed": true,
+              "confidence": 0.681,
+              "reason": "Decision-1 P(true)=0.68 [LOW_CONFIDENCE: escalate]"
+            },
+            {
+              "question": "[CAM B] Is this a clean full-bleed nighttime anime frame with NO black borders, NO coordinate axes or numbers, NO duplicate umbrellas or duplicate star tokens, and consistent nighttime atmosphere?",
+              "passed": true,
+              "confidence": 0.876,
+              "reason": "Decision-1 P(true)=0.88"
+            },
+            {
+              "question": "[Dual-Cam] Camera A & Camera B spatial, prop, and nighttime lighting consistency",
+              "passed": true,
+              "confidence": 0.895,
+              "reason": "Cross-Cam Decision-1 P(true)=0.90"
+            }
+          ]
+        },
+        "qa_score": 0.867,
+        "qa_retries": 0,
+        "selected_candidate_index": 0,
+        "fallback_to_preview": false
+      }
+    }
+  ]
+}

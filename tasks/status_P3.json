@@ -1,20 +1,30 @@
 {
   "agent": "P3_frontend",
   "branch": "feat/w2-frontend",
-  "current_milestone": "T5",
-  "status": "all_8_cr_and_t5_tasks_completed_ready_for_master_merge",
+  "current_milestone": "T11_FEATURE_FREEZE_VERIFIED",
+  "status": "feature_freeze_verified_100pct_ready_for_pitch",
+  "feature_freeze_verified": true,
   "capture_stream_mode": "webm_with_png_fallback",
   "auto_poll_enabled": true,
+  "bundle_metrics": {
+    "build_time_ms": 595,
+    "app_js_kb": 99.42,
+    "app_js_gzip_kb": 28.64,
+    "app_css_kb": 13.37,
+    "react_vendor_kb": 140.87,
+    "three_vendor_kb": 486.78,
+    "cjk_ui_hits": 0,
+    "cached_branches_verified": 4,
+    "referenced_assets_verified": 13,
+    "submission_and_desk_assets_verified": 9,
+    "smoke_preview_http_200_endpoints": 4
+  },
   "completed_items": [
-    "W2-CR1: Fixed Three.js r170 actor facing flip using UV-mirrored cloned textures (repeat.x=-1, offset.x=1, positive scale.x) and fixed cache-hit prop rescaling between held (0.30) and table (0.38) bounds in ThreeStageManager.ts",
-    "W2-CR2: Fixed handleForceRewrite stale targetSceneId/parentBranchId via explicit overrides in App.tsx and added scene_id to createStageProp() FormData in stageClient.ts",
-    "W2-CR3: Added Vite /assets proxy bypass for local frontend/public static assets (verified 200 OK offline for lia.png & crystal_vase_broken.png) and updated EvalModal.tsx with latest P1/P2 benchmarks (6.90s-9.65s, Cross-Cam 0.893, Calibration 1.000, 3-Prop 0.815, Decisions 0.93s-1.54s)",
-    "W2-T5A: Wired GET /api/media/progress/{branch_id} polling (1.2s interval during live render) displaying live per-scene pills in DualCameraStage.tsx",
-    "W2-T5B: Parsed [CAM A] / [CAM B] prefixes in ClapperboardQA.tsx to render compact camera badges on QA items (hidden cleanly in Clean Capture Mode)",
-    "W2-T5C: Added smooth 3.0s->0.0s countdown progress meter during Hold-to-Direct recording and pre-submit captured snapshot preview + retake flow in DirectControlBar.tsx",
-    "W2-T5D: Added flexible left-slot baseline branch selector dropdown in DualCameraStage.tsx when >2 branches exist",
-    "W2-T5E: Passed `npx tsc --noEmit && npm run build` (0 errors, 570ms), verified 0 CJK UI strings across frontend/src + index.html, verified offline Vite /assets bypass (200 OK)"
+    "W2-T11A: Added combined `npm run verify` script in frontend/package.json chaining tsc, vite build, verify-locale.mjs, verify_frontend.mjs, and test_stage_helpers.mjs",
+    "W2-T11B: Mirrored star_token.png into frontend/public/assets/props/ alongside crystal_vase.png and crystal_vase_broken.png for 100% real transparent PNG offline 2.5D rendering across all 4 branches",
+    "W2-T11C: Added frontend/scripts/smoke_preview.mjs spawning `vite preview --port 4173` and asserting HTTP 200 OK for /, lia.png, crystal_vase_broken.png, and star_token.png with clean shutdown",
+    "W2-T11D: Executed `npm run verify` + `node scripts/smoke_preview.mjs` (100% PASS, zero UI component edits) and locked `feature_freeze_verified: true`"
   ],
   "blockers": [],
-  "last_updated": "2026-11-21T13:23:50-05:00"
+  "last_updated": "2026-11-21T13:59:00-05:00"
 }

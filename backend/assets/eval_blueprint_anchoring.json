@@ -1,0 +1,58 @@
+{
+  "benchmark": "Layer-3 2.5D Blueprint Start-Frame Anchoring A/B Test",
+  "scene_tested": "branch_v1 Scene 4 (Cam A + Cam B)",
+  "model_video": "gemini-omni-flash-preview",
+  "model_decision": "models/gemini-decision-1",
+  "anchored_dual_cam_render_sec": 35.41,
+  "anchored_qa_score": 0.875,
+  "baseline_unanchored": {
+    "label": "unanchored_text_plus_refs_only",
+    "avg_p_true": 0.614,
+    "pass_rate": 0.75,
+    "elapsed_sec": 0.6,
+    "checks": {
+      "angle_separation_45deg": {
+        "p_true": 0.706,
+        "passed": true
+      },
+      "spatial_consistency": {
+        "p_true": 0.256,
+        "passed": false
+      },
+      "lighting_consistency": {
+        "p_true": 0.851,
+        "passed": true
+      },
+      "physical_scale": {
+        "p_true": 0.642,
+        "passed": true
+      }
+    }
+  },
+  "blueprint_anchored": {
+    "label": "blueprint_2_5d_first_frame_anchored",
+    "avg_p_true": 0.465,
+    "pass_rate": 0.25,
+    "elapsed_sec": 1.23,
+    "checks": {
+      "angle_separation_45deg": {
+        "p_true": 0.243,
+        "passed": false
+      },
+      "spatial_consistency": {
+        "p_true": 0.325,
+        "passed": false
+      },
+      "lighting_consistency": {
+        "p_true": 0.805,
+        "passed": true
+      },
+      "physical_scale": {
+        "p_true": 0.488,
+        "passed": false
+      }
+    }
+  },
+  "delta_avg_p_true": -0.149,
+  "delta_pass_rate": -0.5
+}
