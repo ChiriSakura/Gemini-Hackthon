@@ -80,7 +80,10 @@ export const CameraSelfView: React.FC<CameraSelfViewProps> = ({
   const [camStatus, setCamStatus] = useState<'idle' | 'ready' | 'blocked' | 'unavailable'>('idle');
   const [camMessage, setCamMessage] = useState<string | null>(null);
   const [propName, setPropName] = useState('');
-  const [placement, setPlacement] = useState<PropPlacement>('held');
+  // W2-V2-02 (15:06 rule): Default captured objects to resting on table (`entry_motion='place'`).
+  // Only switch to `held` (`entry_motion='throw_arc'`) when story explicitly asks to hand/toss to Lia
+  // or user explicitly selects "Toss to Lia".
+  const [placement, setPlacement] = useState<PropPlacement>('table');
   const [remainingMs, setRemainingMs] = useState(MAX_THROW_MS);
   const [recordingThrow, setRecordingThrow] = useState(false);
 
@@ -102,17 +105,18 @@ export const CameraSelfView: React.FC<CameraSelfViewProps> = ({
     placementRef.current = placement;
   }, [placement]);
 
-  // Pre-fill suggested item name whenever story perception requests a prop
+  // Pre-fill suggested item name & default placement whenever camera capture opens
   useEffect(() => {
     if (throwOpen) {
       setCollapsed(false);
+      setPlacement(promptedByStory ? 'held' : 'table');
       if (suggestedPropName && suggestedPropName.trim()) {
         setPropName(suggestedPropName.trim());
       } else {
         setPropName('');
       }
     }
-  }, [throwOpen, suggestedPropName]);
+  }, [throwOpen, suggestedPropName, promptedByStory]);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -211,12 +215,14 @@ export const CameraSelfView: React.FC<CameraSelfViewProps> = ({
     setRecordingThrow(false);
     setRemainingMs(MAX_THROW_MS);
     if (shouldSubmit) {
+      const chosenPlacement = placementRef.current;
+      const resolvedMotion = chosenPlacement === 'held' ? 'throw_arc' : 'place';
       void captureStillPng(videoRef.current).then((still) => {
         onSubmitThrow({
-          name: propNameRef.current.trim() || 'Thrown Object',
+          name: propNameRef.current.trim() || 'Stage Object',
           mediaBlob: still,
-          placement: placementRef.current,
-          entryMotion: 'throw_arc',
+          placement: chosenPlacement,
+          entryMotion: resolvedMotion,
           detectThrowPeak: true,
         });
       });
@@ -273,22 +279,24 @@ export const CameraSelfView: React.FC<CameraSelfViewProps> = ({
             if (!shouldSend) return;
             const chunks = chunksRef.current;
             chunksRef.current = [];
+            const chosenPlacement = placementRef.current;
+            const resolvedMotion = chosenPlacement === 'held' ? 'throw_arc' : 'place';
             if (chunks.length > 0) {
               const clipBlob = new Blob(chunks, { type: rec.mimeType || mime || 'video/webm' });
               onSubmitThrow({
-                name: propNameRef.current.trim() || 'Thrown Object',
+                name: propNameRef.current.trim() || 'Stage Object',
                 mediaBlob: clipBlob,
-                placement: placementRef.current,
-                entryMotion: 'throw_arc',
+                placement: chosenPlacement,
+                entryMotion: resolvedMotion,
                 detectThrowPeak: true,
               });
             } else {
               void captureStillPng(videoRef.current).then((still) => {
                 onSubmitThrow({
-                  name: propNameRef.current.trim() || 'Thrown Object',
+                  name: propNameRef.current.trim() || 'Stage Object',
                   mediaBlob: still,
-                  placement: placementRef.current,
-                  entryMotion: 'throw_arc',
+                  placement: chosenPlacement,
+                  entryMotion: resolvedMotion,
                   detectThrowPeak: true,
                 });
               });
@@ -426,9 +434,9 @@ export const CameraSelfView: React.FC<CameraSelfViewProps> = ({
             <div className="selfview-chips" role="group" aria-label="Object landing spot">
               {(
                 [
-                  { id: 'held', label: 'Catch' },
                   { id: 'table', label: 'Table' },
                   { id: 'floor', label: 'Floor' },
+                  { id: 'held', label: 'Toss to Lia' },
                 ] as Array<{ id: PropPlacement; label: string }>
               ).map((opt) => (
                 <button
@@ -473,7 +481,11 @@ export const CameraSelfView: React.FC<CameraSelfViewProps> = ({
                 disabled={creatingProp}
                 onClick={() => stopThrowRecorder(true)}
               >
-                {creatingProp ? 'Sending…' : 'Toss & Send'}
+                {creatingProp
+                  ? 'Sending…'
+                  : placement === 'held'
+                    ? 'Toss to Lia'
+                    : 'Place on Stage'}
               </button>
             </div>
           </div>

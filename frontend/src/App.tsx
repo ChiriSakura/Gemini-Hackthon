@@ -874,6 +874,8 @@ export default function App(): React.ReactElement {
       void refreshHealth(isMockMode);
     }
 
+    const isExplicitToss =
+      payload.entryMotion === 'throw_arc' || payload.placement === 'held';
     const onFloor = payload.placement === 'floor';
     const propState: 'held' | 'glowing' = payload.placement === 'held' ? 'held' : 'glowing';
     const propGrid: [number, number] =
@@ -897,26 +899,25 @@ export default function App(): React.ReactElement {
           },
           scenes: b.scenes.map((s) => {
             if (s.scene_id < currentSceneId) return s;
-            const nextActors =
-              payload.placement === 'held'
-                ? s.actors.map((a) =>
-                    a.id === 'lia'
-                      ? {
-                          ...a,
-                          holding_prop: created.prop_id,
-                          action:
-                            s.scene_id === currentSceneId
-                              ? ('catch_from_camera' as const)
-                              : a.action,
-                        }
-                      : a,
-                  )
-                : s.actors.map((a) =>
-                    a.id === 'lia' && s.scene_id === currentSceneId
-                      ? { ...a, action: 'catch_from_camera' as const }
-                      : a,
-                  );
+            // W2-V2-02/03 (15:06 rule): Only trigger `catch_from_camera` when explicitly
+            // handing/tossing an object to Lia; default table/floor props leave Lia in her normal pose.
+            const nextActors = isExplicitToss
+              ? s.actors.map((a) =>
+                  a.id === 'lia'
+                    ? {
+                        ...a,
+                        holding_prop:
+                          payload.placement === 'held' ? created.prop_id : a.holding_prop,
+                        action:
+                          s.scene_id === currentSceneId
+                            ? ('catch_from_camera' as const)
+                            : a.action,
+                      }
+                    : a,
+                )
+              : s.actors;
             const exists = s.stage_props.some((p) => p.id === created.prop_id);
+            const resolvedMotion = isExplicitToss ? ('throw_arc' as const) : ('place' as const);
             const nextStageProps =
               payload.placement === 'held'
                 ? s.stage_props.filter((p) => p.id !== created.prop_id)
@@ -928,7 +929,7 @@ export default function App(): React.ReactElement {
                             grid: propGrid,
                             on_floor: onFloor,
                             state: propState,
-                            entry_motion: 'throw_arc' as const,
+                            entry_motion: resolvedMotion,
                           }
                         : p,
                     )
@@ -939,8 +940,8 @@ export default function App(): React.ReactElement {
                         grid: propGrid,
                         on_floor: onFloor,
                         state: propState,
-                        entry_motion: 'throw_arc' as const,
-                        entry_origin: [1.0, 1.5, 0.8],
+                        entry_motion: resolvedMotion,
+                        entry_origin: isExplicitToss ? [1.0, 1.5, 0.8] : null,
                       },
                     ];
             return {
@@ -953,24 +954,30 @@ export default function App(): React.ReactElement {
       }),
     );
 
-    // Switch briefly to 2.5D live stage so the viewer watches Lia catch the flying prop
+    // Switch to 2.5D live stage to display the placed or tossed prop immediately
     setViewMode('preview');
-    window.setTimeout(() => {
-      stageRef.current?.spawnThrownProp(created.prop_id, [1.0, 1.5, 0.8], propGrid);
-      stageRef.current?.triggerCameraGrab();
-    }, 60);
+    if (isExplicitToss) {
+      window.setTimeout(() => {
+        stageRef.current?.spawnThrownProp(created.prop_id, [1.0, 1.5, 0.8], propGrid);
+        stageRef.current?.triggerCameraGrab();
+      }, 60);
+    }
 
     setHeardNote((prev) => ({
       heard: prev?.heard ?? null,
-      saw: `${created.item.name} (thrown into stage)`,
+      saw: isExplicitToss
+        ? `${created.item.name} (tossed to Lia)`
+        : `${created.item.name} (placed on ${payload.placement})`,
     }));
     setStatusNote(
       created.simulated
-        ? `Offline cutout fallback — tossed "${payload.name}" into Lia's hands on Scene ${currentSceneId}+.`
-        : `Tossed "${created.item.name}" into the anime stage — Lia caught it!`,
+        ? `Offline cutout fallback — ${isExplicitToss ? 'tossed' : 'placed'} "${payload.name}" (${payload.placement}) on Scene ${currentSceneId}+.`
+        : isExplicitToss
+          ? `Tossed "${created.item.name}" into the stage — Lia caught it!`
+          : `Placed "${created.item.name}" cleanly on the ${payload.placement}.`,
     );
 
-    // If a story prompt was waiting for this thrown object, continue extending automatically
+    // If a story prompt was waiting for this object, continue extending automatically
     const queued = pendingThrowPrompt;
     if (queued) {
       setPendingThrowPrompt(null);
@@ -979,7 +986,9 @@ export default function App(): React.ReactElement {
       await runStoryExtend({
         branchId: queued.branchId,
         fromSceneId: queued.fromSceneId,
-        text: `${queued.text} (The viewer tossed "${created.item.name}" into the stage for Lia to catch and interact with.)`,
+        text: isExplicitToss
+          ? `${queued.text} (The viewer explicitly tossed "${created.item.name}" to Lia to catch and interact with.)`
+          : `${queued.text} (The viewer placed "${created.item.name}" on the ${payload.placement}.)`,
         clip: queued.clip,
       });
       submittingRef.current = false;
