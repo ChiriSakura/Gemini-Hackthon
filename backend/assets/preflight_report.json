@@ -1,0 +1,244 @@
+{
+  "preflight_passed": true,
+  "elapsed_sec": 3.22,
+  "api_checks": {
+    "health_200": true,
+    "branches_200": true,
+    "progress_200": true,
+    "progress_payload": {
+      "branch_id": "branch_v1",
+      "status": "idle",
+      "scenes": {}
+    }
+  },
+  "branches": [
+    {
+      "branch_id": "branch_v1",
+      "scene_count": 4,
+      "cjk_char_count": 223,
+      "all_media_200": true,
+      "missing_urls": []
+    },
+    {
+      "branch_id": "branch_v2_cached",
+      "scene_count": 4,
+      "cjk_char_count": 298,
+      "all_media_200": true,
+      "missing_urls": []
+    }
+  ],
+  "mp4_summary": {
+    "total_mp4s": 16,
+    "all_h264": true,
+    "with_audio_count": 15,
+    "files": [
+      {
+        "file": "finals/branch_v2_scene_2_cam_a.mp4",
+        "bytes": 1560909,
+        "fourcc": "h264",
+        "is_h264": true,
+        "resolution": "640x360",
+        "fps": 24.0,
+        "frames": 96,
+        "duration_sec": 4.0,
+        "has_audio": true
+      },
+      {
+        "file": "finals/branch_v2_scene_2_cam_b.mp4",
+        "bytes": 1582468,
+        "fourcc": "h264",
+        "is_h264": true,
+        "resolution": "640x360",
+        "fps": 24.0,
+        "frames": 96,
+        "duration_sec": 4.0,
+        "has_audio": true
+      },
+      {
+        "file": "finals/branch_v2_scene_3_cam_a.mp4",
+        "bytes": 1568890,
+        "fourcc": "h264",
+        "is_h264": true,
+        "resolution": "640x360",
+        "fps": 24.0,
+        "frames": 96,
+        "duration_sec": 4.0,
+        "has_audio": true
+      },
+      {
+        "file": "finals/branch_v2_scene_3_cam_b.mp4",
+        "bytes": 1527769,
+        "fourcc": "h264",
+        "is_h264": true,
+        "resolution": "640x360",
+        "fps": 24.0,
+        "frames": 96,
+        "duration_sec": 4.0,
+        "has_audio": true
+      },
+      {
+        "file": "finals/branch_v2_scene_4_cam_a.mp4",
+        "bytes": 1721780,
+        "fourcc": "h264",
+        "is_h264": true,
+        "resolution": "640x360",
+        "fps": 24.0,
+        "frames": 96,
+        "duration_sec": 4.0,
+        "has_audio": true
+      },
+      {
+        "file": "finals/branch_v2_scene_4_cam_b.mp4",
+        "bytes": 1724905,
+        "fourcc": "h264",
+        "is_h264": true,
+        "resolution": "640x360",
+        "fps": 24.0,
+        "frames": 96,
+        "duration_sec": 4.0,
+        "has_audio": true
+      },
+      {
+        "file": "finals/scene_1_cam_a.mp4",
+        "bytes": 1508195,
+        "fourcc": "h264",
+        "is_h264": true,
+        "resolution": "640x360",
+        "fps": 24.0,
+        "frames": 96,
+        "duration_sec": 4.0,
+        "has_audio": true
+      },
+      {
+        "file": "finals/scene_1_cam_b.mp4",
+        "bytes": 1555257,
+        "fourcc": "h264",
+        "is_h264": true,
+        "resolution": "640x360",
+        "fps": 24.0,
+        "frames": 96,
+        "duration_sec": 4.0,
+        "has_audio": true
+      },
+      {
+        "file": "finals/scene_2_cam_a.mp4",
+        "bytes": 1737370,
+        "fourcc": "h264",
+        "is_h264": true,
+        "resolution": "640x360",
+        "fps": 24.0,
+        "frames": 96,
+        "duration_sec": 4.0,
+        "has_audio": true
+      },
+      {
+        "file": "finals/scene_2_cam_b.mp4",
+        "bytes": 1827653,
+        "fourcc": "h264",
+        "is_h264": true,
+        "resolution": "640x360",
+        "fps": 24.0,
+        "frames": 96,
+        "duration_sec": 4.0,
+        "has_audio": true
+      },
+      {
+        "file": "finals/scene_3_cam_a.mp4",
+        "bytes": 1509724,
+        "fourcc": "h264",
+        "is_h264": true,
+        "resolution": "640x360",
+        "fps": 24.0,
+        "frames": 96,
+        "duration_sec": 4.0,
+        "has_audio": true
+      },
+      {
+        "file": "finals/scene_3_cam_b.mp4",
+        "bytes": 1493687,
+        "fourcc": "h264",
+        "is_h264": true,
+        "resolution": "640x360",
+        "fps": 24.0,
+        "frames": 96,
+        "duration_sec": 4.0,
+        "has_audio": true
+      },
+      {
+        "file": "finals/scene_4_cam_a.mp4",
+        "bytes": 1592972,
+        "fourcc": "h264",
+        "is_h264": true,
+        "resolution": "640x360",
+        "fps": 24.0,
+        "frames": 96,
+        "duration_sec": 4.0,
+        "has_audio": true
+      },
+      {
+        "file": "finals/scene_4_cam_b.mp4",
+        "bytes": 1671424,
+        "fourcc": "h264",
+        "is_h264": true,
+        "resolution": "640x360",
+        "fps": 24.0,
+        "frames": 96,
+        "duration_sec": 4.0,
+        "has_audio": true
+      },
+      {
+        "file": "submission/eval_dashboard_12s.mp4",
+        "bytes": 296356,
+        "fourcc": "h264",
+        "is_h264": true,
+        "resolution": "1280x720",
+        "fps": 24.0,
+        "frames": 288,
+        "duration_sec": 12.0,
+        "has_audio": false
+      },
+      {
+        "file": "submission/hook_10s_dualcam_twist.mp4",
+        "bytes": 2261983,
+        "fourcc": "h264",
+        "is_h264": true,
+        "resolution": "1280x720",
+        "fps": 24.0,
+        "frames": 240,
+        "duration_sec": 10.0,
+        "has_audio": true
+      }
+    ]
+  },
+  "props_summary": {
+    "total_props": 3,
+    "all_rgba_200": true,
+    "files": [
+      {
+        "file": "crystal_vase.png",
+        "mode": "RGBA",
+        "has_transparency": true,
+        "resolution": "293x676",
+        "http_200": true
+      },
+      {
+        "file": "crystal_vase_broken.png",
+        "mode": "RGBA",
+        "has_transparency": true,
+        "resolution": "512x324",
+        "http_200": true
+      },
+      {
+        "file": "star_token.png",
+        "mode": "RGBA",
+        "has_transparency": true,
+        "resolution": "512x497",
+        "http_200": true
+      }
+    ]
+  },
+  "blueprints_summary": {
+    "count": 14,
+    "all_http_200": true
+  }
+}
