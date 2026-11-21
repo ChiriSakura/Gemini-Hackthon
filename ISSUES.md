@@ -93,12 +93,12 @@
 
 | 编号 | 问题 | 原因 / 位置 | 建议修法 | 状态 |
 |---|---|---|---|---|
-| R-09 | A、B 两个机位的成片对不上：猫的动作、窗和门、椅子款式都不一样（Christina 反馈） | A、B 是两次独立生成，背景和细节每次由模型自己编 | 见下面「A/B 机位一致性修复方案」 | 未修 |
-| R-10 | 每一幕的房间也不一样（墙色、窗框、椅子、兜帽） | 没有固定的布景图；布景只靠一句文字描述 | 同 R-09 的第 1、2 步 | 未修 |
+| R-09 | A、B 两个机位的成片对不上：猫的动作、窗和门、椅子款式都不一样（Christina 反馈） | A、B 是两次独立生成，背景和细节每次由模型自己编 | 生成固定空房 `conservatory_cam_a/b.png` + 独立椅子/雨伞道具参考图并注入 `_select_scene_ref_images()` | P2 已修（`W1-V2-03` 已生成固定布景与独立道具图并注入渲染参考） |
+| R-10 | 每一幕的房间也不一样（墙色、窗框、椅子、兜帽） | 没有固定的布景图；布景只靠一句文字描述 | 同 R-09 第 1、2 步 | P2 已修（`W1-V2-03` Room Architecture Lock 注入 Prompt） |
 | R-11 | Neon 重写要 28.7 秒，2.5D 预览要等它，“1 秒内预览”不成立 | `neon_director.py:88` 一次生成 3 幕完整 JSON，思考等级默认 high | 思考等级调低（`thinking_level: "low"`）；或让 Hydrogen 先出粗状态驱动预览，Neon 结果回来再校正 | 后端已修（`thinking_level="LOW"` + 新增 `<3s` 单幕续演 `extend_single_scene()` + `/api/director/perceive` 先回显） |
-| R-12 | 2.5D 预览没有体现状态：状态里莉亚跪着、手里没伞、伞在桌下、猫在椅子上；预览里她站着拿伞、猫坐在地上 | `ThreeStageManager.ts:666,693` 伞从不单独画；`props_registry.red_umbrella.image_url` 指向 `lia.png`；没有椅子；动作只影响位移 | 伞做成单独的道具立牌；加一把椅子道具；`kneel` 用缩放或下移表现 | 未修 |
-| R-13 | 质检有漏判：第 3 幕 B 机位伞是撑开放在地上的，“伞是否收起放在桌下”判了通过（0.89） | 题目一次问多个条件，模型抓大放小 | 一题只问一件事；跨机位题门槛提到 0.8；把这一例留作“诚实展示失败”的案例 | 未修 |
-| R-14 | 规则记忆被污染：5 条针对旧剧情的规则（如“第 2 幕花瓶是碎的”）会和“救下花瓶”的改写打架 | `rule_memory.json`；写入点 `main.py:334-337`、`video_renderer.py:725`；读取点 `main.py:187` | 重置成 3 条通用规则；关掉这两处 `add_rule` | 后端+JSON已修（`rule_memory.py`+`rule_memory.json`+`main.py`，待 P2 关掉 `video_renderer.py` 处） |
+| R-12 | 2.5D 预览没有体现状态：状态里莉亚跪着、手里没伞、伞在桌下、猫在椅子上；预览里她站着拿伞、猫坐在地上 | `ThreeStageManager.ts:666,693` 伞从不单独画；`props_registry.red_umbrella.image_url` 指向 `lia.png`；没有椅子；动作只影响位移 | 伞做成单独的道具立牌；加一把椅子道具；`kneel` 用缩放或下移表现 | P2 道具资产已备好（`red_umbrella_closed/open.png`, `wooden_chair.png`），待 P3 `ThreeStageManager` 接入 |
+| R-13 | 质检有漏判：第 3 幕 B 机位伞是撑开放在地上的，“伞是否收起放在桌下”判了通过（0.89） | 题目一次问多个条件，模型抓大放小 | 一题只问一件事；跨机位题门槛提到 0.8；把这一例留作“诚实展示失败”的案例 | P2 已修（`W1-V2-04`：`CROSS_CAM_THRESHOLD = 0.80` + 单条件三题拆分判定） |
+| R-14 | 规则记忆被污染：5 条针对旧剧情的规则（如“第 2 幕花瓶是碎的”）会和“救下花瓶”的改写打架 | `rule_memory.json`；写入点 `main.py:334-337`、`video_renderer.py:725`；读取点 `main.py:187` | 重置成 3 条通用规则；关掉这两处 `add_rule` | 已修（`W1-V2-04` 已移除 `video_renderer.py` 自动写规则，两端全停写） |
 | R-15 | 渲染没有总时限；前端 fork 和 render 没有超时 | `video_renderer.py:45,681,875-901`（每机位 3 次×60s，全在一个请求里）；`stageClient.ts:126,183,304` | `.env` 设 `MAX_QA_RETRIES=1`；`wait_for(render_scene_media, 90)` 超时降级到预览；前端加 `AbortSignal.timeout(45000)` | 后端已修（`main.py` 95s 超时降级预览，待前端超时） |
 | R-16 | Hydrogen 可能改掉用户选的幕 | `main.py:167,194,220` 用的是 `parsed.target_scene_id` | 解析后强制 `parsed.target_scene_id = target_scene_id` | 已修（`main.py` 强制锁定 `target_scene_id`） |
 | R-17 | Neon/Hydrogen 调用没有超时和错误处理，空响应会 500，前端随即落入 R-02 | `genai_client.py:37,146`；`neon_director.py:95` 缺幕不回填 | 45s 超时；缺的幕从父分支回填 | 已修（`genai_client.py` 45s/20s 超时 + 空响应校验 + `neon_director.py` 缺幕回填） |
@@ -217,6 +217,8 @@
 
 | 编号 | 优先级 | 问题 | 原因 / 位置 | 建议修法 | 状态 |
 |---|---|---|---|---|---|
+| B-01 | P0 | R-18/R-19/30s 投掷抽帧截断：顺序读 `.webm` 上限 150 帧（5s），且异常占位未标注退化状态 | `prop_maker.py` 150 帧截断 & 默认 `state="intact"` | 放宽至 `1200` 帧（30s）、实现 `_detect_throw_peak_frame_idx()` 峰值抽帧、返回 `degraded_fallback`/`mock_placeholder` | 已修（`W1-V2-01`） |
+| B-02 | P0 | R-06/R-39/R-40 路演数字同步、暗边裁剪与 10–20s 续演模式 | `build_press_kit.py` 口播数字、`video_renderer.py` 无单拍模式与起始黑边裁切 | 同步 `80.9% -> 87.2% -> 97.9%` & `0.95 calib`、增加 `fast_live_mode` / `sculpture` 尾帧提示与 `_trim_dark_borders_sync` | 已修（`W1-V2-02`、`W1-V2-04`、`W1-V2-05`、`W1-V2-07`） |
 
 ### P3（worker-2，前缀 C-）
 
