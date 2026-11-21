@@ -1,0 +1,489 @@
+{
+  "task_id": "W1-T4C",
+  "model": "models/gemini-decision-1",
+  "branches_evaluated": [
+    "branch_v1",
+    "branch_v2_cached",
+    "branch_v3_starlight_cached"
+  ],
+  "total_clips_evaluated": 24,
+  "total_checks": 36,
+  "passed_checks": 36,
+  "overall_prop_persistence_rate": 1.0,
+  "vase_state_permanence_rate": 1.0,
+  "star_token_persistence_rate": 1.0,
+  "avg_latency_sec": 0.75,
+  "wall_clock_sec": 4.3,
+  "per_branch": {
+    "branch_v1": {
+      "clips_evaluated": 8,
+      "passed_checks": 8,
+      "total_checks": 8,
+      "persistence_rate": 1.0,
+      "vase_permanence_rate": 1.0,
+      "star_token_persistence_rate": null
+    },
+    "branch_v2_cached": {
+      "clips_evaluated": 8,
+      "passed_checks": 14,
+      "total_checks": 14,
+      "persistence_rate": 1.0,
+      "vase_permanence_rate": 1.0,
+      "star_token_persistence_rate": 1.0
+    },
+    "branch_v3_starlight_cached": {
+      "clips_evaluated": 8,
+      "passed_checks": 14,
+      "total_checks": 14,
+      "persistence_rate": 1.0,
+      "vase_permanence_rate": 1.0,
+      "star_token_persistence_rate": 1.0
+    }
+  },
+  "items": [
+    {
+      "branch_id": "branch_v1",
+      "scene_id": 1,
+      "cam_id": "cam_a",
+      "clip_url": "/assets/finals/scene_1_cam_a.mp4",
+      "expected_vase_state": "intact",
+      "expects_star_token": false,
+      "elapsed_sec": 0.78,
+      "checks": {
+        "vase_permanence": {
+          "p_true": 0.908,
+          "confidence": 0.908,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v1",
+      "scene_id": 1,
+      "cam_id": "cam_b",
+      "clip_url": "/assets/finals/scene_1_cam_b.mp4",
+      "expected_vase_state": "intact",
+      "expects_star_token": false,
+      "elapsed_sec": 0.85,
+      "checks": {
+        "vase_permanence": {
+          "p_true": 0.894,
+          "confidence": 0.894,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v1",
+      "scene_id": 2,
+      "cam_id": "cam_a",
+      "clip_url": "/assets/finals/scene_2_cam_a.mp4",
+      "expected_vase_state": "broken",
+      "expects_star_token": false,
+      "elapsed_sec": 0.9,
+      "checks": {
+        "vase_permanence": {
+          "p_true": 0.861,
+          "confidence": 0.861,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v1",
+      "scene_id": 2,
+      "cam_id": "cam_b",
+      "clip_url": "/assets/finals/scene_2_cam_b.mp4",
+      "expected_vase_state": "broken",
+      "expects_star_token": false,
+      "elapsed_sec": 0.92,
+      "checks": {
+        "vase_permanence": {
+          "p_true": 0.912,
+          "confidence": 0.912,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v1",
+      "scene_id": 3,
+      "cam_id": "cam_a",
+      "clip_url": "/assets/finals/scene_3_cam_a.mp4",
+      "expected_vase_state": "broken",
+      "expects_star_token": false,
+      "elapsed_sec": 0.92,
+      "checks": {
+        "vase_permanence": {
+          "p_true": 0.787,
+          "confidence": 0.787,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v1",
+      "scene_id": 3,
+      "cam_id": "cam_b",
+      "clip_url": "/assets/finals/scene_3_cam_b.mp4",
+      "expected_vase_state": "broken",
+      "expects_star_token": false,
+      "elapsed_sec": 1.01,
+      "checks": {
+        "vase_permanence": {
+          "p_true": 0.729,
+          "confidence": 0.729,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v1",
+      "scene_id": 4,
+      "cam_id": "cam_a",
+      "clip_url": "/assets/finals/scene_4_cam_a.mp4",
+      "expected_vase_state": "broken",
+      "expects_star_token": false,
+      "elapsed_sec": 0.49,
+      "checks": {
+        "vase_permanence": {
+          "p_true": 0.823,
+          "confidence": 0.823,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v1",
+      "scene_id": 4,
+      "cam_id": "cam_b",
+      "clip_url": "/assets/finals/scene_4_cam_b.mp4",
+      "expected_vase_state": "broken",
+      "expects_star_token": false,
+      "elapsed_sec": 0.63,
+      "checks": {
+        "vase_permanence": {
+          "p_true": 0.809,
+          "confidence": 0.809,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v2_cached",
+      "scene_id": 1,
+      "cam_id": "cam_a",
+      "clip_url": "/assets/finals/scene_1_cam_a.mp4",
+      "expected_vase_state": "intact",
+      "expects_star_token": false,
+      "elapsed_sec": 0.63,
+      "checks": {
+        "vase_permanence": {
+          "p_true": 0.905,
+          "confidence": 0.905,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v2_cached",
+      "scene_id": 1,
+      "cam_id": "cam_b",
+      "clip_url": "/assets/finals/scene_1_cam_b.mp4",
+      "expected_vase_state": "intact",
+      "expects_star_token": false,
+      "elapsed_sec": 0.59,
+      "checks": {
+        "vase_permanence": {
+          "p_true": 0.881,
+          "confidence": 0.881,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v2_cached",
+      "scene_id": 2,
+      "cam_id": "cam_a",
+      "clip_url": "/assets/finals/branch_v2_scene_2_cam_a.mp4",
+      "expected_vase_state": "intact",
+      "expects_star_token": true,
+      "elapsed_sec": 0.7,
+      "checks": {
+        "vase_permanence": {
+          "p_true": 0.876,
+          "confidence": 0.876,
+          "passed": true
+        },
+        "star_token_persistence": {
+          "p_true": 0.929,
+          "confidence": 0.929,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v2_cached",
+      "scene_id": 2,
+      "cam_id": "cam_b",
+      "clip_url": "/assets/finals/branch_v2_scene_2_cam_b.mp4",
+      "expected_vase_state": "intact",
+      "expects_star_token": true,
+      "elapsed_sec": 0.63,
+      "checks": {
+        "vase_permanence": {
+          "p_true": 0.916,
+          "confidence": 0.916,
+          "passed": true
+        },
+        "star_token_persistence": {
+          "p_true": 0.912,
+          "confidence": 0.912,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v2_cached",
+      "scene_id": 3,
+      "cam_id": "cam_a",
+      "clip_url": "/assets/finals/branch_v2_scene_3_cam_a.mp4",
+      "expected_vase_state": "intact",
+      "expects_star_token": true,
+      "elapsed_sec": 0.59,
+      "checks": {
+        "vase_permanence": {
+          "p_true": 0.855,
+          "confidence": 0.855,
+          "passed": true
+        },
+        "star_token_persistence": {
+          "p_true": 0.899,
+          "confidence": 0.899,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v2_cached",
+      "scene_id": 3,
+      "cam_id": "cam_b",
+      "clip_url": "/assets/finals/branch_v2_scene_3_cam_b.mp4",
+      "expected_vase_state": "intact",
+      "expects_star_token": true,
+      "elapsed_sec": 0.74,
+      "checks": {
+        "vase_permanence": {
+          "p_true": 0.857,
+          "confidence": 0.857,
+          "passed": true
+        },
+        "star_token_persistence": {
+          "p_true": 0.845,
+          "confidence": 0.845,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v2_cached",
+      "scene_id": 4,
+      "cam_id": "cam_a",
+      "clip_url": "/assets/finals/branch_v2_scene_4_cam_a.mp4",
+      "expected_vase_state": "intact",
+      "expects_star_token": true,
+      "elapsed_sec": 0.55,
+      "checks": {
+        "vase_permanence": {
+          "p_true": 0.88,
+          "confidence": 0.88,
+          "passed": true
+        },
+        "star_token_persistence": {
+          "p_true": 0.838,
+          "confidence": 0.838,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v2_cached",
+      "scene_id": 4,
+      "cam_id": "cam_b",
+      "clip_url": "/assets/finals/branch_v2_scene_4_cam_b.mp4",
+      "expected_vase_state": "intact",
+      "expects_star_token": true,
+      "elapsed_sec": 0.56,
+      "checks": {
+        "vase_permanence": {
+          "p_true": 0.869,
+          "confidence": 0.869,
+          "passed": true
+        },
+        "star_token_persistence": {
+          "p_true": 0.891,
+          "confidence": 0.891,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v3_starlight_cached",
+      "scene_id": 1,
+      "cam_id": "cam_a",
+      "clip_url": "/assets/finals/scene_1_cam_a.mp4",
+      "expected_vase_state": "intact",
+      "expects_star_token": false,
+      "elapsed_sec": 0.58,
+      "checks": {
+        "vase_permanence": {
+          "p_true": 0.907,
+          "confidence": 0.907,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v3_starlight_cached",
+      "scene_id": 1,
+      "cam_id": "cam_b",
+      "clip_url": "/assets/finals/scene_1_cam_b.mp4",
+      "expected_vase_state": "intact",
+      "expects_star_token": false,
+      "elapsed_sec": 0.77,
+      "checks": {
+        "vase_permanence": {
+          "p_true": 0.906,
+          "confidence": 0.906,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v3_starlight_cached",
+      "scene_id": 2,
+      "cam_id": "cam_a",
+      "clip_url": "/assets/finals/branch_v3_scene_2_cam_a.mp4",
+      "expected_vase_state": "intact",
+      "expects_star_token": true,
+      "elapsed_sec": 0.52,
+      "checks": {
+        "vase_permanence": {
+          "p_true": 0.809,
+          "confidence": 0.809,
+          "passed": true
+        },
+        "star_token_persistence": {
+          "p_true": 0.868,
+          "confidence": 0.868,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v3_starlight_cached",
+      "scene_id": 2,
+      "cam_id": "cam_b",
+      "clip_url": "/assets/finals/branch_v3_scene_2_cam_b.mp4",
+      "expected_vase_state": "intact",
+      "expects_star_token": true,
+      "elapsed_sec": 1.06,
+      "checks": {
+        "vase_permanence": {
+          "p_true": 0.857,
+          "confidence": 0.857,
+          "passed": true
+        },
+        "star_token_persistence": {
+          "p_true": 0.889,
+          "confidence": 0.889,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v3_starlight_cached",
+      "scene_id": 3,
+      "cam_id": "cam_a",
+      "clip_url": "/assets/finals/branch_v3_scene_3_cam_a.mp4",
+      "expected_vase_state": "intact",
+      "expects_star_token": true,
+      "elapsed_sec": 0.74,
+      "checks": {
+        "vase_permanence": {
+          "p_true": 0.865,
+          "confidence": 0.865,
+          "passed": true
+        },
+        "star_token_persistence": {
+          "p_true": 0.903,
+          "confidence": 0.903,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v3_starlight_cached",
+      "scene_id": 3,
+      "cam_id": "cam_b",
+      "clip_url": "/assets/finals/branch_v3_scene_3_cam_b.mp4",
+      "expected_vase_state": "intact",
+      "expects_star_token": true,
+      "elapsed_sec": 0.7,
+      "checks": {
+        "vase_permanence": {
+          "p_true": 0.797,
+          "confidence": 0.797,
+          "passed": true
+        },
+        "star_token_persistence": {
+          "p_true": 0.921,
+          "confidence": 0.921,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v3_starlight_cached",
+      "scene_id": 4,
+      "cam_id": "cam_a",
+      "clip_url": "/assets/finals/branch_v3_scene_4_cam_a.mp4",
+      "expected_vase_state": "intact",
+      "expects_star_token": true,
+      "elapsed_sec": 1.39,
+      "checks": {
+        "vase_permanence": {
+          "p_true": 0.82,
+          "confidence": 0.82,
+          "passed": true
+        },
+        "star_token_persistence": {
+          "p_true": 0.859,
+          "confidence": 0.859,
+          "passed": true
+        }
+      }
+    },
+    {
+      "branch_id": "branch_v3_starlight_cached",
+      "scene_id": 4,
+      "cam_id": "cam_b",
+      "clip_url": "/assets/finals/branch_v3_scene_4_cam_b.mp4",
+      "expected_vase_state": "intact",
+      "expects_star_token": true,
+      "elapsed_sec": 0.68,
+      "checks": {
+        "vase_permanence": {
+          "p_true": 0.847,
+          "confidence": 0.847,
+          "passed": true
+        },
+        "star_token_persistence": {
+          "p_true": 0.91,
+          "confidence": 0.91,
+          "passed": true
+        }
+      }
+    }
+  ]
+}

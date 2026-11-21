@@ -1,0 +1,62 @@
+{
+  "task_id": "W1-T3H",
+  "model": "gemini-omni-flash-preview",
+  "scene_tested": "branch_v1 Scene 4 (cam_a, 4s)",
+  "clip_360p": {
+    "resolution_requested": "360p",
+    "interaction_id": "v1_Chd5ZUFCYS1iYUZJZU15dE1QdGRIaG1BOBIXeWVBQmEtYmFGSWVNeXRNUHRkSGhtQTg",
+    "generation_latency_sec": 16.84,
+    "download_latency_sec": 0.26,
+    "total_wall_clock_sec": 17.1,
+    "width": 640,
+    "height": 360,
+    "resolution": "640x360",
+    "fps": 24.0,
+    "frame_count": 96,
+    "duration_sec": 4.0,
+    "file_size_bytes": 1607451,
+    "file_size_mb": 1.533,
+    "is_h264": true,
+    "cost_per_sec_usd": 0.02,
+    "clip_4s_cost_usd": 0.08,
+    "branch_6_clips_cost_usd": 0.48
+  },
+  "clip_720p": {
+    "resolution_requested": "720p",
+    "interaction_id": "v1_ChYwZUFCYThhSEVkckF5dE1QMWJLeVNREhYwZUFCYThhSEVkckF5dE1QMWJLeVNR",
+    "generation_latency_sec": 25.39,
+    "download_latency_sec": 0.44,
+    "total_wall_clock_sec": 25.84,
+    "width": 1280,
+    "height": 720,
+    "resolution": "1280x720",
+    "fps": 24.0,
+    "frame_count": 96,
+    "duration_sec": 4.0,
+    "file_size_bytes": 3194946,
+    "file_size_mb": 3.047,
+    "is_h264": true,
+    "cost_per_sec_usd": 0.07,
+    "clip_4s_cost_usd": 0.28,
+    "branch_6_clips_cost_usd": 1.68
+  },
+  "cached_scene_4_360p_reference": {
+    "width": 640,
+    "height": 360,
+    "resolution": "640x360",
+    "fps": 24.0,
+    "frame_count": 96,
+    "duration_sec": 4.0,
+    "file_size_bytes": 1592972,
+    "file_size_mb": 1.519,
+    "is_h264": true
+  },
+  "comparison": {
+    "latency_ratio_720p_over_360p": 1.51,
+    "latency_saved_sec_per_clip": 8.74,
+    "file_size_ratio_720p_over_360p": 1.99,
+    "cost_ratio_720p_over_360p": 3.5,
+    "cost_savings_pct_using_360p": 71.4,
+    "pitch_takeaway": "360p cuts API cost by 71.4% ($0.02/s vs $0.07/s; $0.48 vs $1.68 per 3-scene dual-cam branch), reduces clip payload by 1.99x, and delivers 17.1s vs 25.84s live turnaround for interactive hackathon directing."
+  }
+}
