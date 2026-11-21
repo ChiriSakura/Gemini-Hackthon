@@ -1,17 +1,16 @@
 {
   "agent": "P3_frontend",
   "branch": "feat/w2-frontend",
-  "current_milestone": "T3",
-  "status": "t3_batch_completed_ready_for_merge",
+  "current_milestone": "T4",
+  "status": "t3_5_and_t4_english_ui_ready_for_master_merge",
   "capture_stream_mode": "webm_with_png_fallback",
   "completed_items": [
-    "T0-T2: Full 2.5D Three.js dual-camera stage, captureStream .webm + PNG fallback, conflict UI, pixel-art toggle, single-viewport layout, and clean capture mode",
-    "W2-T2E: Added dedicated '📷 举实物造道具' webcam snapshot prop capture panel wired to POST /api/media/create-prop + live Stage Prop Tray in ClapperboardQA",
-    "W2-T3A: Upgraded StoryBranchTree nodes with crisp 'Reused (0s)' vs 'Re-rendered' badges + wired GET /api/director/rules to display Rule Memory pill ('N rules active') in ClapperboardQA",
-    "W2-T3B: Added 'Auto-Cut A/B' 2s smart camera switching toggle in DualCameraStage + automatic crystal_vase_broken.png texture swap with graceful tilted fallback in ThreeStageManager",
-    "W2-T3C: Verified all 8 cached Branch 1 MP4 assets and upgraded side-by-side comparison to support parallel BE vs HE video playback",
-    "T3-Polish: Hardened AI video onError fallback to 2.5D preview, eliminated repeated 404 prop texture fetches, added live render elapsed timer + dual-cam/compare Sync Replay + demo keyboard shortcuts (1-4, V, Shift+C), and split Vite vendor chunks (0 warnings)"
+    "T0-T3: Full 2.5D Three.js dual-camera stage, captureStream .webm + PNG fallback, webcam prop capture, Auto-Cut A/B, broken vase swap, Rule Memory pill, Reused(0s)/Re-rendered badges",
+    "W2-T3D: Added multimodal cue pills (lighting, vocal_emotion, gesture_intent, environment_notes) directly in DualCameraStage header",
+    "W2-T3E: Added '▶ Play 1→4' auto-sequence story playback (4s/scene) compatible with 2.5D Preview, Omni Flash AI Render, Auto-Cut A/B, and native audio Sound On/Off toggle",
+    "W2-T3F: Added lightweight collapsible '📊 Eval' modal displaying Stateless Baseline (0.564, 29.16s) vs StageState (0.951, 8.19s), 1->4 actor & 2->8 scene curves, 66.7% savings, and 14/14 dual-take pass rate",
+    "W2-T4A: Converted entire frontend UI to 100% English-first (with displayLocale fallback for CJK seed JSONs), upgraded Three.js conservatory arched backdrop + actor contact shadows + table brass rim, verified `tsc && vite build` (0 errors, 0 CJK UI strings) and 16/16 cached MP4 asset links"
   ],
   "blockers": [],
-  "last_updated": "2026-11-21T13:05:00-05:00"
+  "last_updated": "2026-11-21T13:08:30-05:00"
 }

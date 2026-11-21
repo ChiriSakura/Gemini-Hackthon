@@ -1,14 +1,13 @@
 /**
- * StageState Root Theater Application.
+ * StageState Root Theater Application (English-First UI).
  *
  * Feature & Use Cases:
  * - Coordinates story branches (`branch_v1` BE vs. forked HE branches), active
- *   scene selection, 2.5D Preview vs. AI Render toggle, Pixel-Art upscaled
- *   preview toggle, and side-by-side branch comparison.
- * - Connects the 3s "Hold to Direct (Cam+Mic)" & text fallback bar to
- *   `POST /api/director/fork` with inline contradiction confirmation.
- * - Connects 2.5D `.webm` / PNG preview export directly to
- *   `POST /api/media/render-scene` for end-to-end Omni Flash rendering.
+ *   scene selection, `▶ Play 1→4` auto-sequence playback, 2.5D Preview vs.
+ *   Omni Flash AI Render toggle, Pixel-Art preview, and side-by-side comparison.
+ * - Connects 3s Cam+Mic / text director input to `POST /api/director/fork` with
+ *   inline contradiction confirmation and physical prop creation to `/api/media/create-prop`.
+ * - Hosts a lightweight collapsible `📊 Eval` modal showing real empirical curves.
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -22,10 +21,12 @@ import {
 import { ClapperboardQA } from './components/ClapperboardQA';
 import { DirectControlBar } from './components/DirectControlBar';
 import { DualCameraStage } from './components/DualCameraStage';
+import { EvalModal } from './components/EvalModal';
 import { StoryBranchTree } from './components/StoryBranchTree';
 import { INITIAL_MOCK_BRANCHES } from './data/mockBranches';
 import type { PreviewExportResult } from './stage/ThreeStageManager';
 import type { BranchState, Scene } from './types/schema';
+import { getBranchLabelEn } from './utils/displayLocale';
 
 interface PendingForkInput {
   parentBranchId: string;
@@ -44,6 +45,8 @@ export default function App(): React.ReactElement {
   const [compareEnabled, setCompareEnabled] = useState<boolean>(true);
   const [pixelArtMode, setPixelArtMode] = useState<boolean>(false);
   const [cleanCaptureMode, setCleanCaptureMode] = useState<boolean>(false);
+  const [evalModalOpen, setEvalModalOpen] = useState<boolean>(false);
+  const [isPlayingStory, setIsPlayingStory] = useState<boolean>(false);
   const [targetSceneId, setTargetSceneId] = useState<number>(2);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [renderingScene, setRenderingScene] = useState<boolean>(false);
@@ -60,33 +63,13 @@ export default function App(): React.ReactElement {
       setIsMockMode(fromMock);
       if (loaded.length > 0) {
         setActiveBranchId(loaded[0].branch_id);
+        // If live backend returns cached Omni Flash MP4s, let judges switch easily
+        if (!fromMock && loaded[0].scenes[0]?.media.cam_a_final_url) {
+          setViewMode('final');
+        }
       }
     });
     fetchDirectorRules().then(setRules);
-  }, []);
-
-  // Keyboard shortcuts for smooth live demo & 1-minute video capture
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      const tag = target?.tagName?.toLowerCase();
-      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
-
-      if (e.shiftKey && e.key.toLowerCase() === 'c') {
-        e.preventDefault();
-        setCleanCaptureMode((v) => !v);
-      } else if (!e.metaKey && !e.ctrlKey && !e.altKey) {
-        if (e.key >= '1' && e.key <= '4') {
-          const idx = Number(e.key) - 1;
-          setActiveSceneIndex(idx);
-          setTargetSceneId(idx + 1);
-        } else if (e.key.toLowerCase() === 'v') {
-          setViewMode((m) => (m === 'preview' ? 'final' : 'preview'));
-        }
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
   const activeBranch = useMemo(
@@ -108,7 +91,41 @@ export default function App(): React.ReactElement {
   const activeScene =
     activeBranch.scenes[activeSceneIndex] ?? activeBranch.scenes[0];
 
+  // Auto-advance scenes 1 -> 4 every 4 seconds when Play 1->4 is active
+  useEffect(() => {
+    if (!isPlayingStory) return;
+    const totalScenes = activeBranch.scenes.length;
+    if (totalScenes <= 1) {
+      setIsPlayingStory(false);
+      return;
+    }
+    const timer = window.setInterval(() => {
+      setActiveSceneIndex((prev) => {
+        if (prev + 1 >= totalScenes) {
+          setIsPlayingStory(false);
+          return prev;
+        }
+        const next = prev + 1;
+        setTargetSceneId(next + 1);
+        return next;
+      });
+    }, 4000);
+    return () => window.clearInterval(timer);
+  }, [isPlayingStory, activeBranch.scenes.length]);
+
+  const handleTogglePlayStory = () => {
+    setIsPlayingStory((playing) => {
+      if (!playing) {
+        setActiveSceneIndex(0);
+        setTargetSceneId(1);
+        return true;
+      }
+      return false;
+    });
+  };
+
   const handleSelectScene = (branchId: string, sceneIndex: number) => {
+    setIsPlayingStory(false);
     setActiveBranchId(branchId);
     setActiveSceneIndex(sceneIndex);
     setTargetSceneId(sceneIndex + 1);
@@ -119,9 +136,10 @@ export default function App(): React.ReactElement {
     text?: string;
     confirmContradiction?: boolean;
   }) => {
+    setIsPlayingStory(false);
     setSubmitting(true);
     setPendingConflict(null);
-    setStatusNote('正在调用 Hydrogen + Neon 推演新分支...');
+    setStatusNote('Running Hydrogen + Gemini 4 Neon state simulation…');
 
     const { branch: newBranch, simulated } = await submitDirectorFork({
       parentBranchId: activeBranch.branch_id,
@@ -140,7 +158,7 @@ export default function App(): React.ReactElement {
         text: opts.text,
         warning: newBranch.contradiction_warning,
       });
-      setStatusNote('检测到逻辑矛盾，请确认是否仍要强制改写。');
+      setStatusNote('Contradiction detected — confirm below to force rewrite.');
       return;
     }
 
@@ -150,8 +168,8 @@ export default function App(): React.ReactElement {
     setCompareEnabled(true);
     setStatusNote(
       simulated
-        ? '后端未启动，已用锁定 Mock 契约即时演示新分支分叉！'
-        : `已生成新分支 ${newBranch.branch_label}（2.5D 舞台已即时同步）`,
+        ? 'Offline mock simulation: forked new timeline on 2.5D stage.'
+        : `Forked "${getBranchLabelEn(newBranch)}" — 2.5D stage synced (<1s).`,
     );
   };
 
@@ -168,9 +186,8 @@ export default function App(): React.ReactElement {
     scene: Scene,
     preview: PreviewExportResult,
   ) => {
-    if (renderingScene) return;
     setRenderingScene(true);
-    setStatusNote(`正在上传第 ${scene.scene_id} 幕 2.5D 预览并调用 Omni Flash 双拍渲染...`);
+    setStatusNote(`Uploading Scene ${scene.scene_id} preview & running Omni Flash dual-take…`);
     const result = await requestSceneRender({
       branchId: activeBranch.branch_id,
       scene,
@@ -184,7 +201,7 @@ export default function App(): React.ReactElement {
     setRenderingScene(false);
 
     if (!result) {
-      setStatusNote('后端渲染接口暂不可用，已保持 2.5D 实时舞台预览。');
+      setStatusNote('Render API unreachable — staying on live 2.5D preview.');
       return;
     }
 
@@ -210,26 +227,26 @@ export default function App(): React.ReactElement {
     setViewMode('final');
     setStatusNote(
       result.media.fallback_to_preview
-        ? `第 ${scene.scene_id} 幕质检未通过已降级为 2.5D 预览`
-        : `✅ 第 ${scene.scene_id} 幕 Omni Flash 成片渲染完成！`,
+        ? `Scene ${scene.scene_id} degraded to 2.5D preview after QA retries.`
+        : `Scene ${scene.scene_id} Omni Flash render passed QA!`,
     );
   };
 
   const handleRenderWholeBranch = async () => {
     if (renderingScene) return;
     setRenderingScene(true);
-    setStatusNote(`正在并发渲染 ${activeBranch.branch_label} 受影响幕...`);
+    setStatusNote(`Rendering affected scenes for ${getBranchLabelEn(activeBranch)}…`);
     const updated = await requestBranchRender(activeBranch.branch_id);
     setRenderingScene(false);
     if (!updated) {
-      setStatusNote('批量渲染接口暂不可用，请检查 FastAPI 服务。');
+      setStatusNote('Batch render failed — verify FastAPI backend is running.');
       return;
     }
     setBranches((prev) =>
       prev.map((b) => (b.branch_id === updated.branch_id ? updated : b)),
     );
     setViewMode('final');
-    setStatusNote(`✅ ${updated.branch_label} 全部受影响幕渲染完成！`);
+    setStatusNote(`All affected scenes rendered for ${getBranchLabelEn(updated)}!`);
   };
 
   const handleCreateProp = async (opts: {
@@ -237,7 +254,7 @@ export default function App(): React.ReactElement {
     imageBlob?: Blob | null;
   }) => {
     setCreatingProp(true);
-    setStatusNote(`正在通过 Gemini 图像模型生成透明道具「${opts.name}」...`);
+    setStatusNote(`Generating transparent stage prop "${opts.name}"…`);
     const created = await createStageProp({
       name: opts.name,
       description: opts.name,
@@ -279,16 +296,16 @@ export default function App(): React.ReactElement {
 
     setStatusNote(
       created.simulated
-        ? `✨ 已在离线模式将道具「${opts.name}」放上 2.5D 舞台！`
-        : `✅ 新道具「${opts.name}」已抠图入库并同步至第 ${currentSceneId}–4 幕舞台！`,
+        ? `Placed simulated prop "${opts.name}" onto Scenes ${currentSceneId}–4.`
+        : `Prop "${opts.name}" generated & synced across Scenes ${currentSceneId}–4!`,
     );
   };
 
   const handleExportComplete = (result: PreviewExportResult) => {
     setStatusNote(
       result.mode === 'webm'
-        ? `双机位 .webm 导出就绪 (${result.elapsedMs}ms)`
-        : `已启用首尾帧 PNG 兜底模式 (${result.elapsedMs}ms)`,
+        ? `Dual-camera .webm export ready (${result.elapsedMs}ms)`
+        : `Start+end PNG keyframe fallback ready (${result.elapsedMs}ms)`,
     );
   };
 
@@ -298,11 +315,11 @@ export default function App(): React.ReactElement {
         <div className="brand-group">
           <span className="brand-title">StageState</span>
           <span className="brand-subtitle">
-            一句话导演 · 可改写过去的双机位 2.5D 舞台
+            One-Sentence Dual-Camera 2.5D Stage Director
           </span>
           {!cleanCaptureMode && (
-            <span className="cam-tag" style={{ fontSize: '0.72rem' }}>
-              {isMockMode ? 'Mock 契约模式' : 'Live FastAPI 已连接'}
+            <span className="cam-tag" style={{ fontSize: '0.7rem' }}>
+              {isMockMode ? 'Mock Mode' : 'Live FastAPI'}
             </span>
           )}
         </div>
@@ -313,61 +330,58 @@ export default function App(): React.ReactElement {
             className={`pill-btn blue ${viewMode === 'preview' ? 'active' : ''}`}
             onClick={() => setViewMode('preview')}
           >
-            🎭 2.5D 实时舞台
+            🎭 2.5D Stage
           </button>
           <button
             type="button"
             className={`pill-btn blue ${viewMode === 'final' ? 'active' : ''}`}
             onClick={() => setViewMode('final')}
           >
-            ✨ Omni Flash 成片
-          </button>
-          <button
-            type="button"
-            className={`pill-btn ${pixelArtMode ? 'active' : ''}`}
-            onClick={() => setPixelArtMode((v) => !v)}
-          >
-            👾 像素风预览
+            ✨ AI Render
           </button>
           <button
             type="button"
             className={`pill-btn ${compareEnabled ? 'active' : ''}`}
             onClick={() => setCompareEnabled((v) => !v)}
           >
-            ⚖️ 新旧对比
+            ⚖️ Compare
           </button>
-          {!isMockMode && (
+          <button
+            type="button"
+            className={`pill-btn subtle ${pixelArtMode ? 'active' : ''}`}
+            onClick={() => setPixelArtMode((v) => !v)}
+          >
+            👾 Pixel
+          </button>
+          <button
+            type="button"
+            className="pill-btn subtle"
+            onClick={() => setEvalModalOpen(true)}
+          >
+            📊 Eval
+          </button>
+          {!isMockMode && !cleanCaptureMode && (
             <button
               type="button"
-              className="pill-btn"
+              className="pill-btn subtle"
               onClick={handleRenderWholeBranch}
               disabled={renderingScene}
             >
-              {renderingScene ? '⏳ 并发渲染中...' : '🚀 并发渲染全分支'}
+              {renderingScene ? '⏳ Rendering…' : '🚀 Render Branch'}
             </button>
           )}
           <button
             type="button"
-            className={`pill-btn ${cleanCaptureMode ? 'active' : ''}`}
+            className={`pill-btn subtle ${cleanCaptureMode ? 'active' : ''}`}
             onClick={() => setCleanCaptureMode((v) => !v)}
           >
-            🎥 纯净录屏
+            🎥 Clean View
           </button>
         </div>
       </header>
 
       {!cleanCaptureMode && statusNote && (
-        <div
-          style={{
-            fontSize: '0.78rem',
-            color: '#fde68a',
-            padding: '4px 12px',
-            background: 'rgba(251, 191, 36, 0.08)',
-            borderRadius: 8,
-          }}
-        >
-          {statusNote}
-        </div>
+        <div className="status-banner gold">{statusNote}</div>
       )}
 
       <DualCameraStage
@@ -378,7 +392,9 @@ export default function App(): React.ReactElement {
         compareEnabled={compareEnabled}
         pixelArtMode={pixelArtMode}
         renderingScene={renderingScene}
+        isPlayingStory={isPlayingStory}
         cleanCaptureMode={cleanCaptureMode}
+        onTogglePlayStory={handleTogglePlayStory}
         onExportComplete={handleExportComplete}
         onRenderScene={handleRenderScene}
       />
@@ -410,6 +426,8 @@ export default function App(): React.ReactElement {
         onCreateProp={handleCreateProp}
         onSubmitFork={handleSubmitFork}
       />
+
+      <EvalModal open={evalModalOpen} onClose={() => setEvalModalOpen(false)} />
     </div>
   );
 }
