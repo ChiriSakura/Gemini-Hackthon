@@ -111,14 +111,52 @@ def build_be_vs_he_demo_reel() -> Path:
 
         writer.release()
 
-        # Transcode to browser-playable H.264 if imageio-ffmpeg is available.
+        # Transcode to browser-playable H.264 AND mux native Omni Flash audio track (Scene 1..4 HE).
         transcoded = False
+        audio_tmp_copies: list[Path] = []
         try:
             import imageio_ffmpeg
 
             ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
-            proc = subprocess.run(
-                [
+            audio_inputs: list[str] = []
+            for sid in (1, 2, 3, 4):
+                src_s = b2_map[sid]
+                src_p = config.ASSETS_DIR / (src_s.media.cam_a_final_url or "").removeprefix("/assets/")
+                if src_p.is_file():
+                    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tf:
+                        cp = Path(tf.name)
+                    shutil.copy2(src_p, cp)
+                    audio_tmp_copies.append(cp)
+                    audio_inputs.extend(["-i", str(cp)])
+
+            if len(audio_tmp_copies) == 4:
+                cmd = [
+                    ffmpeg_exe,
+                    "-y",
+                    "-i",
+                    str(raw_mp4),
+                    *audio_inputs,
+                    "-filter_complex",
+                    "[1:a][2:a][3:a][4:a]concat=n=4:v=0:a=1[aout]",
+                    "-map",
+                    "0:v:0",
+                    "-map",
+                    "[aout]",
+                    "-c:v",
+                    "libx264",
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-c:a",
+                    "aac",
+                    "-b:a",
+                    "128k",
+                    "-shortest",
+                    "-movflags",
+                    "+faststart",
+                    str(h264_mp4),
+                ]
+            else:
+                cmd = [
                     ffmpeg_exe,
                     "-y",
                     "-i",
@@ -130,7 +168,10 @@ def build_be_vs_he_demo_reel() -> Path:
                     "-movflags",
                     "+faststart",
                     str(h264_mp4),
-                ],
+                ]
+
+            subprocess.run(
+                cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 check=True,
@@ -140,6 +181,9 @@ def build_be_vs_he_demo_reel() -> Path:
                 transcoded = True
         except Exception:
             pass
+        finally:
+            for cp in audio_tmp_copies:
+                cp.unlink(missing_ok=True)
 
         if not transcoded:
             shutil.copy2(raw_mp4, out_path)
