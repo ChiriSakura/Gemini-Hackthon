@@ -1,20 +1,28 @@
 /**
- * Persistent Bottom-Right Live Camera Self-View & 30s Throw-In Capture (W2-V2-02).
+ * Bottom-Right Camera Self-View & Throw-In Capture (W2-V2-02).
  *
  * Feature & Use Cases:
- * - Renders a sleek, persistent mirrored (`scaleX(-1)`) bottom-right live
- *   Self-View camera window (`224px` glass card, gracefully collapsible with
- *   permission retry if blocked).
- * - Activates a 30-second Throw-In Capture overlay with a golden countdown
- *   border and center target reticle whenever `/api/director/perceive` returns
- *   `needs_prop_prompt = true` OR the user clicks `Throw Object` on the corner
- *   camera, turning a tossed everyday item (drink, snack, laptop, mug) into a
- *   2D anime prop flying into the stage (`detect_throw_peak=true`, `entry_motion=throw_arc`).
+ * - The camera is OFF by default: nothing asks for camera permission on page
+ *   load. "Turn camera on" requests access and shows a mirrored
+ *   (`scaleX(-1)`) self-view; "Turn camera off" stops every track (so the
+ *   hardware light goes out) and clears the video element.
+ * - Recording never starts by itself. Opening the capture panel (from the
+ *   dock's Throw Object button, the card's own Capture button, or when
+ *   `/api/director/perceive` returns `needs_prop_prompt = true`) only turns the
+ *   camera on. The user presses "Start" to begin recording, and only then does
+ *   the countdown run. "Stop" ends early and submits; reaching
+ *   `MAX_RECORDING_MS` stops and submits automatically. Clips shorter than
+ *   `MIN_RECORDING_MS` are discarded with a short hint.
+ * - A denied permission or a missing camera shows a message with a retry
+ *   button and never throws.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { PropPlacement } from './DirectControlBar';
 
-const MAX_THROW_MS = 30000;
+/** Longest clip the user can record after pressing Start. */
+const MAX_RECORDING_MS = 30000;
+/** Clips shorter than this are discarded instead of being submitted. */
+const MIN_RECORDING_MS = 1000;
 
 export interface ThrowObjectSubmission {
   name: string;
@@ -39,6 +47,8 @@ interface CameraSelfViewProps {
   onSkipThrowAndContinue?: () => void;
   onSubmitThrow: (payload: ThrowObjectSubmission) => void;
 }
+
+type CameraStatus = 'off' | 'starting' | 'ready' | 'blocked' | 'unavailable';
 
 function pickVideoMime(): string | undefined {
   if (typeof MediaRecorder === 'undefined') return undefined;
@@ -77,25 +87,32 @@ export const CameraSelfView: React.FC<CameraSelfViewProps> = ({
   onSkipThrowAndContinue,
   onSubmitThrow,
 }) => {
-  const [camStatus, setCamStatus] = useState<'idle' | 'ready' | 'blocked' | 'unavailable'>('idle');
+  const [camStatus, setCamStatus] = useState<CameraStatus>('off');
   const [camMessage, setCamMessage] = useState<string | null>(null);
+  const [captureHint, setCaptureHint] = useState<string | null>(null);
   const [propName, setPropName] = useState('');
   // W2-V2-02 (15:06 rule): Default captured objects to resting on table (`entry_motion='place'`).
   // Only switch to `held` (`entry_motion='throw_arc'`) when story explicitly asks to hand/toss to Lia
   // or user explicitly selects "Toss to Lia".
   const [placement, setPlacement] = useState<PropPlacement>('table');
-  const [remainingMs, setRemainingMs] = useState(MAX_THROW_MS);
+  const [remainingMs, setRemainingMs] = useState(MAX_RECORDING_MS);
   const [recordingThrow, setRecordingThrow] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  // True while the user wants the camera on; a late permission grant is dropped otherwise
+  const cameraWantedRef = useRef(false);
+  const pendingStartRef = useRef<Promise<MediaStream | null> | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
+  const recordStartedAtRef = useRef(0);
   const countdownTimerRef = useRef<number | null>(null);
   const stopTimerRef = useRef<number | null>(null);
   const submitPendingRef = useRef(false);
   const propNameRef = useRef(propName);
   const placementRef = useRef(placement);
+  // Always call the latest submit handler, even from a recorder started many renders ago
+  const onSubmitThrowRef = useRef(onSubmitThrow);
 
   useEffect(() => {
     propNameRef.current = propName;
@@ -104,6 +121,10 @@ export const CameraSelfView: React.FC<CameraSelfViewProps> = ({
   useEffect(() => {
     placementRef.current = placement;
   }, [placement]);
+
+  useEffect(() => {
+    onSubmitThrowRef.current = onSubmitThrow;
+  }, [onSubmitThrow]);
 
   // W2-V3-01: Default to `table` (`entry_motion='place'`). ONLY auto-select `held` (`throw_arc`)
   // when the story explicitly asks to hand/give/toss/throw/catch an object to Lia.
@@ -121,7 +142,37 @@ export const CameraSelfView: React.FC<CameraSelfViewProps> = ({
     }
   }, [throwOpen, suggestedPropName, promptedByStory, throwHint]);
 
-  const stopCamera = useCallback(() => {
+  const clearRecordingTimers = useCallback(() => {
+    if (countdownTimerRef.current !== null) {
+      window.clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+    if (stopTimerRef.current !== null) {
+      window.clearTimeout(stopTimerRef.current);
+      stopTimerRef.current = null;
+    }
+  }, []);
+
+  /** Stop the recorder; the clip is submitted only when `shouldSubmit` is true. */
+  const finishRecording = useCallback(
+    (shouldSubmit: boolean) => {
+      clearRecordingTimers();
+      submitPendingRef.current = shouldSubmit;
+      const rec = recorderRef.current;
+      if (rec && rec.state !== 'inactive') {
+        rec.stop();
+        return;
+      }
+      recorderRef.current = null;
+      submitPendingRef.current = false;
+      setRecordingThrow(false);
+      setRemainingMs(MAX_RECORDING_MS);
+    },
+    [clearRecordingTimers],
+  );
+
+  /** Stop every track so the hardware light goes out, and clear the video element. */
+  const releaseCamera = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
@@ -131,289 +182,303 @@ export const CameraSelfView: React.FC<CameraSelfViewProps> = ({
     }
   }, []);
 
-  const startCamera = useCallback(async (): Promise<MediaStream | null> => {
+  const turnCameraOff = useCallback(() => {
+    cameraWantedRef.current = false;
+    finishRecording(false);
+    releaseCamera();
+    setCamStatus('off');
+    setCamMessage(null);
+  }, [finishRecording, releaseCamera]);
+
+  /** Ask for the camera. Resolves to null (never throws) when it cannot be used. */
+  const turnCameraOn = useCallback((): Promise<MediaStream | null> => {
+    cameraWantedRef.current = true;
     if (streamRef.current && streamRef.current.active) {
       if (videoRef.current && videoRef.current.srcObject !== streamRef.current) {
         videoRef.current.srcObject = streamRef.current;
       }
       setCamStatus('ready');
       setCamMessage(null);
-      return streamRef.current;
+      return Promise.resolve(streamRef.current);
     }
+    // A second press while the permission prompt is open reuses the same request
+    if (pendingStartRef.current) return pendingStartRef.current;
+
     const media = typeof navigator !== 'undefined' ? navigator.mediaDevices : undefined;
     if (!media?.getUserMedia) {
       setCamStatus('unavailable');
       setCamMessage('Camera unavailable in this browser.');
-      return null;
+      return Promise.resolve(null);
     }
-    try {
-      let stream: MediaStream;
+
+    setCamStatus('starting');
+    setCamMessage(null);
+    const request = (async (): Promise<MediaStream | null> => {
       try {
-        stream = await media.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-          audio: false,
-        });
+        let stream: MediaStream;
+        try {
+          stream = await media.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+            audio: false,
+          });
+        } catch (err) {
+          const name = (err as { name?: string } | null)?.name;
+          if (name === 'NotAllowedError' || name === 'SecurityError') throw err;
+          stream = await media.getUserMedia({ video: true, audio: false });
+        }
+        if (!cameraWantedRef.current) {
+          // Turned off (or unmounted) while the permission prompt was open
+          stream.getTracks().forEach((t) => t.stop());
+          return null;
+        }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+        setCamStatus('ready');
+        setCamMessage(null);
+        return stream;
       } catch (err) {
+        if (!cameraWantedRef.current) return null;
         const name = (err as { name?: string } | null)?.name;
-        if (name === 'NotAllowedError' || name === 'SecurityError') throw err;
-        stream = await media.getUserMedia({ video: true, audio: false });
+        if (name === 'NotAllowedError' || name === 'SecurityError') {
+          setCamStatus('blocked');
+          setCamMessage('Camera blocked — click retry to allow.');
+        } else {
+          setCamStatus('unavailable');
+          setCamMessage('No camera detected.');
+        }
+        return null;
+      } finally {
+        pendingStartRef.current = null;
       }
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-      setCamStatus('ready');
-      setCamMessage(null);
-      return stream;
-    } catch (err) {
-      const name = (err as { name?: string } | null)?.name;
-      if (name === 'NotAllowedError' || name === 'SecurityError') {
-        setCamStatus('blocked');
-        setCamMessage('Camera blocked — click retry to allow.');
-      } else {
-        setCamStatus('unavailable');
-        setCamMessage('No camera detected.');
-      }
-      return null;
-    }
+    })();
+    pendingStartRef.current = request;
+    return request;
   }, []);
 
-  // Boot live self-view automatically on mount
+  // Nothing is requested on mount; on unmount stop the recorder and all tracks
   useEffect(() => {
-    void startCamera();
     return () => {
-      if (countdownTimerRef.current !== null) window.clearInterval(countdownTimerRef.current);
-      if (stopTimerRef.current !== null) window.clearTimeout(stopTimerRef.current);
+      cameraWantedRef.current = false;
+      clearRecordingTimers();
       const rec = recorderRef.current;
       if (rec && rec.state !== 'inactive') {
         rec.onstop = null;
         rec.stop();
       }
-      stopCamera();
+      recorderRef.current = null;
+      releaseCamera();
     };
-  }, [startCamera, stopCamera]);
+  }, [clearRecordingTimers, releaseCamera]);
 
-  // Re-attach live stream to video element when status changes
+  // Attach the live stream once the <video> is showing
   useEffect(() => {
-    if (videoRef.current && streamRef.current) {
+    if (camStatus === 'ready' && videoRef.current && streamRef.current) {
       videoRef.current.srcObject = streamRef.current;
     }
   }, [camStatus]);
 
-  const stopThrowRecorder = useCallback((shouldSubmit: boolean) => {
-    if (countdownTimerRef.current !== null) {
-      window.clearInterval(countdownTimerRef.current);
-      countdownTimerRef.current = null;
-    }
-    if (stopTimerRef.current !== null) {
-      window.clearTimeout(stopTimerRef.current);
-      stopTimerRef.current = null;
-    }
-    submitPendingRef.current = shouldSubmit;
-    const rec = recorderRef.current;
-    if (rec && rec.state === 'recording') {
-      rec.stop();
+  const submitCapture = useCallback((mediaBlob: Blob | null, still: Blob | null) => {
+    const chosenPlacement = placementRef.current;
+    onSubmitThrowRef.current({
+      name: propNameRef.current.trim() || 'Stage Object',
+      mediaBlob: mediaBlob ?? still,
+      previewThumbBlob: still,
+      placement: chosenPlacement,
+      entryMotion: chosenPlacement === 'held' ? 'throw_arc' : 'place',
+      detectThrowPeak: true,
+    });
+  }, []);
+
+  /** Begin recording. Runs only from the Start button; the countdown starts here. */
+  const startRecording = useCallback(() => {
+    const stream = streamRef.current;
+    if (!stream || !stream.active || recorderRef.current) return;
+    setCaptureHint(null);
+
+    if (typeof MediaRecorder === 'undefined') {
+      // No recorder in this browser: send one still frame instead of a clip
+      void captureStillPng(videoRef.current).then((still) => {
+        if (still) submitCapture(null, still);
+        else setCaptureHint('Could not capture from the camera — try again.');
+      });
       return;
     }
-    setRecordingThrow(false);
-    setRemainingMs(MAX_THROW_MS);
-    if (shouldSubmit) {
-      const chosenPlacement = placementRef.current;
-      const resolvedMotion = chosenPlacement === 'held' ? 'throw_arc' : 'place';
-      void captureStillPng(videoRef.current).then((still) => {
-        onSubmitThrow({
-          name: propNameRef.current.trim() || 'Stage Object',
-          mediaBlob: still,
-          previewThumbBlob: still,
-          placement: chosenPlacement,
-          entryMotion: resolvedMotion,
-          detectThrowPeak: true,
-        });
-      });
-    }
-  }, [onSubmitThrow]);
 
-  // Start 30s Throw-In recording automatically when throwOpen becomes true
+    const mime = pickVideoMime();
+    let rec: MediaRecorder;
+    try {
+      rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+    } catch {
+      setCaptureHint('Recording is not supported in this browser.');
+      return;
+    }
+
+    chunksRef.current = [];
+    submitPendingRef.current = false;
+    recorderRef.current = rec;
+    rec.ondataavailable = (ev) => {
+      if (ev.data.size > 0) chunksRef.current.push(ev.data);
+    };
+    rec.onerror = () => {
+      setCaptureHint('Recording failed — press Start to try again.');
+      finishRecording(false);
+    };
+    rec.onstop = () => {
+      const shouldSend = submitPendingRef.current;
+      const durationMs = Date.now() - recordStartedAtRef.current;
+      const chunks = chunksRef.current;
+      submitPendingRef.current = false;
+      chunksRef.current = [];
+      recorderRef.current = null;
+      clearRecordingTimers();
+      setRecordingThrow(false);
+      setRemainingMs(MAX_RECORDING_MS);
+      if (!shouldSend) return;
+      if (durationMs < MIN_RECORDING_MS || chunks.length === 0) {
+        setCaptureHint(
+          `Clip too short — record for at least ${Math.round(MIN_RECORDING_MS / 1000)} second.`,
+        );
+        return;
+      }
+      const clipBlob = new Blob(chunks, { type: rec.mimeType || mime || 'video/webm' });
+      void captureStillPng(videoRef.current).then((still) => submitCapture(clipBlob, still));
+    };
+
+    recordStartedAtRef.current = Date.now();
+    setRemainingMs(MAX_RECORDING_MS);
+    rec.start(250);
+    setRecordingThrow(true);
+    countdownTimerRef.current = window.setInterval(() => {
+      setRemainingMs(
+        Math.max(0, MAX_RECORDING_MS - (Date.now() - recordStartedAtRef.current)),
+      );
+    }, 100);
+    // Reaching the limit stops and submits automatically
+    stopTimerRef.current = window.setTimeout(() => {
+      finishRecording(true);
+    }, MAX_RECORDING_MS);
+  }, [clearRecordingTimers, finishRecording, submitCapture]);
+
+  // Opening the capture panel only turns the camera on and waits for Start;
+  // closing it discards any recording in progress. The camera itself stays as it is.
   useEffect(() => {
     if (!throwOpen) {
-      if (recorderRef.current && recorderRef.current.state === 'recording') {
-        submitPendingRef.current = false;
-        recorderRef.current.stop();
-      }
-      if (countdownTimerRef.current !== null) {
-        window.clearInterval(countdownTimerRef.current);
-        countdownTimerRef.current = null;
-      }
-      if (stopTimerRef.current !== null) {
-        window.clearTimeout(stopTimerRef.current);
-        stopTimerRef.current = null;
-      }
-      setRecordingThrow(false);
-      setRemainingMs(MAX_THROW_MS);
+      finishRecording(false);
+      setCaptureHint(null);
       return;
     }
+    void turnCameraOn();
+  }, [throwOpen, turnCameraOn, finishRecording]);
 
-    let cancelled = false;
-    void startCamera().then((stream) => {
-      if (cancelled || !stream) return;
-      const mime = pickVideoMime();
-      chunksRef.current = [];
-      const startedAt = Date.now();
-      setRemainingMs(MAX_THROW_MS);
-
-      countdownTimerRef.current = window.setInterval(() => {
-        setRemainingMs(Math.max(0, MAX_THROW_MS - (Date.now() - startedAt)));
-      }, 100);
-
-      if (typeof MediaRecorder !== 'undefined') {
-        try {
-          const rec = mime
-            ? new MediaRecorder(stream, { mimeType: mime })
-            : new MediaRecorder(stream);
-          recorderRef.current = rec;
-          rec.ondataavailable = (ev) => {
-            if (ev.data.size > 0) chunksRef.current.push(ev.data);
-          };
-          rec.onstop = () => {
-            const shouldSend = submitPendingRef.current;
-            submitPendingRef.current = false;
-            recorderRef.current = null;
-            setRecordingThrow(false);
-            setRemainingMs(MAX_THROW_MS);
-            if (!shouldSend) return;
-            const chunks = chunksRef.current;
-            chunksRef.current = [];
-            const chosenPlacement = placementRef.current;
-            const resolvedMotion = chosenPlacement === 'held' ? 'throw_arc' : 'place';
-            void captureStillPng(videoRef.current).then((still) => {
-              if (chunks.length > 0) {
-                const clipBlob = new Blob(chunks, { type: rec.mimeType || mime || 'video/webm' });
-                onSubmitThrow({
-                  name: propNameRef.current.trim() || 'Stage Object',
-                  mediaBlob: clipBlob,
-                  previewThumbBlob: still,
-                  placement: chosenPlacement,
-                  entryMotion: resolvedMotion,
-                  detectThrowPeak: true,
-                });
-              } else {
-                onSubmitThrow({
-                  name: propNameRef.current.trim() || 'Stage Object',
-                  mediaBlob: still,
-                  previewThumbBlob: still,
-                  placement: chosenPlacement,
-                  entryMotion: resolvedMotion,
-                  detectThrowPeak: true,
-                });
-              }
-            });
-          };
-          rec.start(250);
-          setRecordingThrow(true);
-        } catch {
-          setRecordingThrow(false);
-        }
-      }
-
-      stopTimerRef.current = window.setTimeout(() => {
-        stopThrowRecorder(true);
-      }, MAX_THROW_MS);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [throwOpen, startCamera, stopThrowRecorder, onSubmitThrow]);
-
-  const progressPct = Math.round((remainingMs / MAX_THROW_MS) * 100);
+  const cameraOn = camStatus === 'ready';
+  const progressPct = Math.round((remainingMs / MAX_RECORDING_MS) * 100);
+  const limitSec = Math.round(MAX_RECORDING_MS / 1000);
+  const overlayText = creatingProp
+    ? 'Stylizing…'
+    : recordingThrow
+      ? `${(remainingMs / 1000).toFixed(0)}s`
+      : camStatus === 'starting'
+        ? 'Starting camera…'
+        : cameraOn
+          ? throwOpen
+            ? 'Press Start'
+            : 'Camera on'
+          : 'Camera off';
 
   return (
     <aside
       className={`selfview-card ${throwOpen ? 'throwing' : ''} ${cleanCaptureMode && !throwOpen ? 'compact' : ''}`}
-      aria-label="Live camera self-view"
+      aria-label="Camera self-view"
     >
-      <div
-        className="selfview-video-wrap"
-        role="button"
-        tabIndex={0}
-        aria-label={
-          throwOpen
-            ? 'Capturing object in self-view camera'
-            : camStatus === 'ready'
-              ? 'Click camera to capture an object for the stage'
-              : 'Click to allow camera access'
-        }
-        title={
-          throwOpen
-            ? `Capturing (${(remainingMs / 1000).toFixed(0)}s left)`
-            : camStatus === 'ready'
-              ? 'Click camera to capture or toss an object'
-              : 'Click to enable camera'
-        }
-        style={{ cursor: creatingProp ? 'default' : 'pointer' }}
-        onClick={() => {
-          if (creatingProp) return;
-          if (camStatus !== 'ready') {
-            void startCamera();
-            return;
-          }
-          if (!throwOpen) {
-            onRequestOpenThrow();
-          }
-        }}
-        onKeyDown={(e) => {
-          if ((e.key === 'Enter' || e.key === ' ') && !creatingProp) {
-            e.preventDefault();
-            if (camStatus !== 'ready') void startCamera();
-            else if (!throwOpen) onRequestOpenThrow();
-          }
-        }}
-      >
+      <div className="selfview-video-wrap">
         <video
           ref={videoRef}
           className="selfview-video"
           autoPlay
           muted
           playsInline
-          style={{ display: camStatus === 'ready' ? 'block' : 'none' }}
+          style={{ display: cameraOn ? 'block' : 'none' }}
         />
 
         <div className="selfview-overlay-label" aria-hidden="true">
-          <span className={`selfview-dot ${camStatus === 'ready' ? 'on' : ''} ${recordingThrow ? 'rec' : ''}`} />
-          <span>
-            {creatingProp
-              ? 'Stylizing…'
-              : throwOpen
-                ? `${(remainingMs / 1000).toFixed(0)}s`
-                : 'Click to capture'}
-          </span>
+          <span className={`selfview-dot ${cameraOn ? 'on' : ''} ${recordingThrow ? 'rec' : ''}`} />
+          <span>{overlayText}</span>
         </div>
 
-        {camStatus !== 'ready' && (
+        {!cameraOn && (
           <div className="selfview-fallback">
-            <span>{camMessage ?? 'Starting camera…'}</span>
+            <span>
+              {camStatus === 'starting'
+                ? 'Waiting for camera permission…'
+                : (camMessage ?? 'Camera is off.')}
+            </span>
           </div>
         )}
 
-        {throwOpen && (
-          <>
-            <div className="selfview-reticle" aria-hidden="true">
-              <span className="reticle-corner tl" />
-              <span className="reticle-corner tr" />
-              <span className="reticle-corner bl" />
-              <span className="reticle-corner br" />
-              <span className="reticle-label">Hold or toss object here</span>
-            </div>
-            <div className="selfview-countdown-bar" aria-hidden="true">
-              <div style={{ width: `${progressPct}%` }} />
-            </div>
-          </>
+        {throwOpen && cameraOn && (
+          <div className="selfview-reticle" aria-hidden="true">
+            <span className="reticle-corner tl" />
+            <span className="reticle-corner tr" />
+            <span className="reticle-corner bl" />
+            <span className="reticle-corner br" />
+            <span className="reticle-label">Hold or toss object here</span>
+          </div>
+        )}
+        {recordingThrow && (
+          <div className="selfview-countdown-bar" aria-hidden="true">
+            <div style={{ width: `${progressPct}%` }} />
+          </div>
+        )}
+      </div>
+
+      <div className="selfview-cam-row">
+        {cameraOn ? (
+          <button
+            type="button"
+            className="selfview-mini-btn"
+            onClick={turnCameraOff}
+            title="Stop the camera and release it"
+          >
+            Turn camera off
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="selfview-mini-btn accent"
+            disabled={camStatus === 'starting'}
+            onClick={() => void turnCameraOn()}
+            title="Ask for camera permission and show the self-view"
+          >
+            {camStatus === 'starting'
+              ? 'Starting…'
+              : camStatus === 'blocked' || camStatus === 'unavailable'
+                ? 'Retry camera'
+                : 'Turn camera on'}
+          </button>
+        )}
+        {cameraOn && !throwOpen && (
+          <button
+            type="button"
+            className="selfview-mini-btn accent"
+            disabled={creatingProp}
+            onClick={onRequestOpenThrow}
+            title="Open the capture panel; recording starts only when you press Start"
+          >
+            Capture object
+          </button>
         )}
       </div>
 
       {throwOpen && (
         <div className="selfview-throw-controls">
           {throwHint && <div className="selfview-hint">{throwHint}</div>}
+          {captureHint && (
+            <div className="selfview-hint" role="status">
+              {captureHint}
+            </div>
+          )}
 
           <div className="selfview-row">
             <input
@@ -453,7 +518,7 @@ export const CameraSelfView: React.FC<CameraSelfViewProps> = ({
                   className="selfview-mini-btn"
                   disabled={creatingProp}
                   onClick={() => {
-                    stopThrowRecorder(false);
+                    finishRecording(false);
                     onSkipThrowAndContinue();
                   }}
                 >
@@ -465,24 +530,36 @@ export const CameraSelfView: React.FC<CameraSelfViewProps> = ({
                 className="selfview-mini-btn"
                 disabled={creatingProp}
                 onClick={() => {
-                  stopThrowRecorder(false);
+                  finishRecording(false);
                   onCancelThrow();
                 }}
               >
                 Cancel
               </button>
-              <button
-                type="button"
-                className="selfview-mini-btn primary"
-                disabled={creatingProp}
-                onClick={() => stopThrowRecorder(true)}
-              >
-                {creatingProp
-                  ? 'Sending…'
-                  : placement === 'held'
-                    ? 'Toss to Lia'
-                    : 'Place on Stage'}
-              </button>
+              {recordingThrow ? (
+                <button
+                  type="button"
+                  className="selfview-mini-btn primary"
+                  onClick={() => finishRecording(true)}
+                  title="Stop recording and send the clip"
+                >
+                  Stop
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="selfview-mini-btn primary"
+                  disabled={creatingProp || !cameraOn}
+                  onClick={startRecording}
+                  title={
+                    cameraOn
+                      ? `Start recording (up to ${limitSec}s); press Stop to send`
+                      : 'Turn the camera on first'
+                  }
+                >
+                  {creatingProp ? 'Sending…' : 'Start'}
+                </button>
+              )}
             </div>
           </div>
         </div>

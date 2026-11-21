@@ -2754,6 +2754,14 @@ body::before {
   gap: 5px;
 }
 
+.selfview-cam-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 8px;
+}
+
 .selfview-mini-btn {
   padding: 4px 8px;
   border-radius: 7px;
