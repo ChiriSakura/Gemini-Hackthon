@@ -12,7 +12,9 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  createStageProp,
   fetchBranches,
+  fetchDirectorRules,
   requestBranchRender,
   requestSceneRender,
   submitDirectorFork,
@@ -45,6 +47,8 @@ export default function App(): React.ReactElement {
   const [targetSceneId, setTargetSceneId] = useState<number>(2);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [renderingScene, setRenderingScene] = useState<boolean>(false);
+  const [creatingProp, setCreatingProp] = useState<boolean>(false);
+  const [rules, setRules] = useState<string[]>([]);
   const [pendingConflict, setPendingConflict] = useState<PendingForkInput | null>(
     null,
   );
@@ -58,6 +62,7 @@ export default function App(): React.ReactElement {
         setActiveBranchId(loaded[0].branch_id);
       }
     });
+    fetchDirectorRules().then(setRules);
   }, []);
 
   const activeBranch = useMemo(
@@ -202,6 +207,58 @@ export default function App(): React.ReactElement {
     setStatusNote(`✅ ${updated.branch_label} 全部受影响幕渲染完成！`);
   };
 
+  const handleCreateProp = async (opts: {
+    name: string;
+    imageBlob?: Blob | null;
+  }) => {
+    setCreatingProp(true);
+    setStatusNote(`正在通过 Gemini 图像模型生成透明道具「${opts.name}」...`);
+    const created = await createStageProp({
+      name: opts.name,
+      description: opts.name,
+      branchId: activeBranch.branch_id,
+      imageBlob: opts.imageBlob,
+    });
+    setCreatingProp(false);
+
+    const currentSceneId = activeScene.scene_id;
+    setBranches((prev) =>
+      prev.map((b) => {
+        if (b.branch_id !== activeBranch.branch_id) return b;
+        return {
+          ...b,
+          props_registry: {
+            ...b.props_registry,
+            [created.prop_id]: created.item,
+          },
+          scenes: b.scenes.map((s) => {
+            if (s.scene_id < currentSceneId) return s;
+            const exists = s.stage_props.some((p) => p.id === created.prop_id);
+            if (exists) return s;
+            return {
+              ...s,
+              stage_props: [
+                ...s.stage_props,
+                {
+                  id: created.prop_id,
+                  grid: [1.15, 1.35],
+                  on_floor: false,
+                  state: 'glowing',
+                },
+              ],
+            };
+          }),
+        };
+      }),
+    );
+
+    setStatusNote(
+      created.simulated
+        ? `✨ 已在离线模式将道具「${opts.name}」放上 2.5D 舞台！`
+        : `✅ 新道具「${opts.name}」已抠图入库并同步至第 ${currentSceneId}–4 幕舞台！`,
+    );
+  };
+
   const handleExportComplete = (result: PreviewExportResult) => {
     setStatusNote(
       result.mode === 'webm'
@@ -300,7 +357,11 @@ export default function App(): React.ReactElement {
         onRenderScene={handleRenderScene}
       />
 
-      <ClapperboardQA scene={activeScene} />
+      <ClapperboardQA
+        scene={activeScene}
+        rules={rules}
+        propsRegistry={activeBranch.props_registry}
+      />
 
       <StoryBranchTree
         branches={branches}
@@ -313,12 +374,14 @@ export default function App(): React.ReactElement {
         targetSceneId={targetSceneId}
         onTargetSceneChange={setTargetSceneId}
         submitting={submitting}
+        creatingProp={creatingProp}
         contradictionWarning={
           pendingConflict?.warning ?? activeBranch.contradiction_warning
         }
         cleanCaptureMode={cleanCaptureMode}
         onDismissContradiction={() => setPendingConflict(null)}
         onForceRewrite={handleForceRewrite}
+        onCreateProp={handleCreateProp}
         onSubmitFork={handleSubmitFork}
       />
     </div>

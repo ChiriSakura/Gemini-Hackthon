@@ -8,7 +8,27 @@
  * - Provides graceful fallback to local mock branches when backend is offline.
  */
 import { INITIAL_MOCK_BRANCHES, MOCK_BRANCH_2 } from '../data/mockBranches';
-import type { BranchState, Scene, SceneMedia } from '../types/schema';
+import type { BranchState, PropRegistryItem, Scene, SceneMedia } from '../types/schema';
+
+export interface CreatePropPayload {
+  name: string;
+  description?: string;
+  branchId: string;
+  imageBlob?: Blob | null;
+}
+
+export interface CreatePropResponse {
+  prop_id: string;
+  image_url: string;
+  item: PropRegistryItem;
+  simulated?: boolean;
+}
+
+const DEFAULT_FALLBACK_RULES = [
+  'Once crystal_vase is broken, shards remain visible on the floor in all subsequent scenes.',
+  'Actors must keep consistent identity, outfit, and spatial left/right placement across Camera A & B.',
+  'Newly introduced props must persist in props_registry and subsequent scenes unless explicitly removed.',
+];
 
 export interface ForkRequestPayload {
   parentBranchId: string;
@@ -145,6 +165,75 @@ export async function requestSceneRender(
     };
   } catch {
     return null;
+  }
+}
+
+/**
+ * Fetch active continuity rules from `GET /api/director/rules`.
+ */
+export async function fetchDirectorRules(): Promise<string[]> {
+  try {
+    const res = await fetch('/api/director/rules', {
+      signal: AbortSignal.timeout(2500),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const rules: string[] = Array.isArray(data?.rules) ? data.rules : [];
+    return rules.length > 0 ? rules : DEFAULT_FALLBACK_RULES;
+  } catch {
+    return DEFAULT_FALLBACK_RULES;
+  }
+}
+
+/**
+ * Create a transparent 2D stage prop from a webcam snapshot (or text description)
+ * via `POST /api/media/create-prop`.
+ */
+export async function createStageProp(
+  payload: CreatePropPayload,
+): Promise<CreatePropResponse> {
+  const formData = new FormData();
+  formData.append('name', payload.name.trim());
+  formData.append('description', (payload.description ?? payload.name).trim());
+  formData.append('branch_id', payload.branchId);
+  if (payload.imageBlob) {
+    formData.append('image', payload.imageBlob, 'webcam_prop.png');
+  }
+
+  try {
+    const res = await fetch('/api/media/create-prop', {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return {
+      prop_id: data.prop_id,
+      image_url: data.image_url,
+      item: data.item as PropRegistryItem,
+      simulated: false,
+    };
+  } catch {
+    const slug =
+      payload.name
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_|_$/g, '') || `prop_${Date.now().toString().slice(-4)}`;
+    const imageUrl = payload.imageBlob
+      ? URL.createObjectURL(payload.imageBlob)
+      : '/assets/props/star_token.png';
+    return {
+      prop_id: slug,
+      image_url: imageUrl,
+      item: {
+        name: payload.name.trim(),
+        image_url: imageUrl,
+        state: 'glowing',
+        origin: payload.imageBlob ? 'camera_physical' : 'text_generated',
+      },
+      simulated: true,
+    };
   }
 }
 

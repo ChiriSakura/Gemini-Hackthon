@@ -1,17 +1,16 @@
 {
   "agent": "P3_frontend",
   "branch": "feat/w2-frontend",
-  "current_milestone": "T2",
-  "status": "t2_batch_completed_ready_for_live_merge",
+  "current_milestone": "T3",
+  "status": "t3_batch_completed_ready_for_merge",
   "capture_stream_mode": "webm_with_png_fallback",
   "completed_items": [
-    "T0: npm install & Vite build verified against shared mock contracts",
-    "T1: Three.js 3x3 2.5D stage (Camera A/B, rain/snow particles, 4s .webm/PNG export, Hold-to-Direct 3s Cam+Mic, Clapperboard QA, Branch Tree)",
-    "W2-T2A: Integrated FormData upload to /api/director/fork and /api/media/render-scene (single scene & full branch)",
-    "W2-T2B: Added inline contradiction confirmation bar (confirm_contradiction=true), explicit '已降级 (2.5D Preview)' badge, and 1-click Pixel-Art upscaled preview toggle (160x90 pixelated)",
-    "W2-T2C: Compacted stage-first layout for 1280x720 and 1440x900 single-viewport laptop display",
-    "W2-T2D: Added demo preset chips with auto scene targeting and Clean Capture mode for 16:00 video recording"
+    "T0-T2: Full 2.5D Three.js dual-camera stage, captureStream .webm + PNG fallback, conflict UI, pixel-art toggle, single-viewport layout, and clean capture mode",
+    "W2-T2E: Added dedicated '📷 举实物造道具' webcam snapshot prop capture panel wired to POST /api/media/create-prop + live Stage Prop Tray in ClapperboardQA",
+    "W2-T3A: Upgraded StoryBranchTree nodes with crisp 'Reused (0s)' vs 'Re-rendered' badges + wired GET /api/director/rules to display Rule Memory pill ('N rules active') in ClapperboardQA",
+    "W2-T3B: Added 'Auto-Cut A/B' 2s smart camera switching toggle in DualCameraStage + automatic crystal_vase_broken.png texture swap with graceful tilted fallback in ThreeStageManager",
+    "W2-T3C: Verified all 8 cached Branch 1 MP4 assets and upgraded side-by-side comparison to support parallel BE vs HE video playback"
   ],
   "blockers": [],
-  "last_updated": "2026-11-21T12:46:00-05:00"
+  "last_updated": "2026-11-21T12:54:00-05:00"
 }
