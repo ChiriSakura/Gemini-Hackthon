@@ -8,7 +8,7 @@
 - 修好了就把状态改成 `已修`，并写上提交号。不要删行。
 - 优先级：`P0` 演示前必须修；`P1` 应该修；`P2` 有空再修。
 
-最后更新：11/21 14:30（代码审查 + 页面实测 + Christina 反馈）
+最后更新：11/21 14:35（代码审查 + 页面实测 + Christina 反馈）
 
 ---
 
@@ -61,6 +61,7 @@
 | R-26 | 拍道具会改当前分支（包括基线 v1）并写盘；Reset Demo 只重置前端 | `main.py:247-254`；`App.tsx:227-249` | 拍道具时先 fork；或 Reset 时让后端恢复 v1 | 未修 |
 | R-27 | 首帧锚定很弱，尾帧存了但没用 | 上传 webm 时首帧 PNG 被丢弃（`main.py:270-279`）；首帧只是当普通参考图加一句话（`video_renderer.py:508,424`）；`main.py:267` | 见 R-09 方案 | 未修 |
 | R-28 | 上传没有校验 | `main.py:271` 扩展名取自客户端文件名；`state_tree.py:46` `branch_id` 直接拼路径 | 扩展名白名单；`branch_id` 用正则校验 | 未修 |
+| R-36 | 室内撑着伞很奇怪：开场第 1 幕莉亚就在屋里撑开伞（Christina 反馈） | 预设第 1 幕写的是 “holding a crimson umbrella”，没说收着还是撑着，模型默认画成撑开；`shared/mock_branch_1.json`、`prompts.py` 里角色描述、质检题 “holding a red umbrella” 都是这个写法。2.5D 立牌里伞本来就是收着的，所以预览和成片对不上 | ① 预设第 1 幕改成收伞：旁白和角色描述写 “a closed (furled) crimson umbrella held at her side, tip down”；② 伞的 `state` 用 `closed` / `open` 记录，默认 `closed`；③ 质检加一题 “Is the red umbrella closed rather than open?”；④ 规则里加一条 “伞在室内保持收起，除非这一幕明确写了撑开”；⑤ 重渲染并重新缓存第 1 幕（以及其他画成撑伞的缓存幕）；⑥ 剧情上只在 HE 结局第 4 幕撑开，让“撑伞”变成一个有意义的动作。和 R-12（伞做成单独道具）一起改 | 未修 |
 
 ## P2：有空再修
 
