@@ -27,8 +27,8 @@ interface DirectControlBarProps {
   }) => Promise<boolean> | void;
 }
 
-const MAX_CLIP_MS = 3000;
-const MIN_CLIP_MS = 1000;
+const MAX_CLIP_MS = 15000;
+const MIN_CLIP_MS = 600;
 
 /**
  * Ask for camera + microphone at 1280x720 (ideal, never a hard requirement),
@@ -421,7 +421,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
           style={{ touchAction: 'none' }}
           disabled={submitting}
           aria-pressed={recording}
-          title="Press and hold to speak and gesture for up to 3 seconds"
+          title="Press and hold to speak and gesture for up to 15 seconds"
         >
           <IconMic />
           <span>{recording ? `${(remainingMs / 1000).toFixed(1)}s` : 'Hold to talk'}</span>
