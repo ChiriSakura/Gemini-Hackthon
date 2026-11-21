@@ -1,0 +1,86 @@
+{
+  "timestamp": "2026-11-21 12:52:59",
+  "stateless_baseline": {
+    "system": "Stateless Text Chaining Baseline",
+    "scenes": 4,
+    "judge_score": 0.564,
+    "all_passed": false,
+    "latency_sec": 28.15
+  },
+  "scene_scaling_without_rules": [
+    {
+      "num_scenes": 2,
+      "rule_memory": false,
+      "invariant_passed": true,
+      "invariant_errors": [],
+      "judge_score": 0.918,
+      "judge_all_passed": true,
+      "latency_sec": 7.15
+    },
+    {
+      "num_scenes": 4,
+      "rule_memory": false,
+      "invariant_passed": true,
+      "invariant_errors": [],
+      "judge_score": 0.928,
+      "judge_all_passed": true,
+      "latency_sec": 9.96
+    },
+    {
+      "num_scenes": 6,
+      "rule_memory": false,
+      "invariant_passed": true,
+      "invariant_errors": [],
+      "judge_score": 0.938,
+      "judge_all_passed": true,
+      "latency_sec": 14.67
+    },
+    {
+      "num_scenes": 8,
+      "rule_memory": false,
+      "invariant_passed": true,
+      "invariant_errors": [],
+      "judge_score": 0.916,
+      "judge_all_passed": true,
+      "latency_sec": 15.58
+    }
+  ],
+  "scene_scaling_with_rule_memory": [
+    {
+      "num_scenes": 2,
+      "rule_memory": true,
+      "invariant_passed": true,
+      "invariant_errors": [],
+      "judge_score": 0.932,
+      "judge_all_passed": true,
+      "latency_sec": 7.71
+    },
+    {
+      "num_scenes": 4,
+      "rule_memory": true,
+      "invariant_passed": true,
+      "invariant_errors": [],
+      "judge_score": 0.951,
+      "judge_all_passed": true,
+      "latency_sec": 8.19
+    },
+    {
+      "num_scenes": 6,
+      "rule_memory": true,
+      "invariant_passed": true,
+      "invariant_errors": [],
+      "judge_score": 0.914,
+      "judge_all_passed": true,
+      "latency_sec": 11.87
+    },
+    {
+      "num_scenes": 8,
+      "rule_memory": true,
+      "invariant_passed": true,
+      "invariant_errors": [],
+      "judge_score": 0.927,
+      "judge_all_passed": true,
+      "latency_sec": 11.97
+    }
+  ]
+}
