@@ -470,42 +470,48 @@ async def api_media_create_prop(
     on_floor = norm_placement == "floor"
     prop_state = "held" if norm_placement == "held" else "glowing"
     prop_grid = [1.08, 1.08] if norm_placement == "table" else ([1.15, 1.48] if on_floor else [0.92, 1.15])
-    item.state = prop_state
+    # R-18: preserve explicit degraded/mock states from prop_maker instead of masking them as "glowing"
+    if item.state not in ("degraded_fallback", "mock_placeholder"):
+        item.state = prop_state
 
-    branch = get_branch(branch_id)
     appearance_summary = (getattr(item, "appearance_summary", "") or "").strip()
-    if branch:
-        branch.props_registry[prop_id] = item
-        for s in branch.scenes:
-            if s.scene_id >= scene_id:
-                if norm_placement == "held":
-                    for actor in s.actors:
-                        if actor.id == "lia":
-                            actor.holding_prop = prop_id
-                    s.stage_props = [p for p in s.stage_props if p.id != prop_id]
-                else:
-                    existing = next((p for p in s.stage_props if p.id == prop_id), None)
-                    if existing:
-                        existing.grid = prop_grid
-                        existing.on_floor = on_floor
-                        existing.state = prop_state
-                        existing.entry_motion = norm_motion  # type: ignore[assignment]
-                    else:
-                        s.stage_props.append(
-                            StagePropState(
-                                id=prop_id,
-                                grid=prop_grid,
-                                on_floor=on_floor,
-                                state=prop_state,
-                                entry_motion=norm_motion,  # type: ignore[assignment]
-                            )
-                        )
-                if appearance_summary:
-                    cue = f"{prop_id}: {appearance_summary}"
-                    if cue not in (s.environment_notes or ""):
-                        s.environment_notes = f"{s.environment_notes} {cue}".strip() if s.environment_notes else cue
-                s.needs_rerender = True
-        save_branch(branch)
+    # R-26: never mutate immutable cached preset baselines (branch_v1 / *_cached) on disk during live prop capture
+    is_protected_cached = branch_id == "branch_v1" or branch_id.endswith("_cached")
+    if not is_protected_cached:
+        async with _get_branch_lock(branch_id):
+            branch = get_branch(branch_id)
+            if branch:
+                branch.props_registry[prop_id] = item
+                for s in branch.scenes:
+                    if s.scene_id >= scene_id:
+                        if norm_placement == "held":
+                            for actor in s.actors:
+                                if actor.id == "lia":
+                                    actor.holding_prop = prop_id
+                            s.stage_props = [p for p in s.stage_props if p.id != prop_id]
+                        else:
+                            existing = next((p for p in s.stage_props if p.id == prop_id), None)
+                            if existing:
+                                existing.grid = prop_grid
+                                existing.on_floor = on_floor
+                                existing.state = prop_state
+                                existing.entry_motion = norm_motion  # type: ignore[assignment]
+                            else:
+                                s.stage_props.append(
+                                    StagePropState(
+                                        id=prop_id,
+                                        grid=prop_grid,
+                                        on_floor=on_floor,
+                                        state=prop_state,
+                                        entry_motion=norm_motion,  # type: ignore[assignment]
+                                    )
+                                )
+                        if appearance_summary:
+                            cue = f"{prop_id}: {appearance_summary}"
+                            if cue not in (s.environment_notes or ""):
+                                s.environment_notes = f"{s.environment_notes} {cue}".strip() if s.environment_notes else cue
+                        s.needs_rerender = True
+                save_branch(branch)
     return {
         "prop_id": prop_id,
         "image_url": item.image_url,
