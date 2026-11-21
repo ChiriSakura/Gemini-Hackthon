@@ -1110,8 +1110,8 @@ export default function App(): React.ReactElement {
   return (
     <div className="app-shell" data-mood={activeScene.lighting}>
       <header className="topbar">
-        <span className="brand" title="StageState">
-          StageState
+        <span className="brand" title="Genesis">
+          Genesis
         </span>
         {apiStatus === 'saved' && (
           <span
