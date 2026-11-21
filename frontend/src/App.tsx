@@ -121,6 +121,7 @@ export default function App(): React.ReactElement {
   const [backendReachable, setBackendReachable] = useState<boolean | null>(null);
   const [errorNote, setErrorNote] = useState<string | null>(null);
   const [errorSceneId, setErrorSceneId] = useState<number | null>(null);
+  const [canRetryRender, setCanRetryRender] = useState<boolean>(false);
   const [liveBranchIds, setLiveBranchIds] = useState<Set<string>>(() => new Set());
   const [autoCutEnabled, setAutoCutEnabled] = useState(false);
   const [diffHaloEnabled, setDiffHaloEnabled] = useState(true);
@@ -136,6 +137,7 @@ export default function App(): React.ReactElement {
   const stageRef = useRef<DualCameraStageHandle | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const freezeTimerRef = useRef<number | null>(null);
+  const optimisticUrlsRef = useRef<Set<string>>(new Set());
   const resetDemoRef = useRef<() => void>(() => {});
   const [renderedSceneKeys, setRenderedSceneKeys] = useState<Set<string>>(
     () => new Set(),
@@ -367,10 +369,15 @@ export default function App(): React.ReactElement {
   };
 
   useEffect(() => {
+    const urls = optimisticUrlsRef.current;
     return () => {
       if (freezeTimerRef.current !== null) {
         window.clearTimeout(freezeTimerRef.current);
       }
+      for (const u of urls) {
+        URL.revokeObjectURL(u);
+      }
+      urls.clear();
     };
   }, []);
 
@@ -404,6 +411,7 @@ export default function App(): React.ReactElement {
     setStatusNote(null);
     setErrorNote(null);
     setErrorSceneId(null);
+    setCanRetryRender(false);
     setHeardNote(null);
     setMenuOpen(false);
     setCompareBranchId(null);
@@ -449,6 +457,7 @@ export default function App(): React.ReactElement {
     if (!extended) {
       setErrorNote(`Continue failed: ${extendError ?? 'unknown error'}.`);
       setErrorSceneId(opts.fromSceneId);
+      setCanRetryRender(true);
       void refreshHealth(isMockMode);
       return false;
     }
@@ -629,6 +638,7 @@ export default function App(): React.ReactElement {
   ) => {
     if (renderingScene) return;
     setErrorNote(null);
+    setCanRetryRender(false);
     setRenderingScene(true);
     setStatusNote(null);
     setBusy({
@@ -676,6 +686,7 @@ export default function App(): React.ReactElement {
         `${blockedPrefix}Render failed: ${renderError ?? 'unknown error'}. Staying on the 2.5D live stage.`,
       );
       setErrorSceneId(scene.scene_id);
+      setCanRetryRender(true);
       void refreshHealth(isMockMode);
       if (scene.end_freeze_mode !== 'none') scheduleSculptureFreeze(3000);
       return;
@@ -743,6 +754,7 @@ export default function App(): React.ReactElement {
   const handleRenderWholeBranch = async () => {
     if (renderingScene) return;
     setErrorNote(null);
+    setCanRetryRender(false);
     setRenderingScene(true);
     setStatusNote(null);
     setBusy({
@@ -848,16 +860,80 @@ export default function App(): React.ReactElement {
   const handleSubmitThrow = async (payload: ThrowObjectSubmission) => {
     const currentSceneId = activeScene.scene_id;
     const targetBranchId = activeBranch.branch_id;
+    const isExplicitToss = payload.entryMotion === 'throw_arc';
+    const onFloor = payload.placement === 'floor';
+    const propState: 'held' | 'glowing' = payload.placement === 'held' ? 'held' : 'glowing';
+    const propGrid: [number, number] =
+      payload.placement === 'table'
+        ? [1.08, 1.08]
+        : payload.placement === 'floor'
+          ? [1.15, 1.48]
+          : [0.92, 1.15];
+
     setThrowOpen(false);
     setErrorNote(null);
+    setCanRetryRender(false);
     setCreatingProp(true);
     setSculptureFrozen(false);
-    setStatusNote(null);
+
+    // W2-V3-04: Instant (<100ms) optimistic captured-object preview on the 2.5D stage
+    const optimisticBlob =
+      payload.previewThumbBlob ??
+      (payload.mediaBlob && !payload.mediaBlob.type.includes('video')
+        ? payload.mediaBlob
+        : null);
+    let tempUrl: string | null = null;
+    const tempPropId = optimisticBlob ? `__optimistic_prop_${Date.now()}` : null;
+    if (optimisticBlob && tempPropId) {
+      tempUrl = URL.createObjectURL(optimisticBlob);
+      optimisticUrlsRef.current.add(tempUrl);
+      const previewUrl = tempUrl;
+      setViewMode('preview');
+      setBranches((prev) =>
+        prev.map((b) => {
+          if (b.branch_id !== targetBranchId) return b;
+          return {
+            ...b,
+            props_registry: {
+              ...b.props_registry,
+              [tempPropId]: {
+                name: `${payload.name} (Stylizing…)`,
+                image_url: previewUrl,
+                state: propState,
+                origin: 'camera_physical',
+              },
+            },
+            scenes: b.scenes.map((s) =>
+              s.scene_id !== currentSceneId
+                ? s
+                : {
+                    ...s,
+                    stage_props: [
+                      ...s.stage_props,
+                      {
+                        id: tempPropId,
+                        grid: propGrid,
+                        on_floor: onFloor,
+                        state: 'glowing' as const,
+                        entry_motion: isExplicitToss ? ('throw_arc' as const) : ('place' as const),
+                      },
+                    ],
+                  },
+            ),
+          };
+        }),
+      );
+      setStatusNote(`Stylizing "${payload.name}"… (preview placed on 2.5D stage)`);
+    } else {
+      setStatusNote(null);
+    }
+
     setBusy({
-      label: `Turning "${payload.name}" into a 2D anime stage prop`,
-      typical: 'usually 10–20s',
+      label: `Stylizing "${payload.name}" into a 2D anime stage prop`,
+      typical: 'usually <2s fast-match or 10–18s cutout',
       since: Date.now(),
     });
+    const propStartedAt = Date.now();
     const created = await createStageProp({
       name: payload.name,
       description: payload.name,
@@ -868,44 +944,45 @@ export default function App(): React.ReactElement {
       detectThrowPeak: payload.detectThrowPeak,
       imageBlob: payload.mediaBlob,
     });
+    const propElapsedMs = Date.now() - propStartedAt;
     setCreatingProp(false);
     setBusy(null);
     if (created.simulated) {
       void refreshHealth(isMockMode);
     }
 
-    // W2-V3-01: ONLY trigger `catch_from_camera` / throw-arc when `entryMotion === 'throw_arc'`.
-    // Default `place` (table/floor) NEVER overwrites Lia's action to `catch_from_camera`.
-    const isExplicitToss = payload.entryMotion === 'throw_arc';
-    const onFloor = payload.placement === 'floor';
-    const propState: 'held' | 'glowing' = payload.placement === 'held' ? 'held' : 'glowing';
+    // Revoke temporary optimistic preview URL once real transparent PNG is ready
+    if (tempUrl) {
+      URL.revokeObjectURL(tempUrl);
+      optimisticUrlsRef.current.delete(tempUrl);
+    }
+
     const appearanceSummary = (
       created.appearance_summary ??
       created.item.appearance_summary ??
       ''
     ).trim();
-    const propGrid: [number, number] =
-      payload.placement === 'table'
-        ? [1.08, 1.08]
-        : payload.placement === 'floor'
-          ? [1.15, 1.48]
-          : [0.92, 1.15];
 
     setBranches((prev) =>
       prev.map((b) => {
         if (b.branch_id !== targetBranchId) return b;
+        const cleanedRegistry = { ...b.props_registry };
+        if (tempPropId) delete cleanedRegistry[tempPropId];
+        cleanedRegistry[created.prop_id] = {
+          ...created.item,
+          state: propState,
+          appearance_summary: appearanceSummary || created.item.appearance_summary,
+        };
         return {
           ...b,
-          props_registry: {
-            ...b.props_registry,
-            [created.prop_id]: {
-              ...created.item,
-              state: propState,
-              appearance_summary: appearanceSummary || created.item.appearance_summary,
-            },
-          },
+          props_registry: cleanedRegistry,
           scenes: b.scenes.map((s) => {
-            if (s.scene_id < currentSceneId) return s;
+            const baseProps = tempPropId
+              ? s.stage_props.filter((p) => p.id !== tempPropId)
+              : s.stage_props;
+            if (s.scene_id < currentSceneId) {
+              return tempPropId ? { ...s, stage_props: baseProps } : s;
+            }
             const nextActors =
               isExplicitToss || payload.placement === 'held'
                 ? s.actors.map((a) =>
@@ -922,13 +999,13 @@ export default function App(): React.ReactElement {
                       : a,
                   )
                 : s.actors;
-            const exists = s.stage_props.some((p) => p.id === created.prop_id);
+            const exists = baseProps.some((p) => p.id === created.prop_id);
             const resolvedMotion = isExplicitToss ? ('throw_arc' as const) : ('place' as const);
             const nextStageProps =
               payload.placement === 'held'
-                ? s.stage_props.filter((p) => p.id !== created.prop_id)
+                ? baseProps.filter((p) => p.id !== created.prop_id)
                 : exists
-                  ? s.stage_props.map((p) =>
+                  ? baseProps.map((p) =>
                       p.id === created.prop_id
                         ? {
                             ...p,
@@ -940,7 +1017,7 @@ export default function App(): React.ReactElement {
                         : p,
                     )
                   : [
-                      ...s.stage_props,
+                      ...baseProps,
                       {
                         id: created.prop_id,
                         grid: propGrid,
@@ -979,6 +1056,7 @@ export default function App(): React.ReactElement {
     }
 
     const matchedLabel = appearanceSummary || created.item.name;
+    const isFastMatch = !created.simulated && propElapsedMs < 1500;
     setHeardNote((prev) => ({
       heard: prev?.heard ?? null,
       saw: isExplicitToss
@@ -988,7 +1066,9 @@ export default function App(): React.ReactElement {
     setStatusNote(
       created.simulated
         ? `Offline cutout fallback — ${isExplicitToss ? 'tossed' : 'placed'} "${payload.name}" (${payload.placement}) on Scene ${currentSceneId}+.`
-        : `Captured prop matched: ${matchedLabel} (${isExplicitToss ? 'tossed to Lia' : `placed on ${payload.placement}`}).`,
+        : isFastMatch
+          ? `Fast matched: ${matchedLabel} (${(propElapsedMs / 1000).toFixed(2)}s)`
+          : `Captured prop matched: ${matchedLabel} (${isExplicitToss ? 'tossed to Lia' : `placed on ${payload.placement}`}).`,
     );
 
     // If a story prompt was waiting for this object, continue extending automatically
@@ -1323,6 +1403,22 @@ export default function App(): React.ReactElement {
             <span>
               <strong>{errorNote}</strong>
             </span>
+            {canRetryRender && !renderingScene && (
+              <button
+                type="button"
+                className="notice-btn strong"
+                onClick={() =>
+                  void handleRenderSceneWithMode(
+                    activeBranch.branch_id,
+                    activeScene,
+                    null,
+                    true,
+                  )
+                }
+              >
+                Retry Render
+              </button>
+            )}
             {hasSavedRun && (
               <button
                 type="button"
@@ -1338,6 +1434,7 @@ export default function App(): React.ReactElement {
               onClick={() => {
                 setErrorNote(null);
                 setErrorSceneId(null);
+                setCanRetryRender(false);
               }}
             >
               Dismiss
