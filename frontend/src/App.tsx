@@ -51,6 +51,7 @@ export default function App(): React.ReactElement {
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [renderingScene, setRenderingScene] = useState<boolean>(false);
   const [creatingProp, setCreatingProp] = useState<boolean>(false);
+  const [pipelineStage, setPipelineStage] = useState<number>(0); // 0=idle, 1..4=active step
   const [rules, setRules] = useState<string[]>([]);
   const [pendingConflict, setPendingConflict] = useState<PendingForkInput | null>(
     null,
@@ -124,6 +125,37 @@ export default function App(): React.ReactElement {
     });
   };
 
+  // W2-T4A: Safe global keyboard shortcuts for smooth demo & 16:00 video capture
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName ?? '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable) {
+        return;
+      }
+      if (e.code === 'Space') {
+        e.preventDefault();
+        handleTogglePlayStory();
+      } else if (e.key >= '1' && e.key <= '4') {
+        const idx = Number(e.key) - 1;
+        if (idx < activeBranch.scenes.length) {
+          setIsPlayingStory(false);
+          setActiveSceneIndex(idx);
+          setTargetSceneId(idx + 1);
+        }
+      } else if (e.key === 'Tab') {
+        e.preventDefault();
+        setViewMode((m) => (m === 'preview' ? 'final' : 'preview'));
+      } else if (e.key.toLowerCase() === 'c' && !e.metaKey && !e.ctrlKey) {
+        setCleanCaptureMode((v) => !v);
+      } else if (e.key === 'Escape') {
+        setEvalModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [activeBranch.scenes.length]);
+
   const handleSelectScene = (branchId: string, sceneIndex: number) => {
     setIsPlayingStory(false);
     setActiveBranchId(branchId);
@@ -138,8 +170,13 @@ export default function App(): React.ReactElement {
   }) => {
     setIsPlayingStory(false);
     setSubmitting(true);
+    setPipelineStage(1);
     setPendingConflict(null);
-    setStatusNote('Running Hydrogen + Gemini 4 Neon state simulation…');
+    setStatusNote('Step 1/4: Hydrogen parsing multimodal input…');
+    const stepTimer = window.setTimeout(() => {
+      setPipelineStage(2);
+      setStatusNote('Step 2/4: Gemini 4 Neon simulating causal world state…');
+    }, 1800);
 
     const { branch: newBranch, simulated } = await submitDirectorFork({
       parentBranchId: activeBranch.branch_id,
@@ -148,7 +185,9 @@ export default function App(): React.ReactElement {
       text: opts.text,
       confirmContradiction: opts.confirmContradiction,
     });
+    window.clearTimeout(stepTimer);
     setSubmitting(false);
+    setPipelineStage(0);
 
     if (newBranch.contradiction_warning) {
       setPendingConflict({
@@ -187,7 +226,12 @@ export default function App(): React.ReactElement {
     preview: PreviewExportResult,
   ) => {
     setRenderingScene(true);
-    setStatusNote(`Uploading Scene ${scene.scene_id} preview & running Omni Flash dual-take…`);
+    setPipelineStage(3);
+    setStatusNote(`Step 3/4: Uploading Scene ${scene.scene_id} 2.5D preview…`);
+    const renderStepTimer = window.setTimeout(() => {
+      setPipelineStage(4);
+      setStatusNote(`Step 4/4: Omni Flash dual-take rendering + Decision-1 QA…`);
+    }, 1200);
     const result = await requestSceneRender({
       branchId: activeBranch.branch_id,
       scene,
@@ -198,7 +242,9 @@ export default function App(): React.ReactElement {
       camBStartPng: preview.camBStartPng,
       camBEndPng: preview.camBEndPng,
     });
+    window.clearTimeout(renderStepTimer);
     setRenderingScene(false);
+    setPipelineStage(0);
 
     if (!result) {
       setStatusNote('Render API unreachable — staying on live 2.5D preview.');
@@ -235,9 +281,11 @@ export default function App(): React.ReactElement {
   const handleRenderWholeBranch = async () => {
     if (renderingScene) return;
     setRenderingScene(true);
-    setStatusNote(`Rendering affected scenes for ${getBranchLabelEn(activeBranch)}…`);
+    setPipelineStage(4);
+    setStatusNote(`Step 4/4: Concurrent Omni Flash dual-take + Decision-1 QA for ${getBranchLabelEn(activeBranch)}…`);
     const updated = await requestBranchRender(activeBranch.branch_id);
     setRenderingScene(false);
+    setPipelineStage(0);
     if (!updated) {
       setStatusNote('Batch render failed — verify FastAPI backend is running.');
       return;
@@ -380,8 +428,38 @@ export default function App(): React.ReactElement {
         </div>
       </header>
 
-      {!cleanCaptureMode && statusNote && (
-        <div className="status-banner gold">{statusNote}</div>
+      {pipelineStage > 0 && (
+        <div className="pipeline-stepper" role="status" aria-live="polite">
+          {[
+            '1. Hydrogen Parse',
+            '2. Neon Causal Sim',
+            '3. 2.5D Preview Upload',
+            '4. Omni Flash Dual-Take + Decision-1 QA',
+          ].map((label, idx) => {
+            const stepNum = idx + 1;
+            const stateClass =
+              stepNum < pipelineStage
+                ? 'done'
+                : stepNum === pipelineStage
+                  ? 'active'
+                  : '';
+            return (
+              <span key={label} className={`pipeline-step ${stateClass}`}>
+                {stepNum < pipelineStage ? '✓ ' : stepNum === pipelineStage ? '⏳ ' : ''}
+                {label}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      {!cleanCaptureMode && statusNote && pipelineStage === 0 && (
+        <div className="status-banner gold" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+          <span>{statusNote}</span>
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+            Keys: Space (Play 1→4) · 1–4 (Scene) · Tab (2.5D/AI) · C (Clean View)
+          </span>
+        </div>
       )}
 
       <DualCameraStage
