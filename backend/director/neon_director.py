@@ -253,6 +253,15 @@ async def extend_single_scene(
         next_scene.needs_rerender = True
         next_scene.reused_from_branch = None
         next_scene.media = SceneMedia()
+        inst_lower = parsed_input.instruction.lower()
+        explicit_handoff = any(
+            kw in inst_lower
+            for kw in ("hand you", "give you", "toss", "throw", "catch", "pass you", "to lia", "for you", "for lia", "递给", "给你", "扔给", "丢给")
+        )
+        if parsed_input.has_physical_prop and explicit_handoff:
+            for actor in next_scene.actors:
+                if actor.id == "lia":
+                    actor.action = "catch_from_camera"
         sanitized = _sanitize_scenes_invariants([*prior_scenes, next_scene])
         return sanitized[-1]
 
@@ -279,7 +288,7 @@ async def extend_single_scene(
             prompt_text += "\n\nFIX THESE INVARIANT VIOLATIONS:\n- " + "\n- ".join(invariant_errors)
         candidate = await generate_structured(
             model=config.MODEL_DIRECTOR,
-            system_instruction=prompts.NEON_DIRECTOR_PROMPT,
+            system_instruction=prompts.NEON_EXTEND_SCENE_PROMPT,
             contents=[prompt_text],
             response_schema=Scene,
             temperature=0.25 if attempt == 0 else 0.1,

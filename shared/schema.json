@@ -74,7 +74,7 @@
         "asset_url": { "type": "string" },
         "grid": { "$ref": "#/$defs/GridCoord" },
         "facing": { "type": "string", "enum": ["left", "right", "front", "center"] },
-        "action": { "type": "string", "enum": ["stand", "walk", "kneel", "reach", "sit", "jump", "crouch", "flee", "nuzzle", "shared_umbrella"] },
+        "action": { "type": "string", "enum": ["stand", "walk", "kneel", "reach", "sit", "jump", "crouch", "flee", "nuzzle", "shared_umbrella", "catch_from_camera"] },
         "holding_prop": { "type": ["string", "null"] },
         "height_m": { "type": ["number", "null"], "minimum": 0.05, "maximum": 3.0, "description": "Optional canonical physical stage height in meters (Proposal Sec 14: e.g. Lia=1.62, Nyx=0.40)" }
       }
