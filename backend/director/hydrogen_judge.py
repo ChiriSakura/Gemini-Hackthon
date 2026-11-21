@@ -141,7 +141,13 @@ async def classify_rewrite_intent(instruction: str) -> dict[str, Any]:
             "route": {
                 "type": "choice",
                 "instructions": "Classify the primary director rewrite intent.",
-                "choices": [{"name": c, "description": c} for c in choices],
+                "criteria": {
+                    "move_position": "Changes character grid positions or movement on stage",
+                    "prop_change": "Changes existing prop state (save vase, drop/put down umbrella)",
+                    "new_prop": "Introduces a brand new physical or generated prop",
+                    "emotion_lighting": "Changes mood, vocal emotion, or stage lighting",
+                    "other": "Complex multi-aspect rewrite or anything else",
+                },
             }
         }
         res = await create_decision(instruction, q_map)
@@ -169,7 +175,7 @@ async def score_clip_alignment(
             "fit": {
                 "type": "score",
                 "instructions": f"Rate how accurately the media matches: {target_description}",
-                "levels": [
+                "criteria": [
                     "Completely mismatched characters or props",
                     "Major errors in positions or prop states",
                     "Partially matches but key detail wrong",

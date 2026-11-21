@@ -134,12 +134,31 @@ async def api_director_fork(
         parent_branch_id=parent.branch_id,
         props_registry=updated_registry,
     )
-    affected_ids = await filter_affected_scenes(parsed.instruction, new_scenes, parsed.target_scene_id)
+    old_by_id = {s.scene_id: s for s in parent.scenes}
+    affected_ids = set(await filter_affected_scenes(parsed.instruction, parent.scenes, parsed.target_scene_id))
+    final_scenes: list[Scene] = []
     for scene in new_scenes:
-        if scene.scene_id >= parsed.target_scene_id:
-            scene.needs_rerender = scene.scene_id in affected_ids
-            if not scene.needs_rerender:
-                scene.reused_from_branch = parent.branch_id
+        old_s = old_by_id.get(scene.scene_id)
+        if scene.scene_id < parsed.target_scene_id:
+            final_scenes.append(scene)
+            continue
+        state_changed = (
+            old_s is None
+            or old_s.lighting != scene.lighting
+            or [(p.id, p.state, p.on_floor) for p in old_s.stage_props]
+            != [(p.id, p.state, p.on_floor) for p in scene.stage_props]
+            or [(a.id, a.action, a.holding_prop) for a in old_s.actors]
+            != [(a.id, a.action, a.holding_prop) for a in scene.actors]
+        )
+        if scene.scene_id in affected_ids or state_changed:
+            scene.needs_rerender = True
+            scene.reused_from_branch = None
+            final_scenes.append(scene)
+        else:
+            reused = old_s.model_copy(deep=True)
+            reused.needs_rerender = False
+            reused.reused_from_branch = parent.branch_id
+            final_scenes.append(reused)
 
     new_branch_id = f"branch_v{len(list_branches()) + 1}"
     new_branch = BranchState(
@@ -149,7 +168,7 @@ async def api_director_fork(
         forked_from_scene=parsed.target_scene_id,
         rewrite_summary=parsed.instruction,
         props_registry=updated_registry,
-        scenes=new_scenes,
+        scenes=final_scenes,
     )
     save_branch(new_branch)
     return new_branch

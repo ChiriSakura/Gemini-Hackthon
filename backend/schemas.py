@@ -89,7 +89,7 @@ class SceneMedia(BaseModel):
     qa_result: Optional[JudgeResult] = None
     qa_score: float = 0.0
     qa_retries: int = 0
-    selected_candidate_index: Literal[0, 1] = 0
+    selected_candidate_index: int = Field(default=0, ge=0, le=1)
     fallback_to_preview: bool = False
 
 

@@ -126,14 +126,17 @@ async def generate_structured(
     contents: list[Any],
     response_schema: Type[T],
     temperature: float = 0.2,
+    thinking_level: str | None = "LOW",
 ) -> T:
     """Call Gemini asynchronously with strict Pydantic JSON schema output and log the call."""
     client = get_genai_client()
+    thinking_cfg = types.ThinkingConfig(thinking_level=thinking_level) if thinking_level else None
     gen_config = types.GenerateContentConfig(
         system_instruction=system_instruction,
         response_mime_type="application/json",
         response_schema=response_schema,
         temperature=temperature,
+        thinking_config=thinking_cfg,
     )
     response = await client.aio.models.generate_content(
         model=model,

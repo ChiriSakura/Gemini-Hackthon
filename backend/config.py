@@ -37,12 +37,12 @@ GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 DEMO_MODE: bool = os.getenv("STAGE_STATE_DEMO_MODE", "false").lower() == "true"
 LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO").upper()
 
-# Centralized Gemini 4 Model Registry
+# Centralized Gemini 4 Model Registry (live-verified via client.models.list)
 MODEL_DIRECTOR: str = os.getenv("MODEL_DIRECTOR", "gemini-4-neon")
 MODEL_JUDGE: str = os.getenv("MODEL_JUDGE", "gemini-4-hydrogen")
-MODEL_DECISION: str = os.getenv("MODEL_DECISION", "gemini-decision-1")
-MODEL_VIDEO: str = os.getenv("MODEL_VIDEO", "omni-flash")
-MODEL_IMAGE: str = os.getenv("MODEL_IMAGE", "gemini-3.1-flash-image-preview")
+MODEL_DECISION: str = os.getenv("MODEL_DECISION", "models/gemini-decision-1")
+MODEL_VIDEO: str = os.getenv("MODEL_VIDEO", "gemini-omni-flash-preview")
+MODEL_IMAGE: str = os.getenv("MODEL_IMAGE", "gemini-3.1-flash-image")
 USE_DECISIONS_API: bool = os.getenv("USE_DECISIONS_API", "true").lower() == "true"
 
 # Stage & Video Defaults (tuned for 5-hour hackathon live demo speed)
