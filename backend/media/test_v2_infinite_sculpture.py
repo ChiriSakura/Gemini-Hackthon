@@ -412,6 +412,45 @@ def test_round1_product_polish_regressions() -> None:
         )
         assert r_ren.status_code == 200, r_ren.text
         assert r_ren.json()["scene_id"] == 5
+
+        # 4. Protected baseline branch_v1 + injected_prop_json -> forked branch receives prop + appearance_summary + R-26 untouched baseline
+        injected_payload = json.dumps(
+            {
+                "prop_id": "showcase_everyday_yellow_soda_can",
+                "item": {
+                    "name": "Yellow Soda Can Drink",
+                    "image_url": "/assets/props/showcase_everyday_yellow_soda_can.png",
+                    "state": "glowing",
+                    "origin": "camera_physical",
+                    "height_m": 0.13,
+                    "appearance_summary": "bright yellow aluminum soda can with silver pull-tab",
+                },
+                "placement": "table",
+                "entry_motion": "throw_arc",
+            }
+        )
+        r_inj = client.post(
+            "/api/director/extend",
+            data={
+                "branch_id": "branch_v1",
+                "from_scene_id": "4",
+                "text": "Here, catch this bright yellow soda can!",
+                "injected_prop_json": injected_payload,
+            },
+        )
+        assert r_inj.status_code == 200, r_inj.text
+        inj_body = r_inj.json()
+        inj_branch_id = inj_body["branch_id"]
+        try:
+            assert inj_branch_id != "branch_v1"
+            assert "showcase_everyday_yellow_soda_can" in inj_body["props_registry"]
+            inj_scene = inj_body["scenes"][-1]
+            assert any(p["id"] == "showcase_everyday_yellow_soda_can" and p["entry_motion"] == "throw_arc" for p in inj_scene["stage_props"])
+            assert any(a["id"] == "lia" and a["action"] == "catch_from_camera" for a in inj_scene["actors"])
+            assert "bright yellow aluminum soda can" in inj_scene["environment_notes"]
+        finally:
+            if inj_branch_id != "branch_v1":
+                (config.BRANCHES_DIR / f"{inj_branch_id}.json").unlink(missing_ok=True)
     finally:
         config.DEMO_MODE = prev_demo
         if created_branch_id and created_branch_id != "branch_v1":

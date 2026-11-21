@@ -67,3 +67,17 @@ QA_PASS_THRESHOLD: float = float(os.getenv("QA_PASS_THRESHOLD", "0.75"))
 DECISION_LOW_CONFIDENCE_THRESHOLD: float = float(os.getenv("DECISION_LOW_CONFIDENCE_THRESHOLD", "0.70"))
 MAX_QA_RETRIES: int = int(os.getenv("MAX_QA_RETRIES", "2"))
 MAX_ACTOR_REFERENCE_IMAGES: int = int(os.getenv("MAX_ACTOR_REFERENCE_IMAGES", "2"))
+
+# Product Security, Upload & Runtime Guardrails
+_DEFAULT_CORS_ORIGINS = (
+    "http://localhost:5173,http://127.0.0.1:5173,"
+    "http://localhost:4173,http://127.0.0.1:4173,"
+    "http://localhost:8000,http://127.0.0.1:8000"
+)
+CORS_ORIGINS: list[str] = [
+    o.strip() for o in os.getenv("STAGE_STATE_CORS_ORIGINS", _DEFAULT_CORS_ORIGINS).split(",") if o.strip()
+]
+MAX_CLIP_UPLOAD_BYTES: int = int(os.getenv("MAX_CLIP_UPLOAD_BYTES", str(15 * 1024 * 1024)))
+MAX_IMAGE_UPLOAD_BYTES: int = int(os.getenv("MAX_IMAGE_UPLOAD_BYTES", str(5 * 1024 * 1024)))
+MAX_PREVIEW_UPLOAD_BYTES: int = int(os.getenv("MAX_PREVIEW_UPLOAD_BYTES", str(20 * 1024 * 1024)))
+RENDER_SCENE_TIMEOUT_SEC: float = float(os.getenv("RENDER_SCENE_TIMEOUT_SEC", "95.0"))

@@ -26,6 +26,17 @@ from backend.media.audit_props import sanitize_prop_png
 from backend.media.prop_maker import _chroma_key_green_to_rgba, _resolve_image_model, create_prop
 
 
+_CAM_B_PROMPT = (
+    "Generate a closer medium close-up three-quarter side-angle framing inside this exact same 2D anime Victorian glass conservatory "
+    "(NO characters, NO tabletop items). Move the camera close beside the round wooden cafe table on the right side, looking obliquely "
+    "toward the left glass window wall so the table sits large in the lower-foreground while the left wall's arched windows and warm amber "
+    "lanterns recede diagonally in classic two-point perspective. CRITICAL GEOMETRY LOCK: hold the camera completely upright on a tripod — "
+    "all vertical window iron pillars MUST be strictly straight vertical parallel to the left and right image edges, the table surface stays "
+    "level, ZERO Dutch angle, ZERO tilted horizon, ZERO camera roll, NO black borders. Maintain identical dark navy rainy glass sky, "
+    "warm amber lanterns, potted ferns, and herringbone parquet floor."
+)
+
+
 def _generate_room_image_sync(prompt: str, ref_image: Path | None = None, out_path: Path | None = None) -> Path:
     """Generate a 16:9 empty conservatory stage background via Nano Banana 2.1."""
     client = genai.Client()
@@ -89,13 +100,7 @@ async def generate_all_v2_stage_and_prop_assets() -> dict:
     )
     await asyncio.to_thread(_generate_room_image_sync, prompt_a, None, cam_a_path)
 
-    prompt_b = (
-        "Same exact 2D anime Victorian glass conservatory room shown in the reference image, empty of characters and tabletop items, "
-        "now viewed from a camera standing at the front-right corner rotated 45 degrees horizontally around the vertical axis looking diagonally across the central round cafe table. "
-        "The room architecture, dark arched glass windows, warm amber wall lanterns, floor pattern, and small round wooden cafe table MUST match the reference image identically. "
-        "Horizon and floor stay completely horizontal and level, vertical pillars stay strictly vertical (ZERO roll, ZERO tilted Dutch angle, NO black borders). "
-        "COMPLETELY EMPTY ROOM: NO people, NO girl, NO cat, NO crystal vase, NO umbrellas, NO text."
-    )
+    prompt_b = _CAM_B_PROMPT
 
     prop_specs = [
         (
@@ -132,6 +137,21 @@ async def generate_all_v2_stage_and_prop_assets() -> dict:
     }
 
 
+async def regenerate_cam_b_only() -> dict:
+    """Regenerate ONLY `conservatory_cam_b.png` conditioned on `conservatory_cam_a.png` with true 45-degree close-up framing."""
+    stages_dir = config.ASSETS_DIR / "stages"
+    cam_a_path = stages_dir / "conservatory_cam_a.png"
+    cam_b_path = stages_dir / "conservatory_cam_b.png"
+    prompt_b = _CAM_B_PROMPT
+    await asyncio.to_thread(_generate_room_image_sync, prompt_b, cam_a_path, cam_b_path)
+    return {"cam_a_ref": str(cam_a_path), "cam_b_ref": str(cam_b_path)}
+
+
 if __name__ == "__main__":
     import json
-    print(json.dumps(asyncio.run(generate_all_v2_stage_and_prop_assets()), ensure_ascii=False, indent=2))
+    import sys
+
+    if "--cam-b-only" in sys.argv:
+        print(json.dumps(asyncio.run(regenerate_cam_b_only()), ensure_ascii=False, indent=2))
+    else:
+        print(json.dumps(asyncio.run(generate_all_v2_stage_and_prop_assets()), ensure_ascii=False, indent=2))

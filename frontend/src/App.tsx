@@ -15,13 +15,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   createStageProp,
+  exportBranchMovie,
   extendDirectorStory,
   fetchBranches,
   fetchHealth,
-  fetchRenderProgress,
   perceiveDirectorInput,
   requestSceneRender,
   submitDirectorFork,
+  subscribeRenderProgress,
+  type InjectedPropPayload,
   type RenderProgressSnapshot,
 } from './api/stageClient';
 import {
@@ -69,14 +71,26 @@ type ApiStatus = 'checking' | 'live' | 'saved';
  * Honest wait indicator: shows how long the current backend call has been
  * running instead of pretending to know which internal step it is on.
  */
+const LIVE_STAGE_LABELS: Record<string, string> = {
+  queued: 'queued',
+  rendering: 'rendering',
+  rendering_cam_a: 'Cam A',
+  deriving_cam_b_keyframes: 'Cam B keyframes (+45°)',
+  rendering_cam_b: 'Cam B',
+  cross_cam_qa: 'Cross-Cam QA',
+  content_blocked_retrying: 'safety filter retry',
+};
+
 function WaitingBanner({
   label,
   typical,
   since,
+  liveStage,
 }: {
   label: string;
   typical: string;
   since: number;
+  liveStage?: string | null;
 }): React.ReactElement {
   const [elapsedSec, setElapsedSec] = useState(0);
   useEffect(() => {
@@ -86,10 +100,12 @@ function WaitingBanner({
     }, 500);
     return () => window.clearInterval(timer);
   }, [since]);
+  const niceStage = liveStage ? (LIVE_STAGE_LABELS[liveStage] ?? liveStage) : null;
   return (
     <div className="notice wait" role="status">
       <span>
-        {label} — waiting for backend… {elapsedSec}s ({typical})
+        {label}
+        {niceStage ? ` · ${niceStage}` : ''} — waiting for backend… {elapsedSec}s ({typical})
       </span>
     </div>
   );
@@ -113,6 +129,7 @@ export default function App(): React.ReactElement {
   const freezeTimerRef = useRef<number | null>(null);
   const optimisticUrlsRef = useRef<Set<string>>(new Set());
   const resetDemoRef = useRef<() => void>(() => {});
+  const handleExportBranchRef = useRef<() => Promise<void>>(async () => {});
   const [renderedSceneKeys, setRenderedSceneKeys] = useState<Set<string>>(
     () => new Set(),
   );
@@ -201,19 +218,9 @@ export default function App(): React.ReactElement {
       setRenderProgress(null);
       return;
     }
-    let cancelled = false;
-    const poll = async () => {
-      const snap = await fetchRenderProgress(activeBranch.branch_id);
-      if (!cancelled && snap) {
-        setRenderProgress(snap);
-      }
-    };
-    poll();
-    const timer = window.setInterval(poll, 1200);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
+    return subscribeRenderProgress(activeBranch.branch_id, (snap) => {
+      setRenderProgress(snap);
+    });
   }, [renderingScene, isMockMode, activeBranch.branch_id]);
 
   const activeScene =
@@ -303,6 +310,9 @@ export default function App(): React.ReactElement {
       } else if (key === 'r') {
         e.preventDefault();
         resetDemoRef.current();
+      } else if (key === 'x') {
+        e.preventDefault();
+        void handleExportBranchRef.current();
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -376,6 +386,37 @@ export default function App(): React.ReactElement {
   };
   resetDemoRef.current = handleResetDemo;
 
+  handleExportBranchRef.current = async () => {
+    if (busy || isMockMode) {
+      setStatusNote(
+        isMockMode
+          ? 'Branch film export requires the backend server.'
+          : 'Wait for the active task to finish before exporting.',
+      );
+      return;
+    }
+    setBusy({
+      label: `Exporting stitched film for ${getBranchLabelEn(activeBranch)}`,
+      typical: 'usually 2–6s',
+      since: Date.now(),
+    });
+    const { result, error } = await exportBranchMovie(activeBranch.branch_id, 'dual_cam');
+    setBusy(null);
+    if (!result) {
+      setErrorNote(`Export failed: ${error ?? 'unknown error'}`);
+      return;
+    }
+    setStatusNote(
+      `Exported ${result.scene_count} scenes (${result.duration_est_sec}s H.264) — download started.`,
+    );
+    const link = document.createElement('a');
+    link.href = result.video_url;
+    link.download = `${activeBranch.branch_id}_dual_cam.mp4`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
   /**
    * Execute Stage-2 unbounded continuation (`POST /api/director/extend`) from
    * `fromSceneId`, jumping immediately to the new Scene N+1 in 2.5D preview
@@ -387,6 +428,7 @@ export default function App(): React.ReactElement {
     text?: string;
     clip?: Blob | null;
     parsedDirective?: DirectorInputParsed | null;
+    injectedProp?: InjectedPropPayload | null;
   }): Promise<boolean> => {
     setBusy({
       label: `Continuing story into Scene ${opts.fromSceneId + 1}`,
@@ -402,6 +444,7 @@ export default function App(): React.ReactElement {
       text: opts.text,
       clip: clipToForward,
       parsedDirective: opts.parsedDirective,
+      injectedProp: opts.injectedProp,
       endFreezeMode: 'sculpture',
       detectThrowPeak: true,
     });
@@ -958,13 +1001,15 @@ export default function App(): React.ReactElement {
                         entry_origin: isExplicitToss ? [1.0, 1.5, 0.8] : null,
                       },
                     ];
-            // W2-V3-02: Append `<prop_id>: <appearance_summary>` to environment_notes for render fidelity
+            // W2-V3-02: Upsert `<prop_id>: <appearance_summary>` via `|` delimiter without bloating multi-turn notes
             let nextEnvNotes = s.environment_notes || '';
             if (appearanceSummary) {
-              const cue = `${created.prop_id}: ${appearanceSummary}`;
-              if (!nextEnvNotes.includes(cue)) {
-                nextEnvNotes = nextEnvNotes ? `${nextEnvNotes} ${cue}`.trim() : cue;
-              }
+              const filteredParts = nextEnvNotes
+                .split(/\s*\|\s*/)
+                .map((p) => p.trim())
+                .filter((p) => p.length > 0 && !p.startsWith(`${created.prop_id}:`));
+              filteredParts.push(`${created.prop_id}: ${appearanceSummary}`);
+              nextEnvNotes = filteredParts.join(' | ');
             }
             return {
               ...s,
@@ -1015,6 +1060,16 @@ export default function App(): React.ReactElement {
           ? `${queued.text} (ACTION REQUIREMENT: The viewer explicitly tossed "${created.item.name}" [${matchedLabel}, id=${created.prop_id}] to Lia — Lia catches it, puts aside her umbrella if needed, and visibly performs: "${queued.text}".)`
           : `${queued.text} (ACTION REQUIREMENT: The viewer placed "${created.item.name}" [${matchedLabel}, id=${created.prop_id}] on the ${payload.placement} — Lia puts aside her umbrella if needed, interacts with "${created.item.name}", and visibly performs: "${queued.text}".)`,
         clip: queued.clip,
+        injectedProp: {
+          prop_id: created.prop_id,
+          item: created.item,
+          placement: payload.placement,
+          entry_motion: isExplicitToss
+            ? 'throw_arc'
+            : payload.placement === 'held'
+              ? 'held'
+              : 'place',
+        },
       });
       submittingRef.current = false;
       setSubmitting(false);
@@ -1160,7 +1215,18 @@ export default function App(): React.ReactElement {
           </div>
         )}
 
-        {busy && <WaitingBanner label={busy.label} typical={busy.typical} since={busy.since} />}
+        {busy && (
+          <WaitingBanner
+            label={busy.label}
+            typical={busy.typical}
+            since={busy.since}
+            liveStage={
+              renderingScene
+                ? renderProgress?.scenes?.[String(activeScene.scene_id)]?.status ?? null
+                : null
+            }
+          />
+        )}
 
         {heardNote && (heardNote.heard || heardNote.saw) && (
           <div className="notice heard" role="status">

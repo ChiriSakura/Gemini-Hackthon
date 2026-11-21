@@ -18,6 +18,7 @@ Feature & Use Cases:
 
 import asyncio
 import base64
+import copy
 import json
 import re
 import shutil
@@ -62,8 +63,44 @@ _UPLOAD_CACHE: dict[tuple[str, int, int], tuple[str, str, float]] = {}
 _UPLOAD_INFLIGHT: dict[tuple[str, int, int], asyncio.Task[tuple[str, str]]] = {}
 _UPLOAD_LOCK = asyncio.Lock()
 
-# In-memory render progress tracker for parallel render progress polling (W1-T3B).
+# In-memory render progress tracker + SSE subscriber registry for real-time progress streaming.
 _RENDER_PROGRESS: dict[str, dict] = {}
+_PROGRESS_SUBSCRIBERS: dict[str, set[asyncio.Queue[dict]]] = {}
+
+
+def _notify_progress_subscribers(branch_id: str, snapshot: dict) -> None:
+    """Push a progress snapshot copy to all active SSE subscribers without blocking."""
+    queues = _PROGRESS_SUBSCRIBERS.get(branch_id)
+    if not queues:
+        return
+    payload = copy.deepcopy(snapshot)
+    for q in list(queues):
+        if q.full():
+            try:
+                q.get_nowait()
+            except asyncio.QueueEmpty:
+                pass
+        try:
+            q.put_nowait(payload)
+        except asyncio.QueueFull:
+            pass
+
+
+def subscribe_render_progress(branch_id: str) -> asyncio.Queue[dict]:
+    """Register an SSE subscriber queue for `branch_id` render progress events."""
+    q: asyncio.Queue[dict] = asyncio.Queue(maxsize=16)
+    _PROGRESS_SUBSCRIBERS.setdefault(branch_id, set()).add(q)
+    return q
+
+
+def unsubscribe_render_progress(branch_id: str, q: asyncio.Queue[dict]) -> None:
+    """Remove an SSE subscriber queue for `branch_id` cleanly on disconnect."""
+    queues = _PROGRESS_SUBSCRIBERS.get(branch_id)
+    if not queues:
+        return
+    queues.discard(q)
+    if not queues:
+        _PROGRESS_SUBSCRIBERS.pop(branch_id, None)
 
 
 def _open_video_capture_safe(video_path: Path) -> tuple[cv2.VideoCapture, Optional[Path]]:
@@ -112,12 +149,27 @@ def _update_render_progress(
     status: str,
     qa_score: Optional[float] = None,
     fallback: Optional[bool] = None,
+    branch_status: Optional[str] = None,
 ) -> None:
-    """Update per-scene progress metadata for a branch render job."""
+    """Update per-scene progress metadata for a branch render job and push to SSE subscribers."""
     entry = _RENDER_PROGRESS.setdefault(
         branch_id,
         {"branch_id": branch_id, "status": "running", "updated_at": time.time(), "scenes": {}},
     )
+    if branch_status is not None:
+        entry["status"] = branch_status
+    elif status in (
+        "queued",
+        "rendering",
+        "rendering_cam_a",
+        "deriving_cam_b_keyframes",
+        "rendering_cam_b",
+        "cross_cam_qa",
+        "uploading_refs",
+        "qa_judging",
+        "content_blocked_retrying",
+    ):
+        entry["status"] = "running"
     scene_entry = entry["scenes"].setdefault(str(scene_id), {"scene_id": scene_id, "status": status})
     scene_entry["status"] = status
     if qa_score is not None:
@@ -125,6 +177,37 @@ def _update_render_progress(
     if fallback is not None:
         scene_entry["fallback_to_preview"] = fallback
     entry["updated_at"] = round(time.time(), 2)
+    _notify_progress_subscribers(branch_id, entry)
+
+
+def publish_scene_progress(
+    branch_id: str,
+    scene_id: int,
+    status: str,
+    qa_score: Optional[float] = None,
+    fallback: Optional[bool] = None,
+    branch_status: Optional[str] = None,
+) -> None:
+    """Public helper allowing FastAPI single-scene renders to stream live SSE progress updates."""
+    _update_render_progress(
+        branch_id,
+        scene_id,
+        status,
+        qa_score=qa_score,
+        fallback=fallback,
+        branch_status=branch_status,
+    )
+
+
+def set_branch_progress_status(branch_id: str, status: str) -> None:
+    """Update top-level branch render status and notify SSE subscribers."""
+    entry = _RENDER_PROGRESS.setdefault(
+        branch_id,
+        {"branch_id": branch_id, "status": status, "updated_at": time.time(), "scenes": {}},
+    )
+    entry["status"] = status
+    entry["updated_at"] = round(time.time(), 2)
+    _notify_progress_subscribers(branch_id, entry)
 
 
 def get_render_progress(branch_id: str) -> dict:
@@ -574,13 +657,14 @@ def _select_scene_ref_images(
             seen_paths.add(resolved_key)
             companion_refs.append(p)
 
-    # When Camera B is geometrically derived from Camera A's actual rendered frame (in companion_refs),
-    # anchor Camera B FIRST on Camera A's rendered frame and OMIT conservatory_cam_b.png so there is
-    # zero conflicting room geometry!
+    # When Camera B starts from a pre-synthesized +45deg geometric keyframe (start_frame_path),
+    # omit room refs & frontal Cam A frames so Omni Flash stays locked strictly to the +45deg start frame.
     has_cam_a_anchor = cam_id == "cam_b" and any(
         "cam_a" in p.name.lower() for p in companion_refs
     )
-    if has_cam_a_anchor:
+    if cam_id == "cam_b" and not stage_refs:
+        selected = companion_refs + prioritized_actors + prioritized_props
+    elif has_cam_a_anchor:
         selected = companion_refs + prioritized_actors + prioritized_props
     else:
         # Actors + fixed room ref first (never evicted by extra props), then active props, then companion frames.
@@ -615,7 +699,7 @@ def _size_word(height_m: float) -> str:
 def _build_size_chart(scene: Scene) -> str:
     """One sentence fixing every on-stage height relative to Lia, shared by both cameras."""
     parts = [
-        "Lia is 1.55 m tall",
+        "Lia is 1.62 m tall",
         "Nyx the cat is 0.30 m tall at the head, clearly below Lia's knee",
         "the round table top is 0.75 m high, about Lia's hip",
     ]
@@ -835,6 +919,7 @@ async def _run_candidate_take(
     extra_constraint: str,
     job_uid: str = "",
     fast_live_mode: bool = False,
+    prop_descriptions: Optional[dict[str, str]] = None,
 ) -> tuple[Optional[Path], Optional[Path], JudgeResult, float]:
     """Generate one candidate take (60s timeout guard), extract tail frame, and score via Decisions API."""
     uid_part = f"_{job_uid}" if job_uid else f"_{uuid.uuid4().hex[:6]}"
@@ -846,6 +931,7 @@ async def _run_candidate_take(
         has_first_frame=uploaded_prev_tail is not None,
         has_preview_video=uploaded_preview is not None,
         extra_constraint=extra_constraint,
+        prop_descriptions=prop_descriptions,
     )
 
     input_parts: list[dict] = []
@@ -1031,7 +1117,10 @@ async def render_single_camera_shot(
         elif local_preview_any.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}:
             local_preview_img = local_preview_any
 
-    start_frame_path = local_preview_img or local_prev_tail
+    if local_prev_tail is not None and "cam_b_45deg" in local_prev_tail.name.lower():
+        start_frame_path = local_prev_tail
+    else:
+        start_frame_path = local_preview_img or local_prev_tail
     trimmed_start_artifact: Optional[Path] = None
     if start_frame_path is not None and start_frame_path.is_file():
         start_frame_path, was_trimmed = await asyncio.to_thread(_trim_dark_borders_sync, start_frame_path)
@@ -1039,7 +1128,8 @@ async def render_single_camera_shot(
             trimmed_start_artifact = start_frame_path
 
     max_refs = 5 if start_frame_path else 6
-    local_refs = _select_scene_ref_images(scene, reference_images, max_refs=max_refs, cam_id=cam_id)
+    ref_cam_id = None if (start_frame_path and "cam_b_45deg" in start_frame_path.name.lower()) else cam_id
+    local_refs = _select_scene_ref_images(scene, reference_images, max_refs=max_refs, cam_id=ref_cam_id)
 
     uploaded_prev_tail = await _get_or_upload_uri(start_frame_path, use_cache=False) if start_frame_path else None
     uploaded_refs = list(await asyncio.gather(*(_get_or_upload_uri(p, use_cache=True) for p in local_refs)))
@@ -1083,6 +1173,7 @@ async def render_single_camera_shot(
                         extra_constraint=current_constraint,
                         job_uid=job_uid,
                         fast_live_mode=fast_live_mode,
+                        prop_descriptions=prop_descriptions,
                     )
                     for idx in range(takes_per_attempt)
                 )
@@ -1255,10 +1346,103 @@ def _merge_dual_cam_qa(
     )
 
 
-def _extract_frame_at_sync(video_path: Path, t_sec: float, out_path: Path) -> Optional[Path]:
-    """Save the frame at `t_sec` of `video_path` as PNG."""
-    cap = cv2.VideoCapture(str(video_path))
+def _synthesize_cam_b_45deg_keyframe_sync(
+    cam_a_frame_path: Path,
+    scene: Scene,
+    out_path: Path,
+) -> Optional[Path]:
+    """
+    Geometrically derive a true level +45-degree front-right novel-view keyframe for Camera B by combining
+    the asymmetrical 45-degree conservatory perspective anchor (`conservatory_cam_b.png`) with Camera A's
+    actual rendered frame (`cam_a_frame_path`) via `config.MODEL_IMAGE` (`gemini-nano-banana-2.1`).
+    """
+    if not cam_a_frame_path.is_file():
+        return None
     try:
+        raw_a = cam_a_frame_path.read_bytes()
+        mime_a = "image/png" if cam_a_frame_path.suffix.lower() == ".png" else "image/jpeg"
+        room_b_path = config.ASSETS_DIR / "stages" / "conservatory_cam_b.png"
+        img_model = _resolve_image_model()
+        client = genai.Client(http_options=types.HttpOptions(timeout=60_000))
+
+        input_parts: list[dict] = []
+        if room_b_path.is_file():
+            raw_room_b = room_b_path.read_bytes()
+            input_parts.append({"type": "image", "data": base64.b64encode(raw_room_b).decode("ascii"), "mime_type": "image/jpeg"})
+            input_parts.append({"type": "image", "data": base64.b64encode(raw_a).decode("ascii"), "mime_type": mime_a})
+            prompt = (
+                "MULTI-VIEW 45-DEGREE CAMERA SYNTHESIS: "
+                "Use IMAGE 1 strictly as the EXACT 45-DEGREE SIDE-ANGLE CAMERA PERSPECTIVE, level horizontal floor, "
+                "vertical window pillars, and diagonal glass conservatory room layout (REMOVE the two empty wooden chairs "
+                "from Image 1 unless chairs appear in Image 2). "
+                "Place the EXACT characters, outfits, props, table items, lighting, and physical action from IMAGE 2 "
+                "(Camera A front view) into IMAGE 1's exact 45-degree right-side perspective! "
+                "STRICT 3D WORLD-SPACE POSITION & FACING LOCK: "
+                "1) Because Image 1's camera stands +45 degrees to the front-right of Image 2's camera: "
+                "silver-haired Lia stands on the LEFT side of the round table (matching her exact outfit, pose, held item, "
+                "and rightward 3D facing direction from Image 2 — looking across the table toward the cat/prop, NOT staring "
+                "into Camera B); the round wooden table in the center carries EVERY exact prop from Image 2 (identical vase, "
+                "identical beverage/snack/phone/etc.); and small black cat Nyx sits CLOSER on the RIGHT side of the table "
+                "(seen from a rear-right / side three-quarter angle facing left toward the table & Lia, matching Image 2's 3D gaze). "
+                "2) Keep floor, tabletop, and all vertical mullions 100% level/vertical like Image 1 (ZERO tilt, ZERO extra chairs, "
+                "full-bleed 16:9 anime frame). "
+                f"Exact action shown: {scene.narration}"
+            )
+        else:
+            input_parts.append({"type": "image", "data": base64.b64encode(raw_a).decode("ascii"), "mime_type": mime_a})
+            prompt = (
+                "Re-photograph this exact anime conservatory moment from a level 45-degree front-right side camera angle "
+                "(right glass wall close on right, left glass wall receding diagonally left, perfectly flat horizontal floor "
+                "and tabletop, vertical window pillars, Nyx closer on right foreground facing left, Lia on left facing right). "
+                f"Scene: {scene.narration}"
+            )
+        input_parts.append({"type": "text", "text": prompt})
+
+        interaction = client.interactions.create(
+            model=img_model,
+            input=input_parts,
+            response_format={"type": "image", "aspect_ratio": "16:9"},
+        )
+        img_data = None
+        output_image = getattr(interaction, "output_image", None)
+        if output_image and getattr(output_image, "data", None):
+            img_data = base64.b64decode(output_image.data)
+        else:
+            for step in getattr(interaction, "steps", []) or []:
+                if getattr(step, "type", None) == "model_output":
+                    for block in getattr(step, "content", []) or []:
+                        if getattr(block, "type", None) == "image" and getattr(block, "data", None):
+                            img_data = base64.b64decode(block.data)
+                            break
+                if img_data:
+                    break
+        if not img_data:
+            return None
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_bytes(img_data)
+        log_genai_call(
+            img_model,
+            {"task": "cam_b_45deg_geometric_keyframe", "scene_id": scene.scene_id, "source_cam_a": str(cam_a_frame_path)},
+            {"aspect_ratio": "16:9"},
+            {"saved_path": str(out_path), "bytes": len(img_data)},
+        )
+        return out_path
+    except Exception as exc:
+        log_genai_call(
+            _resolve_image_model(),
+            {"task": "cam_b_45deg_geometric_keyframe", "scene_id": scene.scene_id},
+            {"fallback": True},
+            {"error": f"{type(exc).__name__}: {exc}"},
+        )
+        return None
+
+
+def _extract_frame_at_sync(video_path: Path, t_sec: float, out_path: Path) -> Optional[Path]:
+    """Save the frame at `t_sec` of `video_path` as PNG (Windows Unicode-path safe)."""
+    cap, tmp_path = _open_video_capture_safe(video_path)
+    try:
+        if not cap.isOpened():
+            return None
         fps = cap.get(cv2.CAP_PROP_FPS) or 24.0
         cap.set(cv2.CAP_PROP_POS_FRAMES, max(0, int(round(t_sec * fps))))
         ok, frame = cap.read()
@@ -1268,6 +1452,8 @@ def _extract_frame_at_sync(video_path: Path, t_sec: float, out_path: Path) -> Op
         return out_path if _write_png_safe(out_path, frame) else None
     finally:
         cap.release()
+        if tmp_path is not None:
+            tmp_path.unlink(missing_ok=True)
 
 
 _CAM_B_POS = (3.25, 3.55)  # world x, z of Camera B in the stage blueprint (about 45 degrees right of Camera A)
@@ -1366,14 +1552,22 @@ def _derive_cam_b_keyframe_sync(
 CAM_B_SAME_VIEW_THRESHOLD = 0.6
 
 
+def _read_grayscale_safe(image_path: Path) -> Optional[np.ndarray]:
+    """Read an image in grayscale safely even when Windows paths contain Unicode characters."""
+    if not image_path.is_file():
+        return None
+    buf = np.frombuffer(image_path.read_bytes(), dtype=np.uint8)
+    return cv2.imdecode(buf, cv2.IMREAD_GRAYSCALE)
+
+
 def _same_view_score(cam_a_frame: Path, cam_b_frame: Path) -> float:
     """
     How much Camera B's frame is just a crop or zoom of Camera A's frame (0 = different view, 1 = same view).
 
     A real 45 degree orbit changes the whole layout, so no scaled copy of B matches anywhere inside A.
     """
-    img_a = cv2.imread(str(cam_a_frame), cv2.IMREAD_GRAYSCALE)
-    img_b = cv2.imread(str(cam_b_frame), cv2.IMREAD_GRAYSCALE)
+    img_a = _read_grayscale_safe(cam_a_frame)
+    img_b = _read_grayscale_safe(cam_b_frame)
     if img_a is None or img_b is None:
         return 0.0
     img_a = cv2.resize(img_a, (320, 180))
@@ -1680,28 +1874,42 @@ async def render_scene_media(
     overwrite_canonical: bool = False,
     fast_live_mode: bool = False,
     prop_descriptions: Optional[dict[str, str]] = None,
+    progress_cb: Optional[Callable[[str], None]] = None,
 ) -> SceneMedia:
-    """Concurrently render Camera A and Camera B (1-take ~16-19s when `fast_live_mode=True`), run cross-camera QA, and update tail notes."""
+    """Render Camera A then derive Camera B (+45 deg orbit), emitting granular SSE progress phases."""
+    def _emit(phase: str) -> None:
+        if progress_cb is not None:
+            try:
+                progress_cb(phase)
+            except Exception:
+                pass
+
     preview_a = cam_a_preview_path or scene.media.cam_a_preview_url
     preview_b = cam_b_preview_path or scene.media.cam_b_preview_url
 
-    # Sequential geometric derivation: ALWAYS render Camera A first, then geometrically derive
-    # Camera B (+45-degree right-side orbit) strictly anchored on Camera A's actual rendered frame
-    # so room architecture, furniture, props, and 3D character facing directions match 1:1.
-    # Continuing a chain: both cameras start from the previous scene's own last frames and are rendered together.
+    res_b_keyframed = None
+    # Preferred path in every mode: render Camera A and Camera B in ONE generation (split screen, then cut apart),
+    # so the actors do the same action at the same instant and both camera positions stay fixed.
+    # A scene continues from the previous scene's two tail frames; scene 1 starts from one fixed opening pair.
     split_pair = None
-    # The opening scene starts from one fixed pair of frames (same instant, Camera A and Camera B positions),
-    # so the two camera positions are set once and every later scene inherits them through the tail frames.
     opening_a = config.ASSETS_DIR / "stages" / "opening_cam_a.png"
     opening_b = config.ASSETS_DIR / "stages" / "opening_cam_b.png"
-    use_opening = scene.scene_id == 1 and not (prev_tail_a and prev_tail_b) and opening_a.is_file() and opening_b.is_file()
-    if config.CAM_B_KEYFRAMES_FROM_A and not fast_live_mode and ((prev_tail_a and prev_tail_b) or use_opening):
+    use_opening = (
+        scene.scene_id == 1 and not (prev_tail_a and prev_tail_b) and opening_a.is_file() and opening_b.is_file()
+    )
+    if (
+        config.CAM_B_KEYFRAMES_FROM_A
+        and not config.DEMO_MODE
+        and bool(config.GEMINI_API_KEY)
+        and ((prev_tail_a and prev_tail_b) or use_opening)
+    ):
+        _emit("rendering_cam_a")
         try:
             start_a = opening_a if use_opening else _resolve_asset_to_local_path(prev_tail_a)
             start_b = opening_b if use_opening else _resolve_asset_to_local_path(prev_tail_b)
             if start_a and start_b and start_a.is_file() and start_b.is_file():
                 split_pair = await _render_split_screen_pair(scene, start_a, start_b)
-        except Exception as exc:
+        except Exception as exc:  # any failure falls back to the per-camera paths below
             log_genai_call(
                 model=_resolve_video_model(),
                 prompt={"mode": "split_screen_pair", "scene_id": scene.scene_id},
@@ -1710,55 +1918,123 @@ async def render_scene_media(
             )
             split_pair = None
 
-    res_a = split_pair[0] if split_pair else await render_single_camera_shot(
-        scene,
-        "cam_a",
-        prev_tail_a,
-        reference_images,
-        preview_path=preview_a,
-        overwrite_canonical=overwrite_canonical,
-        fast_live_mode=fast_live_mode,
-        prop_descriptions=prop_descriptions,
-    )
-
-    cam_b_refs = list(reference_images)
-    cam_b_extra = ""
-    if res_a[1]:
-        cam_b_refs = [res_a[1]] + cam_b_refs
-        cam_b_extra = (
-            "GEOMETRIC DERIVATION FROM CAMERA A (Reference Image 1): reproduce the EXACT SAME room background, "
-            "ceiling arches, lanterns, furniture (do not add or remove chairs), table props, lighting, and exact 3D "
-            "world-space character positions & head/face directions from Reference Image 1, viewed ONLY from a "
-            "+45-degree clockwise camera orbit to the front-right around the central table."
+    if split_pair is not None:
+        res_a, res_b = split_pair
+        res_b_keyframed = res_b
+    elif fast_live_mode:
+        # Fast Live Demo Mode (~25-30s total): run Camera A (0deg conservatory_cam_a.png) and Camera B
+        # (level asymmetrical +45deg conservatory_cam_b.png) concurrently in parallel, skipping blocking
+        # post-render tail inspection so live presentation turnaround is ~3x faster.
+        _emit("rendering_cam_a")
+        cam_b_fast_constraint = (
+            "LOCKED +45-DEGREE LEVEL RIGHT-SIDE PERSPECTIVE: strictly match the asymmetrical 45-degree diagonal "
+            "conservatory room layout, level floor/tabletop, and vertical window pillars from the Camera B room "
+            "reference image (omit empty wooden chairs around the table unless narration mentions chairs), placing "
+            "Lia on the left facing right and Nyx closer on the right facing left with identical props & action."
+        )
+        res_a, res_b = await asyncio.gather(
+            render_single_camera_shot(
+                scene,
+                "cam_a",
+                prev_tail_a,
+                reference_images,
+                preview_path=preview_a,
+                overwrite_canonical=overwrite_canonical,
+                fast_live_mode=True,
+                prop_descriptions=prop_descriptions,
+            ),
+            render_single_camera_shot(
+                scene,
+                "cam_b",
+                prev_tail_b,
+                reference_images,
+                preview_path=preview_b,
+                extra_constraint=cam_b_fast_constraint,
+                overwrite_canonical=overwrite_canonical,
+                fast_live_mode=True,
+                prop_descriptions=prop_descriptions,
+            ),
+        )
+    else:
+        # Step 1: Render Camera A (front establishing shot)
+        _emit("rendering_cam_a")
+        res_a = await render_single_camera_shot(
+            scene,
+            "cam_a",
+            prev_tail_a,
+            reference_images,
+            preview_path=preview_a,
+            overwrite_canonical=overwrite_canonical,
+            fast_live_mode=False,
+            prop_descriptions=prop_descriptions,
         )
 
-    res_b_keyframed = split_pair[1] if split_pair else None
-    if split_pair is None and config.CAM_B_KEYFRAMES_FROM_A and not fast_live_mode and res_a[0]:
-        try:
-            first_pair = await _split_pair_from_cam_a(scene, res_a[0])
-            if first_pair:
-                res_a, res_b_keyframed = first_pair
-        except Exception as exc:  # any failure falls back to the reference-image path below
-            log_genai_call(
-                model=_resolve_video_model(),
-                prompt={"mode": "cam_b_from_cam_a_keyframes", "scene_id": scene.scene_id},
-                config={},
-                output={"fallback": f"{type(exc).__name__}: {str(exc)[:200]}"},
-            )
-            res_b_keyframed = None
+        # Step 2: Derive Camera B (+45-degree right-side orbit) from Camera A.
+        if (
+            config.CAM_B_KEYFRAMES_FROM_A
+            and not config.DEMO_MODE
+            and bool(config.GEMINI_API_KEY)
+            and res_a[0]
+        ):
+            _emit("deriving_cam_b_keyframes")
+            try:
+                res_b_keyframed = await _render_cam_b_from_keyframes(scene, res_a[0], res_a[1])
+            except Exception as exc:
+                log_genai_call(
+                    model=_resolve_video_model(),
+                    prompt={"mode": "cam_b_from_cam_a_keyframes", "scene_id": scene.scene_id},
+                    config={},
+                    output={"fallback": f"{type(exc).__name__}: {str(exc)[:200]}"},
+                )
+                res_b_keyframed = None
 
-    res_b = res_b_keyframed or await render_single_camera_shot(
-        scene,
-        "cam_b",
-        prev_tail_b,
-        cam_b_refs,
-        preview_path=preview_b,
-        extra_constraint=cam_b_extra,
-        overwrite_canonical=overwrite_canonical,
-        fast_live_mode=fast_live_mode,
-        prop_descriptions=prop_descriptions,
-    )
+        if res_b_keyframed is not None:
+            res_b = res_b_keyframed
+        else:
+            _emit("rendering_cam_b")
+            cam_b_refs = list(reference_images)
+            cam_b_start_frame = prev_tail_b
+            cam_b_extra = ""
+            derived_keyframe: Optional[Path] = None
+            if res_a[1]:
+                cam_a_local = _resolve_asset_to_local_path(res_a[1])
+                if (not config.DEMO_MODE) and config.GEMINI_API_KEY and cam_a_local is not None:
+                    kf_out = config.PREVIEWS_DIR / f"scene_{scene.scene_id}_cam_b_45deg_{uuid.uuid4().hex[:6]}.png"
+                    derived_keyframe = await asyncio.to_thread(_synthesize_cam_b_45deg_keyframe_sync, cam_a_local, scene, kf_out)
+                    if derived_keyframe is not None:
+                        cam_b_start_frame = str(derived_keyframe)
+                if derived_keyframe is not None:
+                    cam_b_extra = (
+                        "LOCKED +45-DEGREE STATIC TRIPOD CAMERA: start directly from the +45-degree diagonal side-angle "
+                        "starting frame (Image 1) and DO NOT pan, orbit, or drift back to a frontal symmetrical view! "
+                        "Keep the exact +45-degree asymmetrical room perspective, level floor/tabletop, vertical window pillars, "
+                        "and exact character positions & 3D facing directions throughout all 4 seconds while animating the scene action."
+                    )
+                else:
+                    cam_b_refs = [res_a[1]] + cam_b_refs
+                    cam_b_extra = (
+                        "GEOMETRIC DERIVATION FROM CAMERA A (+45-DEGREE RIGHT-SIDE ORBIT): keep the EXACT +45-degree diagonal "
+                        "camera perspective matching Camera A's exact room architecture, ceiling arches, lanterns, furniture, "
+                        "table props, lighting, and exact 3D world-space character positions & head/face directions."
+                    )
+            try:
+                res_b = await render_single_camera_shot(
+                    scene,
+                    "cam_b",
+                    cam_b_start_frame,
+                    cam_b_refs,
+                    preview_path=preview_b,
+                    extra_constraint=cam_b_extra,
+                    overwrite_canonical=overwrite_canonical,
+                    fast_live_mode=False,
+                    prop_descriptions=prop_descriptions,
+                )
+            finally:
+                if derived_keyframe is not None:
+                    derived_keyframe.unlink(missing_ok=True)
 
+    if not fast_live_mode:
+        _emit("cross_cam_qa")
     cross_item = None if fast_live_mode else await _check_cross_camera_consistency(scene, res_a[1], res_b[1])
     # If cameras contradict each other (< CROSS_CAM_THRESHOLD=0.80 on any check in standard quality mode),
     # retry ONLY the weaker camera once conditioned on the stronger camera's tail frame (with regression guard).
@@ -1822,7 +2098,7 @@ async def render_scene_media(
         selected_candidate_index=int(res_a[3]),
         fallback_to_preview=(not both_have_video) or (avg_score < config.QA_PASS_THRESHOLD),
     )
-    if tail_inspector and media.cam_a_tail_frame_url:
+    if (not fast_live_mode) and tail_inspector and media.cam_a_tail_frame_url:
         local_tail = _resolve_asset_to_local_path(media.cam_a_tail_frame_url)
         inspector_arg = str(local_tail) if local_tail else media.cam_a_tail_frame_url
         scene.environment_notes = await tail_inspector(scene.scene_id, inspector_arg)
@@ -1880,6 +2156,119 @@ async def render_branch_scenes(
 
     await asyncio.gather(*(_run_scene(s) for s in target_scenes))
     if branch.branch_id in _RENDER_PROGRESS:
-        _RENDER_PROGRESS[branch.branch_id]["status"] = "completed"
-        _RENDER_PROGRESS[branch.branch_id]["updated_at"] = round(time.time(), 2)
+        set_branch_progress_status(branch.branch_id, "completed")
     return branch
+
+
+def _has_audio_stream(ffmpeg_exe: str, video_path: Path) -> bool:
+    """Detect whether `video_path` contains an audio stream via ffmpeg probe."""
+    proc = subprocess.run(
+        [ffmpeg_exe, "-hide_banner", "-i", str(video_path)],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    return "Audio:" in (proc.stderr or "")
+
+
+def export_branch_movie_sync(branch: BranchState, mode: str = "cam_a") -> dict:
+    """
+    Stitch all rendered clips in `branch` (ordered by `scene_id`) into a single
+    downloadable H.264+AAC `.mp4` movie (`cam_a`, `cam_b`, or `dual_cam` side-by-side).
+    """
+    import imageio_ffmpeg
+
+    norm_mode = mode if mode in ("cam_a", "cam_b", "dual_cam") else "cam_a"
+    ordered = sorted(branch.scenes, key=lambda s: s.scene_id)
+    clip_pairs: list[tuple[int, Path, Optional[Path]]] = []
+    for scene in ordered:
+        pa = _resolve_asset_to_local_path(scene.media.cam_a_final_url)
+        pb = _resolve_asset_to_local_path(scene.media.cam_b_final_url)
+        if norm_mode == "cam_a" and pa is not None:
+            clip_pairs.append((scene.scene_id, pa, None))
+        elif norm_mode == "cam_b" and (pb or pa) is not None:
+            clip_pairs.append((scene.scene_id, pb or pa, None))  # type: ignore[arg-type]
+        elif norm_mode == "dual_cam" and pa is not None:
+            clip_pairs.append((scene.scene_id, pa, pb or pa))
+
+    if not clip_pairs:
+        raise ValueError(f"Branch {branch.branch_id} has no rendered final clips to export")
+
+    ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+    safe_branch = re.sub(r"[^a-zA-Z0-9_-]", "_", branch.branch_id)
+    out_path = config.FINALS_DIR / f"export_{safe_branch}_{norm_mode}.mp4"
+
+    cmd: list[str] = [ffmpeg_exe, "-y"]
+    filter_parts: list[str] = []
+    concat_inputs: list[str] = []
+    input_idx = 0
+
+    for seg_i, (_sid, path_a, path_b) in enumerate(clip_pairs):
+        cmd.extend(["-i", str(path_a)])
+        idx_a = input_idx
+        input_idx += 1
+        has_aud = _has_audio_stream(ffmpeg_exe, path_a)
+
+        if norm_mode == "dual_cam" and path_b is not None:
+            cmd.extend(["-i", str(path_b)])
+            idx_b = input_idx
+            input_idx += 1
+            filter_parts.append(
+                f"[{idx_a}:v]scale=640:360:force_original_aspect_ratio=decrease,"
+                f"pad=640:360:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24[va{seg_i}]"
+            )
+            filter_parts.append(
+                f"[{idx_b}:v]scale=640:360:force_original_aspect_ratio=decrease,"
+                f"pad=640:360:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24[vb{seg_i}]"
+            )
+            filter_parts.append(f"[va{seg_i}][vb{seg_i}]hstack=inputs=2[v{seg_i}]")
+        else:
+            filter_parts.append(
+                f"[{idx_a}:v]scale=640:360:force_original_aspect_ratio=decrease,"
+                f"pad=640:360:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=24[v{seg_i}]"
+            )
+
+        if has_aud:
+            filter_parts.append(
+                f"[{idx_a}:a]aresample=48000,aformat=channel_layouts=stereo[a{seg_i}]"
+            )
+        else:
+            filter_parts.append(f"anullsrc=r=48000:cl=stereo:d=4.0[a{seg_i}]")
+        concat_inputs.append(f"[v{seg_i}][a{seg_i}]")
+
+    n_seg = len(clip_pairs)
+    filter_parts.append(f"{''.join(concat_inputs)}concat=n={n_seg}:v=1:a=1[vout][aout]")
+    filter_complex = ";".join(filter_parts)
+
+    cmd.extend([
+        "-filter_complex", filter_complex,
+        "-map", "[vout]",
+        "-map", "[aout]",
+        "-c:v", "libx264",
+        "-preset", "fast",
+        "-crf", "20",
+        "-pix_fmt", "yuv420p",
+        "-c:a", "aac",
+        "-b:a", "128k",
+        "-movflags", "+faststart",
+        str(out_path),
+    ])
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    if proc.returncode != 0 or not out_path.is_file():
+        raise RuntimeError(f"ffmpeg export failed (rc={proc.returncode}): {(proc.stderr or '')[-400:]}")
+
+    return {
+        "branch_id": branch.branch_id,
+        "mode": norm_mode,
+        "scenes_stitched": [sid for sid, _, _ in clip_pairs],
+        "scene_count": n_seg,
+        "duration_est_sec": round(n_seg * float(config.VIDEO_DURATION_SEC), 1),
+        "video_url": f"/assets/finals/{out_path.name}",
+        "bytes": out_path.stat().st_size,
+        "is_h264": is_browser_h264(out_path),
+    }
+
+
+async def export_branch_movie(branch: BranchState, mode: str = "cam_a") -> dict:
+    """Async wrapper running ffmpeg branch movie stitch off the event loop."""
+    return await asyncio.to_thread(export_branch_movie_sync, branch, mode)

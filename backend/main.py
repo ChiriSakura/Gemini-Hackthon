@@ -21,8 +21,9 @@ import re
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend import config
@@ -35,11 +36,26 @@ from backend.director.hydrogen_judge import (
 )
 from backend.director.neon_director import extend_single_scene, plan_scenes
 from backend.director.rule_memory import add_rule, load_general_rules, load_rules
-from backend.director.state_tree import get_branch, list_branches, save_branch
+from backend.director.state_tree import (
+    delete_branch,
+    get_branch,
+    is_protected_branch,
+    list_branches,
+    save_branch,
+)
+from backend.director.world_manifest import WorldManifest, get_active_world_manifest
 from backend.logger import log_function_call
 from backend.media.prop_maker import create_prop
-from backend.media.video_renderer import get_render_progress, render_branch_scenes, render_scene_media
-from backend.schemas import BranchState, DirectorInputParsed, Scene, SceneMedia, StagePropState
+from backend.media.video_renderer import (
+    export_branch_movie,
+    get_render_progress,
+    publish_scene_progress,
+    render_branch_scenes,
+    render_scene_media,
+    subscribe_render_progress,
+    unsubscribe_render_progress,
+)
+from backend.schemas import BranchState, DirectorInputParsed, PropRegistryItem, Scene, SceneMedia, StagePropState
 
 _ALLOWED_PREVIEW_EXTS: set[str] = {".webm", ".mp4", ".png", ".jpg", ".jpeg"}
 _BRANCH_WRITE_LOCKS: dict[str, asyncio.Lock] = {}
@@ -53,12 +69,28 @@ def _get_branch_lock(branch_id: str) -> asyncio.Lock:
         _BRANCH_WRITE_LOCKS[branch_id] = lock
     return lock
 
-app = FastAPI(title="StageState Director API", version="0.2.0")
 
+async def _read_upload_bounded(upload: Optional[UploadFile], max_bytes: int, label: str) -> Optional[bytes]:
+    """Read an uploaded file with a strict byte ceiling, returning HTTP 413 if oversized."""
+    if upload is None:
+        return None
+    data = await upload.read(max_bytes + 1)
+    if len(data) > max_bytes:
+        limit_mb = round(max_bytes / (1024 * 1024), 1)
+        raise HTTPException(
+            status_code=413,
+            detail=f"Uploaded {label} exceeds {limit_mb} MB limit",
+        )
+    return data
+
+
+app = FastAPI(title="StageState Director API", version="0.3.0")
+
+_cors_origins = config.CORS_ORIGINS or ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    allow_credentials=("*" not in _cors_origins),
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -90,6 +122,13 @@ def health_check() -> dict:
     }
 
 
+@app.get("/api/world/manifest", response_model=WorldManifest)
+@log_function_call
+def api_get_world_manifest() -> WorldManifest:
+    """Return active World Pack manifest (style anchor, room refs, cast SI heights, fast prop templates)."""
+    return get_active_world_manifest()
+
+
 @app.get("/api/branches", response_model=list[BranchState])
 @log_function_call
 def api_list_branches() -> list[BranchState]:
@@ -107,6 +146,24 @@ def api_get_branch(branch_id: str) -> BranchState:
     return branch
 
 
+@app.delete("/api/branches/{branch_id}")
+@log_function_call
+async def api_delete_branch(branch_id: str) -> dict:
+    """Delete a non-protected experimental live branch (`403` for `branch_v1` and `*_cached`)."""
+    if is_protected_branch(branch_id):
+        raise HTTPException(status_code=403, detail=f"Protected preset branch cannot be deleted: {branch_id}")
+    async with _get_branch_lock(branch_id):
+        try:
+            deleted = delete_branch(branch_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except PermissionError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Branch {branch_id} not found")
+    return {"deleted": True, "branch_id": branch_id}
+
+
 @app.get("/api/director/rules")
 @log_function_call
 def api_get_rules() -> dict:
@@ -119,6 +176,48 @@ def api_get_rules() -> dict:
 def api_get_render_progress(branch_id: str) -> dict:
     """Return live per-scene parallel render progress snapshot for `branch_id`."""
     return get_render_progress(branch_id)
+
+
+@app.get("/api/media/progress/{branch_id}/stream")
+async def api_stream_render_progress(
+    branch_id: str,
+    request: Request,
+    once: bool = Query(False),
+) -> StreamingResponse:
+    """Server-Sent Events (`text/event-stream`) pushing real-time render progress for `branch_id`."""
+
+    async def _event_generator():
+        q = subscribe_render_progress(branch_id)
+        try:
+            initial = get_render_progress(branch_id)
+            yield f"data: {json.dumps(initial, ensure_ascii=False)}\n\n"
+            if once:
+                return
+            started = asyncio.get_running_loop().time()
+            while True:
+                if await request.is_disconnected():
+                    break
+                if asyncio.get_running_loop().time() - started > 120.0:
+                    break
+                try:
+                    snap = await asyncio.wait_for(q.get(), timeout=15.0)
+                    yield f"data: {json.dumps(snap, ensure_ascii=False)}\n\n"
+                    if snap.get("status") == "completed":
+                        break
+                except asyncio.TimeoutError:
+                    yield ": keepalive\n\n"
+        finally:
+            unsubscribe_render_progress(branch_id, q)
+
+    return StreamingResponse(
+        _event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 def _read_json_optional(path: Path) -> Optional[dict]:
@@ -222,8 +321,9 @@ async def _invoke_render_scene_media(
     prev_tail_b: Optional[str] = None,
     fast_live_mode: bool = False,
     prop_descriptions: Optional[dict[str, str]] = None,
+    progress_cb=None,
 ):
-    """Call `render_scene_media` while safely forwarding `prev_tail_a/b`, `fast_live_mode`, and `prop_descriptions`."""
+    """Call `render_scene_media` while safely forwarding `prev_tail_a/b`, `fast_live_mode`, `prop_descriptions`, and `progress_cb`."""
     sig = inspect.signature(render_scene_media)
     kwargs: dict = {
         "cam_a_preview_path": cam_a_preview_path,
@@ -238,6 +338,8 @@ async def _invoke_render_scene_media(
         kwargs["fast_live_mode"] = fast_live_mode
     if "prop_descriptions" in sig.parameters and prop_descriptions:
         kwargs["prop_descriptions"] = prop_descriptions
+    if "progress_cb" in sig.parameters and progress_cb is not None:
+        kwargs["progress_cb"] = progress_cb
     return await render_scene_media(scene, refs, **kwargs)
 
 
@@ -257,7 +359,7 @@ async def api_director_fork(
     if not parent:
         raise HTTPException(status_code=404, detail=f"Parent branch {parent_branch_id} not found")
 
-    clip_bytes = await clip.read() if clip else None
+    clip_bytes = await _read_upload_bounded(clip, config.MAX_CLIP_UPLOAD_BYTES, "clip")
     parsed = await parse_director_input(
         clip_bytes=clip_bytes,
         clip_mime_type=(clip.content_type if clip else "video/webm") or "video/webm",
@@ -355,7 +457,7 @@ async def api_director_perceive(
     clip: Optional[UploadFile] = File(None),
 ) -> DirectorInputParsed:
     """Fast Stage-1 perception (<2.5s): return Heard/Saw cues + prop prompt flag before Neon/Render."""
-    clip_bytes = await clip.read() if clip else None
+    clip_bytes = await _read_upload_bounded(clip, config.MAX_CLIP_UPLOAD_BYTES, "clip")
     parsed = await parse_director_input(
         clip_bytes=clip_bytes,
         clip_mime_type=(clip.content_type if clip else "video/webm") or "video/webm",
@@ -375,6 +477,7 @@ async def api_director_extend(
     end_freeze_mode: str = Form("sculpture"),
     detect_throw_peak: bool = Form(True),
     parsed_directive_json: Optional[str] = Form(None),
+    injected_prop_json: Optional[str] = Form(None),
     clip: Optional[UploadFile] = File(None),
 ) -> BranchState:
     """
@@ -396,7 +499,7 @@ async def api_director_extend(
         raise HTTPException(status_code=404, detail=f"Scene {anchor_id} not found in {branch_id}")
 
     next_scene_id = prefix_scenes[-1].scene_id + 1
-    clip_bytes = await clip.read() if clip else None
+    clip_bytes = await _read_upload_bounded(clip, config.MAX_CLIP_UPLOAD_BYTES, "clip")
     parsed: Optional[DirectorInputParsed] = None
     if parsed_directive_json and parsed_directive_json.strip():
         try:
@@ -415,11 +518,29 @@ async def api_director_extend(
 
     updated_registry = dict(parent.props_registry)
     thrown_prop_id: Optional[str] = None
+    injected_placement: str = "table"
+    injected_motion: Optional[str] = None
     explicit_handoff = any(
         kw in (parsed.instruction or "").lower()
         for kw in ("hand you", "give you", "toss", "throw", "catch", "pass you", "to lia", "for you", "for lia", "递给", "给你", "扔给", "丢给")
     )
-    if parsed.has_physical_prop and parsed.prop_name:
+    if injected_prop_json and injected_prop_json.strip():
+        try:
+            inj = json.loads(injected_prop_json)
+            inj_id = str(inj.get("prop_id") or "").strip()
+            inj_item_raw = inj.get("item")
+            if inj_id and isinstance(inj_item_raw, dict):
+                inj_item = PropRegistryItem.model_validate(inj_item_raw)
+                updated_registry[inj_id] = inj_item
+                thrown_prop_id = inj_id
+                injected_placement = str(inj.get("placement") or "table")
+                raw_m = inj.get("entry_motion")
+                injected_motion = str(raw_m) if raw_m in ("place", "throw_arc", "held") else None
+                if getattr(inj_item, "appearance_summary", ""):
+                    parsed.prop_description = inj_item.appearance_summary
+        except Exception:
+            pass
+    if thrown_prop_id is None and parsed.has_physical_prop and parsed.prop_name:
         thrown_prop_id, prop_item = await _invoke_create_prop(
             name=parsed.prop_name,
             description=parsed.prop_description or parsed.prop_name,
@@ -440,18 +561,36 @@ async def api_director_extend(
     )
     _keep_actors_clear_of_table(next_scene)
     if thrown_prop_id:
+        eff_motion = injected_motion or ("throw_arc" if explicit_handoff else "place")
+        on_floor = injected_placement == "floor"
+        prop_grid = [1.05, 1.1] if not on_floor else [1.15, 1.48]
         held_by_actor = any(a.holding_prop == thrown_prop_id for a in next_scene.actors)
-        if not held_by_actor and not any(p.id == thrown_prop_id for p in next_scene.stage_props):
-            next_scene.stage_props.append(
-                StagePropState(
-                    id=thrown_prop_id,
-                    grid=[1.05, 1.1],
-                    on_floor=False,
-                    state="glowing",
-                    entry_motion="throw_arc" if explicit_handoff else "place",
-                    entry_origin=[1.0, 2.2, 0.8] if explicit_handoff else None,
+        if injected_placement == "held" or held_by_actor:
+            for actor in next_scene.actors:
+                if actor.id == "lia" and not held_by_actor:
+                    actor.holding_prop = thrown_prop_id
+            next_scene.stage_props = [p for p in next_scene.stage_props if p.id != thrown_prop_id]
+        else:
+            existing_sp = next((p for p in next_scene.stage_props if p.id == thrown_prop_id), None)
+            if existing_sp:
+                existing_sp.entry_motion = eff_motion  # type: ignore[assignment]
+                if eff_motion == "throw_arc" and not existing_sp.entry_origin:
+                    existing_sp.entry_origin = [1.0, 2.2, 0.8]
+            else:
+                next_scene.stage_props.append(
+                    StagePropState(
+                        id=thrown_prop_id,
+                        grid=prop_grid,
+                        on_floor=on_floor,
+                        state="glowing",
+                        entry_motion=eff_motion,  # type: ignore[assignment]
+                        entry_origin=[1.0, 2.2, 0.8] if eff_motion == "throw_arc" else None,
+                    )
                 )
-            )
+        if eff_motion == "throw_arc":
+            for actor in next_scene.actors:
+                if actor.id == "lia":
+                    actor.action = "catch_from_camera"
         prop_app = (getattr(updated_registry[thrown_prop_id], "appearance_summary", "") or "").strip()
         active_ids = {p.id for p in next_scene.stage_props} | {a.holding_prop for a in next_scene.actors if a.holding_prop}
         next_scene.environment_notes = _upsert_prop_appearance_note(
@@ -503,7 +642,12 @@ async def api_media_create_prop(
     image: Optional[UploadFile] = File(None),
 ) -> dict:
     """Create a transparent 2D stage prop from text or a camera image/30s video and sync placement to `branch.scenes`."""
-    img_bytes = await image.read() if image else None
+    prop_max_bytes = (
+        config.MAX_CLIP_UPLOAD_BYTES
+        if (image is not None and ((image.content_type or "").startswith("video/") or (image.filename or "").lower().endswith((".webm", ".mp4"))))
+        else config.MAX_IMAGE_UPLOAD_BYTES
+    )
+    img_bytes = await _read_upload_bounded(image, prop_max_bytes, "prop media")
     prop_id, item = await _invoke_create_prop(
         name=name,
         description=description,
@@ -587,7 +731,8 @@ async def _save_preview_file(
         raw_ext = Path(upload.filename or "").suffix.lower()
         ext = raw_ext if raw_ext in _ALLOWED_PREVIEW_EXTS else ".webm"
         out_path = config.PREVIEWS_DIR / f"{branch_id}_s{scene_id}_{cam_id}{ext}"
-        out_path.write_bytes(await upload.read())
+        preview_bytes = await _read_upload_bounded(upload, config.MAX_PREVIEW_UPLOAD_BYTES, "preview")
+        out_path.write_bytes(preview_bytes or b"")
         return f"/assets/previews/{out_path.name}"
     if png_b64:
         b64_part = png_b64.split(",")[-1]
@@ -692,7 +837,8 @@ async def api_media_render_scene(
             pid: ((getattr(p, "appearance_summary", "") or "").strip() or p.name)
             for pid, p in branch.props_registry.items()
         }
-        # R-15: Enforce hard 95s per-scene timeout with graceful 2.5D preview fallback
+        # R-15: Enforce hard per-scene timeout with graceful 2.5D preview fallback + live SSE progress updates
+        publish_scene_progress(branch_id, target.scene_id, "rendering", branch_status="running")
         try:
             rendered_media = await asyncio.wait_for(
                 _invoke_render_scene_media(
@@ -704,9 +850,20 @@ async def api_media_render_scene(
                     prev_tail_b=prev_tail_cam_b_url,
                     fast_live_mode=fast_live_mode,
                     prop_descriptions=prop_descriptions,
+                    progress_cb=lambda phase: publish_scene_progress(
+                        branch_id, target.scene_id, phase, branch_status="running"
+                    ),
                 ),
                 # Camera B waits for Camera A when it is derived from A's frames, so allow the extra pass.
-                timeout=200.0 if (config.CAM_B_KEYFRAMES_FROM_A and not fast_live_mode) else 95.0,
+                timeout=200.0 if (config.CAM_B_KEYFRAMES_FROM_A and not fast_live_mode) else config.RENDER_SCENE_TIMEOUT_SEC,
+            )
+            publish_scene_progress(
+                branch_id,
+                target.scene_id,
+                "fallback" if rendered_media.fallback_to_preview else "done",
+                qa_score=rendered_media.qa_score,
+                fallback=rendered_media.fallback_to_preview,
+                branch_status="completed",
             )
         except asyncio.TimeoutError:
             rendered_media = SceneMedia(
@@ -714,6 +871,23 @@ async def api_media_render_scene(
                 cam_b_preview_url=target.media.cam_b_preview_url,
                 fallback_to_preview=True,
             )
+            publish_scene_progress(
+                branch_id,
+                target.scene_id,
+                "fallback",
+                qa_score=0.0,
+                fallback=True,
+                branch_status="completed",
+            )
+        except Exception:
+            publish_scene_progress(
+                branch_id,
+                target.scene_id,
+                "failed",
+                fallback=True,
+                branch_status="completed",
+            )
+            raise
 
         # R-38: Re-read latest branch under per-branch lock and update ONLY this scene_id
         # so concurrent per-scene renders on the same branch never overwrite each other.
@@ -740,3 +914,21 @@ async def api_media_render_scene(
     updated = await render_branch_scenes(branch, tail_inspector=inspect_tail_frame)
     save_branch(updated)
     return json.loads(updated.model_dump_json())
+
+
+@app.post("/api/media/export-branch")
+@log_function_call
+async def api_media_export_branch(
+    branch_id: str = Form("branch_v1"),
+    mode: str = Form("cam_a"),
+) -> dict:
+    """Stitch all rendered scenes of `branch_id` into a single browser-ready H.264+AAC MP4 movie."""
+    branch = get_branch(branch_id)
+    if not branch:
+        raise HTTPException(status_code=404, detail=f"Branch {branch_id} not found")
+    try:
+        return await export_branch_movie(branch, mode=mode)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Branch export failed: {exc}") from exc
