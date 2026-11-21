@@ -377,8 +377,9 @@ def _describe_prop_with_scale(
     on_floor: bool = False,
     opened: bool = False,
     entry_motion: str = "place",
+    appearance: str = "",
 ) -> str:
-    """Return a concise, physically anchored natural description with relative SI scale ratios."""
+    """Return a concise, physically anchored natural description preserving exact captured color/appearance and SI scale."""
     if prop_id == "red_umbrella":
         if on_floor:
             return "ONE single closed crimson red long-handle umbrella (~0.86m, roughly half Lia's height) lying flat on the floor"
@@ -398,7 +399,9 @@ def _describe_prop_with_scale(
         if entry_motion == "throw_arc":
             return "ONE single small palm-sized (~0.10m, fits inside one hand) glowing golden star keepsake flying in along an incoming throw arc from the front camera"
         return "ONE single small palm-sized (~0.10m, fits inside one hand) glowing golden star keepsake"
-    h_m = estimate_prop_height_m(prop_id)
+    clean_app = appearance.strip()
+    label = clean_app if clean_app else prop_id.replace("_", " ")
+    h_m = estimate_prop_height_m(prop_id, clean_app)
     table_pct = max(8, min(140, int(round((h_m / 0.75) * 100))))
     size_cue = (
         "small palm-sized object"
@@ -413,7 +416,8 @@ def _describe_prop_with_scale(
         loc = "resting flat on the floor with contact shadow"
     else:
         loc = "resting squarely on the center round table with contact shadow"
-    return f"ONE single {prop_id.replace('_', ' ')} ({size_cue}, ~{h_m:.2f}m tall / ~{table_pct}% of table height, {loc}, state={state})"
+    fidelity_cue = ", preserving its EXACT real color and surface finish (never recolor)" if clean_app else ""
+    return f"ONE single {label} ({size_cue}, ~{h_m:.2f}m tall / ~{table_pct}% of table height, {loc}{fidelity_cue}, state={state})"
 
 
 def _trim_dark_borders_sync(img_path: Path) -> tuple[Path, bool]:
@@ -579,8 +583,10 @@ def _build_shot_prompt(
     has_first_frame: bool,
     has_preview_video: bool,
     extra_constraint: str = "",
+    prop_descriptions: Optional[dict[str, str]] = None,
 ) -> str:
-    """Build a natural-language Omni Flash prompt enforcing camera angle, room lock, sculpture freeze, and SI scale."""
+    """Build a natural-language Omni Flash prompt enforcing camera angle, room lock, exact prop colors, sculpture freeze, and SI scale."""
+    desc_map = prop_descriptions or {}
     if cam_id == "cam_a":
         cam_desc = (
             "Camera A WIDE ESTABLISHING front-center full-stage shot (IGNORE any mention of Camera B or close-up in narration): "
@@ -609,13 +615,17 @@ def _build_shot_prompt(
 
     held_prop_ids: set[str] = set()
     actor_phrases: list[str] = []
+    appearance_locks: list[str] = []
     for a in scene.actors:
         blocking = _grid_to_blocking(a.grid)
         desc = f"{a.name} ({'silver-haired anime girl in starry midnight-blue cloak' if a.id == 'lia' else 'small realistic black cat with golden moon collar'}) positioned {blocking}, facing {a.facing}, performing {a.action}"
         if a.holding_prop:
             held_prop_ids.add(a.holding_prop)
+            held_app = (desc_map.get(a.holding_prop) or "").strip()
+            if held_app and a.holding_prop not in {"red_umbrella", "crystal_vase", "star_token"}:
+                appearance_locks.append(held_app)
             desc += (
-                f" holding {_describe_prop_with_scale(a.holding_prop, state='held', on_floor=False, opened=_umbrella_is_open(scene))}"
+                f" holding {_describe_prop_with_scale(a.holding_prop, state='held', on_floor=False, opened=_umbrella_is_open(scene), appearance=held_app)}"
             )
         actor_phrases.append(desc)
 
@@ -629,8 +639,11 @@ def _build_shot_prompt(
         seen_props.add(p.id)
         blocking = _grid_to_blocking(p.grid)
         prop_entry = getattr(p, "entry_motion", "place")
+        prop_app = (desc_map.get(p.id) or "").strip()
+        if prop_app and p.id not in {"red_umbrella", "crystal_vase", "star_token"}:
+            appearance_locks.append(prop_app)
         prop_phrases.append(
-            f"{_describe_prop_with_scale(p.id, state=p.state, on_floor=p.on_floor, entry_motion=prop_entry)} ({blocking})"
+            f"{_describe_prop_with_scale(p.id, state=p.state, on_floor=p.on_floor, entry_motion=prop_entry, appearance=prop_app)} ({blocking})"
         )
 
     safe_narration = _milden_safety_phrasing(scene.narration)
@@ -651,6 +664,13 @@ def _build_shot_prompt(
         parts.append("Characters: " + "; ".join(actor_phrases) + ".")
     if prop_phrases:
         parts.append("Stage props: " + "; ".join(prop_phrases) + ".")
+    if appearance_locks:
+        dedup_locks = list(dict.fromkeys(appearance_locks))
+        parts.append(
+            "Exact prop appearance fidelity lock: render every custom prop strictly matching its real captured color, material, and silhouette ("
+            + "; ".join(dedup_locks)
+            + ") — NEVER recolor custom props to generic gold or ivory."
+        )
     if scene.environment_notes:
         clean_notes = _milden_safety_phrasing(
             scene.environment_notes.replace("warm_sunlight_streaming", "warm_night_lantern_glow").replace("lush_trees_outside", "dark_night_trees_outside")
@@ -750,6 +770,7 @@ async def _run_candidate_take(
     extra_constraint: str,
     job_uid: str = "",
     fast_live_mode: bool = False,
+    prop_descriptions: Optional[dict[str, str]] = None,
 ) -> tuple[Optional[Path], Optional[Path], JudgeResult, float]:
     """Generate one candidate take (60s timeout guard), extract tail frame, and score via Decisions API."""
     uid_part = f"_{job_uid}" if job_uid else f"_{uuid.uuid4().hex[:6]}"
@@ -761,6 +782,7 @@ async def _run_candidate_take(
         has_first_frame=uploaded_prev_tail is not None,
         has_preview_video=uploaded_preview is not None,
         extra_constraint=extra_constraint,
+        prop_descriptions=prop_descriptions,
     )
 
     input_parts: list[dict] = []
@@ -893,6 +915,7 @@ async def render_single_camera_shot(
     extra_constraint: str = "",
     overwrite_canonical: bool = False,
     fast_live_mode: bool = False,
+    prop_descriptions: Optional[dict[str, str]] = None,
 ) -> tuple[str, Optional[str], JudgeResult, int, int]:
     """
     Generate parallel Omni Flash candidates (1 take when `fast_live_mode=True` for 10-20s turnaround,
@@ -906,6 +929,7 @@ async def render_single_camera_shot(
         has_first_frame=bool(prev_tail_path),
         has_preview_video=bool(preview_path),
         extra_constraint=extra_constraint,
+        prop_descriptions=prop_descriptions,
     )
     run_tag = "" if overwrite_canonical else f"_{uuid.uuid4().hex[:6]}"
 
@@ -996,6 +1020,7 @@ async def render_single_camera_shot(
                         extra_constraint=current_constraint,
                         job_uid=job_uid,
                         fast_live_mode=fast_live_mode,
+                        prop_descriptions=prop_descriptions,
                     )
                     for idx in range(takes_per_attempt)
                 )
@@ -1179,6 +1204,7 @@ async def render_scene_media(
     tail_inspector: Optional[Callable[[int, str], Awaitable[str]]] = None,
     overwrite_canonical: bool = False,
     fast_live_mode: bool = False,
+    prop_descriptions: Optional[dict[str, str]] = None,
 ) -> SceneMedia:
     """Concurrently render Camera A and Camera B (1-take ~16-19s when `fast_live_mode=True`), run cross-camera QA, and update tail notes."""
     preview_a = cam_a_preview_path or scene.media.cam_a_preview_url
@@ -1193,6 +1219,7 @@ async def render_scene_media(
             preview_path=preview_a,
             overwrite_canonical=overwrite_canonical,
             fast_live_mode=fast_live_mode,
+            prop_descriptions=prop_descriptions,
         ),
         render_single_camera_shot(
             scene,
@@ -1202,6 +1229,7 @@ async def render_scene_media(
             preview_path=preview_b,
             overwrite_canonical=overwrite_canonical,
             fast_live_mode=fast_live_mode,
+            prop_descriptions=prop_descriptions,
         ),
     )
 
@@ -1222,6 +1250,7 @@ async def render_scene_media(
                     "round table, and crystal vase intact/broken state from a true 45-degree diagonal side close-up angle."
                 ),
                 overwrite_canonical=overwrite_canonical,
+                prop_descriptions=prop_descriptions,
             )
             if cand_b[0]:
                 cand_cross = await _check_cross_camera_consistency(scene, res_a[1], cand_b[1])
@@ -1241,6 +1270,7 @@ async def render_scene_media(
                     "round table, and crystal vase intact/broken state from a wide front-center establishing full-stage angle."
                 ),
                 overwrite_canonical=overwrite_canonical,
+                prop_descriptions=prop_descriptions,
             )
             if cand_a[0]:
                 cand_cross = await _check_cross_camera_consistency(scene, cand_a[1], res_b[1])
@@ -1276,6 +1306,7 @@ async def render_branch_scenes(
     branch: BranchState,
     tail_inspector: Optional[Callable[[int, str], Awaitable[str]]] = None,
     fast_live_mode: bool = False,
+    prop_descriptions: Optional[dict[str, str]] = None,
 ) -> BranchState:
     """Concurrently render all scenes with `needs_rerender=True` in `branch` anchored on 2.5D previews."""
     ref_images = [
@@ -1283,6 +1314,14 @@ async def render_branch_scenes(
         str(config.SHARED_ASSETS_DIR / "nyx.png"),
         str(config.SHARED_ASSETS_DIR / "crystal_vase.png"),
     ] + [p.image_url for p in branch.props_registry.values()]
+    resolved_prop_descriptions = dict(
+        prop_descriptions
+        if prop_descriptions is not None
+        else {
+            pid: ((getattr(p, "appearance_summary", "") or "").strip() or p.name)
+            for pid, p in branch.props_registry.items()
+        }
+    )
 
     target_scenes = [s for s in branch.scenes if s.needs_rerender]
     for s in branch.scenes:
@@ -1303,6 +1342,7 @@ async def render_branch_scenes(
             cam_b_preview_path=scene.media.cam_b_preview_url,
             tail_inspector=tail_inspector,
             fast_live_mode=fast_live_mode,
+            prop_descriptions=resolved_prop_descriptions,
         )
         _update_render_progress(
             branch.branch_id,

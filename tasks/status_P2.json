@@ -2,8 +2,8 @@
   "agent": "P2_media",
   "contributor": "ChiriSakura",
   "branch": "feat/w1-media",
-  "current_milestone": "V2_INFINITE_SCULPTURE_BENCHMARKED",
-  "status": "all_v2_and_bonus_b1_b2_tasks_completed_and_verified",
+  "current_milestone": "V3_COLOR_FIDELITY_AND_SUB_300MS_TEMPLATES_READY",
+  "status": "all_v2_and_v3_tasks_completed_and_verified",
   "omni_flash_latency_sec": 18.64,
   "omni_flash_total_with_io_sec": 22.65,
   "omni_flash_dual_take_parallel_sec": 25.47,
@@ -161,10 +161,18 @@
     "W1-V2-08: Merged origin/main be92760 (catch_from_camera) cleanly and passed full P2 verification battery after final edit (test_v2_infinite_sculpture, test_webm_prop, test_english_enforced, test_failover_rehearsal, test_media_smoke, audit_props 14/14, preflight_check 29/29 MP4s w/ audio)",
     "W1-V2-B1: Measured live fixed-room dual-cam Scene 2 pair (conservatory_cam_a/b.png + red_umbrella_closed + wooden_chair, CROSS_CAM_THRESHOLD=0.80) -> 5/5 (100.0%) pass@0.80 (mean P=0.8754, room P=0.8875, QA=0.917, 0 retries) -> backend/assets/eval_dual_cam_fixed_room.json",
     "W1-V2-B2: Benchmarked & pre-cached fast_live_mode=True extended Scene 5 (catch_from_camera + showcase_desk_coffee_mug.png + sculpture freeze) -> warm dual-cam 28.16s (parallel ref upload 4.6s vs 13.5s serial = 2.9x faster), QA=0.895, all_passed=true, 0 retries -> backend/assets/eval_fast_live_latency.json",
-    "W1-V2-OPT: Fixed 5 subtle bugs on main — per-key concurrent Files API upload coalescing (-9s cold upload), instant softened retry on fast content_blocked (R-39), _merge_dual_cam_qa 0.0-confidence error scoring, word-boundary SI prop height matching (soda/snack/laptop/chair), and Panel 3 dynamic R-06 Best-of-2 chart sync (49 shots: 81.6% -> 87.8% -> 98.0%)"
+    "W1-V2-OPT: Fixed 5 subtle bugs on main — per-key concurrent Files API upload coalescing (-9s cold upload), instant softened retry on fast content_blocked (R-39), _merge_dual_cam_qa 0.0-confidence error scoring, word-boundary SI prop height matching (soda/snack/laptop/chair), and Panel 3 dynamic R-06 Best-of-2 chart sync (49 shots: 81.6% -> 87.8% -> 98.0%)",
+    "W1-V3-01: Added smartphone SI height (0.15m), <5ms OpenCV center-ROI HSV dominant-color extractor (zero extra LLM calls), appearance_summary population, collision-free photo-hash prop_id, and removed hardcoded ivory/gold override in prop_maker.py",
+    "W1-V3-02: Propagated prop_descriptions / appearance_summary end-to-end across render_branch_scenes(), render_scene_media(), render_single_camera_shot(), _run_candidate_take(), _build_shot_prompt(), and _describe_prop_with_scale() with exact color-fidelity lock",
+    "W1-V3-03: Extended test_v2_infinite_sculpture.py with smartphone 0.15m height, distinct camera_frame_bytes non-colliding prop_id + appearance_summary, prop_descriptions prompt preservation, <0.3s template tint color fidelity, and <=384px lean downscale checks",
+    "W1-V3-04: Pre-generated 5 neutral-white 2D anime templates under backend/assets/props/templates/{soda_can,smartphone,coffee_mug,snack_bag,laptop}.png (5/5 0px flush, 0 halo) + <128ms shade-preserving OpenCV/NumPy recolor + ~10ms (category, color_bucket) disk cache reuse",
+    "W1-V3-05: Implemented Ultra-Fast Lean Mode for unseen objects (<=384px JPEG q=80 payload downscale, simplified shape+primary-color-only prompt, zero second Vision LLM call, max_size=384 cutout)",
+    "W1-V2-B3: Generated & audited 4 everyday user-requested showcase props (yellow soda can 0.13m, chips snack bag 0.20m, black smartphone 0.15m, silver laptop 0.28m) under backend/assets/props/showcase_everyday_*.png -> eval_v3_everyday_props.json (avg 119.5ms cold tint, 9.9ms cache hit, 0 halo)",
+    "W1-V2-B4: Passed full final P2 verification suite (test_v2_infinite_sculpture, test_media_smoke, test_webm_prop, test_english_enforced, audit_props 18/18, preflight_check)"
   ],
   "w1_v2_summary": {
-    "props_audited_zero_halo": "14/14",
+    "props_audited_zero_halo": "18/18",
+    "templates_audited_zero_halo": "5/5",
     "preflight_mp4s_h264_and_audio": "29/29",
     "v2_benchmark_sample_mp4s_h264": "4/4",
     "cached_blueprints_total": 26,
@@ -173,7 +181,28 @@
     "webm_throw_peak_max_frames": 1200,
     "cross_cam_threshold": 0.8,
     "conditional_catch_from_camera_prompt": true,
-    "everyday_item_heights_m": {"soda_can_drink": 0.13, "snack_bag": 0.20, "laptop": 0.28}
+    "everyday_item_heights_m": {"soda_can_drink": 0.13, "smartphone": 0.15, "snack_bag": 0.20, "laptop": 0.28, "wooden_chair": 0.85}
+  },
+  "w1_v3_appearance_and_speed_summary": {
+    "report_file": "backend/assets/eval_v3_everyday_props.json",
+    "neutral_templates": [
+      "backend/assets/props/templates/soda_can.png",
+      "backend/assets/props/templates/smartphone.png",
+      "backend/assets/props/templates/coffee_mug.png",
+      "backend/assets/props/templates/snack_bag.png",
+      "backend/assets/props/templates/laptop.png"
+    ],
+    "cold_template_tint_avg_ms": 119.51,
+    "warm_disk_cache_hit_ms": 9.92,
+    "speedup_vs_diffusion_15_75s": "131.8x (cold tint) / 1587x (cache hit)",
+    "unseen_lean_mode_max_px": 384,
+    "zero_extra_llm_color_extract_ms": "<5ms OpenCV HSV",
+    "everyday_showcase_props": [
+      "showcase_everyday_yellow_soda_can.png",
+      "showcase_everyday_chips_snack_bag.png",
+      "showcase_everyday_black_smartphone.png",
+      "showcase_everyday_silver_laptop.png"
+    ]
   },
   "w1_v2_b1_fixed_room_consistency": {
     "report_file": "backend/assets/eval_dual_cam_fixed_room.json",
@@ -208,5 +237,5 @@
     ]
   },
   "blockers": [],
-  "last_updated": "2026-11-21T15:27:00-05:00"
+  "last_updated": "2026-11-21T15:36:00-05:00"
 }

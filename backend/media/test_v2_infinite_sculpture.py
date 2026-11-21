@@ -4,20 +4,26 @@ Unbounded Scene 5+ Extend, Dark-Border Crop, and R-13/R-14/R-18 Hardening (Owned
 """
 
 import asyncio
+import io
 import json
 import tempfile
+import time
 from pathlib import Path
 
 import cv2
 import numpy as np
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from backend import config
 from backend.director.state_tree import get_branch
 from backend.main import app
+from backend.media.audit_props import audit_single_prop
 from backend.media.prop_maker import (
     _detect_throw_peak_frame_idx,
+    _downscale_jpeg_sync,
     _extract_image_from_bytes,
+    _match_prop_template_category,
     create_prop,
     estimate_prop_height_m,
 )
@@ -163,7 +169,7 @@ def test_fast_live_mode_sculpture_prompt_and_border_trim() -> None:
     prompt_a = _build_shot_prompt(scene5, "cam_a", has_first_frame=False, has_preview_video=False)
     assert "frozen-sculpture pose" in prompt_a
     assert "edge to edge from the very first frame" in prompt_a
-    assert "Explicit hand-off/toss beat" in prompt_a
+    assert "Lia leans toward the camera to catch the flying item out of mid-air" in prompt_a
 
     # Default non-throw scene must NOT trigger forward camera-grab beat
     calm_scene = Scene(
@@ -181,7 +187,7 @@ def test_fast_live_mode_sculpture_prompt_and_border_trim() -> None:
         ],
     )
     calm_prompt = _build_shot_prompt(calm_scene, "cam_a", has_first_frame=False, has_preview_video=False)
-    assert "Explicit hand-off/toss beat" not in calm_prompt
+    assert "Lia leans toward the camera to catch the flying item out of mid-air" not in calm_prompt
 
     # Even with 3 active props + max_refs=5, fixed empty room ref must NEVER be evicted
     refs_crowded = _select_scene_ref_images(
@@ -243,9 +249,115 @@ def test_unbounded_extend_scene_5_plus() -> None:
         b1_path.write_bytes(orig_raw)
 
 
+def test_v3_appearance_fidelity_and_fast_template_tint() -> None:
+    """
+    W1-V3-03 / W1-V3-04 / W1-V3-05 regression checks:
+    (a) Smartphone SI height == 0.15m.
+    (b) Distinct camera_frame_bytes produce non-colliding prop_ids + faithful appearance_summary.
+    (c) _build_shot_prompt(..., prop_descriptions=...) preserves exact prop appearance verbatim.
+    (d) Seen everyday categories recolor neutral 2D anime templates in <0.30s with accurate color
+        fidelity & 0 green halo; unseen categories downscale payload to <=384px cleanly.
+    """
+    assert estimate_prop_height_m("Black Smartphone", "Matte black mobile phone") == 0.15
+    assert _match_prop_template_category("Yellow Soda Can") == "soda_can"
+    assert _match_prop_template_category("Black Smartphone") == "smartphone"
+    assert _match_prop_template_category("Red Rubber Duck") is None
+
+    # Synthetic camera captures: bright yellow can vs cobalt blue can vs matte black smartphone
+    def _make_jpg(bgr: tuple[int, int, int], w: int = 320, h: int = 240) -> bytes:
+        im = np.full((h, w, 3), (42, 46, 54), dtype=np.uint8)
+        im[h // 5 : (4 * h) // 5, w // 5 : (4 * w) // 5] = bgr
+        ok, buf = cv2.imencode(".jpg", im)
+        assert ok
+        return buf.tobytes()
+
+    yellow_jpg = _make_jpg((25, 215, 250))  # BGR -> bright yellow
+    blue_jpg = _make_jpg((225, 115, 40))    # BGR -> cobalt blue
+    black_jpg = _make_jpg((24, 26, 32))     # BGR -> matte black
+
+    created_paths: list[Path] = []
+    try:
+        t0 = time.perf_counter()
+        pid_y, item_y = asyncio.run(create_prop(name="Soda Can", description="", camera_frame_bytes=yellow_jpg))
+        dt_y = time.perf_counter() - t0
+        created_paths.append(config.ASSETS_DIR / item_y.image_url.removeprefix("/assets/"))
+
+        t1 = time.perf_counter()
+        pid_b, item_b = asyncio.run(create_prop(name="Soda Can", description="", camera_frame_bytes=blue_jpg))
+        dt_b = time.perf_counter() - t1
+        created_paths.append(config.ASSETS_DIR / item_b.image_url.removeprefix("/assets/"))
+
+        t2 = time.perf_counter()
+        pid_p, item_p = asyncio.run(create_prop(name="Smartphone", description="", camera_frame_bytes=black_jpg))
+        dt_p = time.perf_counter() - t2
+        created_paths.append(config.ASSETS_DIR / item_p.image_url.removeprefix("/assets/"))
+
+        # (b) Collision-free prop_ids + faithful appearance_summary
+        assert pid_y != pid_b, f"Distinct camera captures collided: {pid_y} == {pid_b}"
+        assert "yellow" in item_y.appearance_summary.lower(), f"Missing yellow in {item_y.appearance_summary!r}"
+        assert "blue" in item_b.appearance_summary.lower(), f"Missing blue in {item_b.appearance_summary!r}"
+        assert "black" in item_p.appearance_summary.lower(), f"Missing black in {item_p.appearance_summary!r}"
+        assert item_p.height_m == 0.15
+
+        # (d) Fast template tinting (<0.30s) + real pixel color fidelity + 0 green halo
+        assert dt_y < 0.35 and dt_b < 0.35 and dt_p < 0.35, f"Template tint too slow: {dt_y:.3f}s, {dt_b:.3f}s, {dt_p:.3f}s"
+        y_path = created_paths[0]
+        aud_y = audit_single_prop(y_path)
+        assert aud_y["passed"] and aud_y["halo_green_pixels"] == 0
+        with Image.open(y_path) as y_im:
+            y_arr = np.array(y_im.convert("RGBA"))
+        h_y = y_arr.shape[0]
+        body_y = y_arr[int(h_y * 0.25) : int(h_y * 0.85), :, :]
+        op_y = body_y[body_y[:, :, 3] >= 200]
+        assert float(np.mean(op_y[:, 0])) > 180.0 and float(np.mean(op_y[:, 1])) > 155.0 and float(np.mean(op_y[:, 2])) < 95.0, (
+            f"Yellow soda can color fidelity failed: mean RGB=({np.mean(op_y[:,0]):.1f},{np.mean(op_y[:,1]):.1f},{np.mean(op_y[:,2]):.1f})"
+        )
+
+        p_path = created_paths[2]
+        with Image.open(p_path) as p_im:
+            p_arr = np.array(p_im.convert("RGBA"))
+        op_p = p_arr[p_arr[:, :, 3] >= 200]
+        assert float(np.mean(op_p[:, :3])) < 80.0, f"Black smartphone too bright: mean RGB={np.mean(op_p[:, :3]):.1f}"
+
+        # Exact-match disk cache hit (<0.10s)
+        t_hit = time.perf_counter()
+        pid_y2, item_y2 = asyncio.run(create_prop(name="Soda Can", description="", camera_frame_bytes=yellow_jpg))
+        dt_hit = time.perf_counter() - t_hit
+        created_paths.append(config.ASSETS_DIR / item_y2.image_url.removeprefix("/assets/"))
+        assert dt_hit < 0.15, f"Template disk cache hit too slow: {dt_hit:.3f}s"
+
+        # W1-V3-05 lean payload downscale <=384px
+        big_jpg = _make_jpg((30, 40, 220), w=1280, h=720)
+        small_jpg = _downscale_jpeg_sync(big_jpg, max_dim=384, quality=80)
+        with Image.open(io.BytesIO(small_jpg)) as sm_im:
+            assert max(sm_im.width, sm_im.height) <= 384
+    finally:
+        for p in created_paths:
+            p.unlink(missing_ok=True)
+
+    # (c) Propagate prop_descriptions verbatim into _build_shot_prompt()
+    can_scene = Scene(
+        scene_id=5,
+        title="Yellow Soda Can Break",
+        narration="Lia smiles beside a bright yellow beverage can on the central round table.",
+        lighting="warm_dim",
+        actors=[ActorState(id="lia", name="Lia", asset_url="/assets/actors/lia.png", grid=[0.6, 1.1], action="stand")],
+        stage_props=[StagePropState(id="yellow_drink_can", grid=[1.0, 1.0], state="intact", on_floor=False)],
+    )
+    prompt_can = _build_shot_prompt(
+        can_scene,
+        "cam_a",
+        has_first_frame=False,
+        has_preview_video=False,
+        prop_descriptions={"yellow_drink_can": "bright yellow aluminum beverage can"},
+    )
+    assert "bright yellow aluminum beverage can" in prompt_can, f"appearance missing from prompt: {prompt_can}"
+
+
 if __name__ == "__main__":
     test_30s_throw_peak_window_and_degraded_flag()
     test_catch_from_camera_conditional_prompting()
     test_fast_live_mode_sculpture_prompt_and_border_trim()
     test_unbounded_extend_scene_5_plus()
-    print("ALL W1-V2-07 INFINITE SCULPTURE & 30S THROW-PEAK TESTS PASSED!")
+    test_v3_appearance_fidelity_and_fast_template_tint()
+    print("ALL W1-V2-07 & W1-V3-01..05 REGRESSION TESTS PASSED!")

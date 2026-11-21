@@ -1,6 +1,6 @@
 {
   "props_dir": "C:\\Users\\11345\\.gemini\\antigravity\\scratch\\StageState-p2-t4\\backend\\assets\\props",
-  "total_props": 14,
+  "total_props": 18,
   "all_rgba": true,
   "all_bottom_flush_ok": true,
   "all_zero_opaque_green_spill": true,
@@ -214,6 +214,98 @@
       "halo_green_pixels": 0,
       "halo_free_ok": true,
       "file_size_bytes": 274903,
+      "passed": true
+    },
+    {
+      "file": "showcase_everyday_black_smartphone.png",
+      "asset_url": "/assets/props/showcase_everyday_black_smartphone.png",
+      "mode": "RGBA",
+      "has_transparency": true,
+      "width": 191,
+      "height": 384,
+      "aspect_ratio": 0.4974,
+      "alpha_bbox": [
+        3,
+        3,
+        188,
+        384
+      ],
+      "bottom_opaque_gap_px": 0,
+      "bottom_any_gap_px": 0,
+      "bottom_flush_ok": true,
+      "opaque_green_spill_px": 0,
+      "halo_green_pixels": 0,
+      "halo_free_ok": true,
+      "file_size_bytes": 57071,
+      "passed": true
+    },
+    {
+      "file": "showcase_everyday_chips_snack_bag.png",
+      "asset_url": "/assets/props/showcase_everyday_chips_snack_bag.png",
+      "mode": "RGBA",
+      "has_transparency": true,
+      "width": 274,
+      "height": 384,
+      "aspect_ratio": 0.7135,
+      "alpha_bbox": [
+        3,
+        3,
+        271,
+        384
+      ],
+      "bottom_opaque_gap_px": 0,
+      "bottom_any_gap_px": 0,
+      "bottom_flush_ok": true,
+      "opaque_green_spill_px": 0,
+      "halo_green_pixels": 0,
+      "halo_free_ok": true,
+      "file_size_bytes": 89614,
+      "passed": true
+    },
+    {
+      "file": "showcase_everyday_silver_laptop.png",
+      "asset_url": "/assets/props/showcase_everyday_silver_laptop.png",
+      "mode": "RGBA",
+      "has_transparency": true,
+      "width": 384,
+      "height": 241,
+      "aspect_ratio": 1.5934,
+      "alpha_bbox": [
+        3,
+        3,
+        381,
+        241
+      ],
+      "bottom_opaque_gap_px": 0,
+      "bottom_any_gap_px": 0,
+      "bottom_flush_ok": true,
+      "opaque_green_spill_px": 0,
+      "halo_green_pixels": 0,
+      "halo_free_ok": true,
+      "file_size_bytes": 88085,
+      "passed": true
+    },
+    {
+      "file": "showcase_everyday_yellow_soda_can.png",
+      "asset_url": "/assets/props/showcase_everyday_yellow_soda_can.png",
+      "mode": "RGBA",
+      "has_transparency": true,
+      "width": 204,
+      "height": 384,
+      "aspect_ratio": 0.5312,
+      "alpha_bbox": [
+        3,
+        3,
+        201,
+        384
+      ],
+      "bottom_opaque_gap_px": 0,
+      "bottom_any_gap_px": 0,
+      "bottom_flush_ok": true,
+      "opaque_green_spill_px": 0,
+      "halo_green_pixels": 0,
+      "halo_free_ok": true,
+      "file_size_bytes": 71382,
       "passed": true
     },
     {

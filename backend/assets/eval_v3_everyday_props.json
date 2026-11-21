@@ -1,0 +1,151 @@
+{
+  "task_id": "W1-V2-B3+W1-V3-04",
+  "timestamp": "2026-11-21T15:35:22",
+  "all_under_300ms": true,
+  "all_passed_audit": true,
+  "avg_tint_ms": 45.53,
+  "cache_hit_ms": 9.92,
+  "cache_hit_appearance_summary": "bright yellow Soda Can",
+  "items": [
+    {
+      "prop_id": "showcase_everyday_yellow_soda_can",
+      "elapsed_ms": 128.29,
+      "item": {
+        "name": "Yellow Soda Can",
+        "image_url": "/assets/props/showcase_everyday_yellow_soda_can.png",
+        "state": "intact",
+        "origin": "camera_physical",
+        "height_m": 0.13,
+        "appearance_summary": "bright yellow Soda Can"
+      },
+      "audit": {
+        "file": "showcase_everyday_yellow_soda_can.png",
+        "asset_url": "/assets/props/showcase_everyday_yellow_soda_can.png",
+        "mode": "RGBA",
+        "has_transparency": true,
+        "width": 204,
+        "height": 384,
+        "aspect_ratio": 0.5312,
+        "alpha_bbox": [
+          3,
+          3,
+          201,
+          384
+        ],
+        "bottom_opaque_gap_px": 0,
+        "bottom_any_gap_px": 0,
+        "bottom_flush_ok": true,
+        "opaque_green_spill_px": 0,
+        "halo_green_pixels": 0,
+        "halo_free_ok": true,
+        "file_size_bytes": 71382,
+        "passed": true
+      }
+    },
+    {
+      "prop_id": "showcase_everyday_chips_snack_bag",
+      "elapsed_ms": 18.27,
+      "item": {
+        "name": "Chips Snack Bag",
+        "image_url": "/assets/props/showcase_everyday_chips_snack_bag.png",
+        "state": "intact",
+        "origin": "camera_physical",
+        "height_m": 0.2,
+        "appearance_summary": "vibrant orange Chips Snack Bag"
+      },
+      "audit": {
+        "file": "showcase_everyday_chips_snack_bag.png",
+        "asset_url": "/assets/props/showcase_everyday_chips_snack_bag.png",
+        "mode": "RGBA",
+        "has_transparency": true,
+        "width": 274,
+        "height": 384,
+        "aspect_ratio": 0.7135,
+        "alpha_bbox": [
+          3,
+          3,
+          271,
+          384
+        ],
+        "bottom_opaque_gap_px": 0,
+        "bottom_any_gap_px": 0,
+        "bottom_flush_ok": true,
+        "opaque_green_spill_px": 0,
+        "halo_green_pixels": 0,
+        "halo_free_ok": true,
+        "file_size_bytes": 89614,
+        "passed": true
+      }
+    },
+    {
+      "prop_id": "showcase_everyday_black_smartphone",
+      "elapsed_ms": 13.97,
+      "item": {
+        "name": "Black Smartphone",
+        "image_url": "/assets/props/showcase_everyday_black_smartphone.png",
+        "state": "intact",
+        "origin": "camera_physical",
+        "height_m": 0.15,
+        "appearance_summary": "matte black Smartphone"
+      },
+      "audit": {
+        "file": "showcase_everyday_black_smartphone.png",
+        "asset_url": "/assets/props/showcase_everyday_black_smartphone.png",
+        "mode": "RGBA",
+        "has_transparency": true,
+        "width": 191,
+        "height": 384,
+        "aspect_ratio": 0.4974,
+        "alpha_bbox": [
+          3,
+          3,
+          188,
+          384
+        ],
+        "bottom_opaque_gap_px": 0,
+        "bottom_any_gap_px": 0,
+        "bottom_flush_ok": true,
+        "opaque_green_spill_px": 0,
+        "halo_green_pixels": 0,
+        "halo_free_ok": true,
+        "file_size_bytes": 57071,
+        "passed": true
+      }
+    },
+    {
+      "prop_id": "showcase_everyday_silver_laptop",
+      "elapsed_ms": 21.59,
+      "item": {
+        "name": "Silver Laptop",
+        "image_url": "/assets/props/showcase_everyday_silver_laptop.png",
+        "state": "intact",
+        "origin": "camera_physical",
+        "height_m": 0.28,
+        "appearance_summary": "brushed silver Laptop"
+      },
+      "audit": {
+        "file": "showcase_everyday_silver_laptop.png",
+        "asset_url": "/assets/props/showcase_everyday_silver_laptop.png",
+        "mode": "RGBA",
+        "has_transparency": true,
+        "width": 384,
+        "height": 241,
+        "aspect_ratio": 1.5934,
+        "alpha_bbox": [
+          3,
+          3,
+          381,
+          241
+        ],
+        "bottom_opaque_gap_px": 0,
+        "bottom_any_gap_px": 0,
+        "bottom_flush_ok": true,
+        "opaque_green_spill_px": 0,
+        "halo_green_pixels": 0,
+        "halo_free_ok": true,
+        "file_size_bytes": 88085,
+        "passed": true
+      }
+    }
+  ]
+}
