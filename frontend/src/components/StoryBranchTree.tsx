@@ -5,19 +5,39 @@
  * - Visualizes all branches (e.g., BE `branch_v1`, HE `branch_v2_cached`,
  *   `branch_v3_starlight_cached`, `branch_v4_umbrella_shield_cached`, and live forks).
  * - Provides 1-click 4-branch preset switcher pills (`BE` / `HE Star` / `Twist V3` / `Shield V4`).
- * - Shows crisp `Reused (0s)` vs `Re-rendered` badges plus a hover/focus
- *   thumbnail tooltip (`120x68px` tail frame + `qa_score`) on rendered scene nodes.
+ * - Shows per-scene status badges derived from real data: `Reused` (only when
+ *   `reused_from_branch` is set), `Cached` (pre-rendered clip of its own),
+ *   `Rendered` (rendered during this session), `Not rendered`, or `Degraded`,
+ *   plus a hover/focus thumbnail tooltip (tail frame + judge score if judged).
  */
 import React, { useState } from 'react';
 import type { BranchState, Scene } from '../types/schema';
 import { getBranchLabelEn, getSceneTextEn } from '../utils/displayLocale';
+import {
+  findParentScene,
+  hasOwnFinalMedia,
+  sceneKey,
+  summarizeJudge,
+} from '../utils/sceneMedia';
 
 interface StoryBranchTreeProps {
   branches: BranchState[];
   activeBranchId: string;
   activeSceneIndex: number;
+  /** `branchId:sceneId` keys of scenes rendered during this browser session. */
+  renderedSceneKeys?: Set<string>;
   onSelectScene: (branchId: string, sceneIndex: number) => void;
 }
+
+type SceneBadge = 'Reused' | 'Cached' | 'Rendered' | 'Not rendered' | 'Degraded';
+
+const BADGE_STYLE: Record<SceneBadge, { background: string; color: string }> = {
+  Reused: { background: 'rgba(52, 211, 153, 0.14)', color: '#6ee7b7' },
+  Rendered: { background: 'rgba(251, 191, 36, 0.16)', color: '#fde68a' },
+  Cached: { background: 'rgba(56, 189, 248, 0.14)', color: '#7dd3fc' },
+  'Not rendered': { background: 'rgba(148, 163, 184, 0.16)', color: '#cbd5e1' },
+  Degraded: { background: 'rgba(251, 113, 133, 0.16)', color: '#fda4af' },
+};
 
 const PRESET_SLOTS: Array<{ label: string; match: (id: string) => boolean }> = [
   { label: 'BE', match: (id) => id === 'branch_v1' },
@@ -30,6 +50,7 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
   branches,
   activeBranchId,
   activeSceneIndex,
+  renderedSceneKeys,
   onSelectScene,
 }) => {
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
@@ -40,10 +61,10 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
     return found ? { label: slot.label, branch: found } : null;
   }).filter((item): item is { label: string; branch: BranchState } => Boolean(item));
 
-  const renderThumbTooltip = (sc: Scene, key: string) => {
-    const thumbUrl = sc.media.cam_a_tail_frame_url;
+  const renderThumbTooltip = (sc: Scene, key: string, ownMedia: boolean) => {
+    const thumbUrl = ownMedia ? sc.media.cam_a_tail_frame_url : null;
     if (hoveredKey !== key || !thumbUrl || failedThumbs[thumbUrl]) return null;
-    const scorePct = Math.round((sc.media.qa_score ?? 0) * 100);
+    const judge = summarizeJudge(sc, ownMedia);
     return (
       <div className="scene-thumb-tooltip" role="tooltip">
         <img
@@ -59,7 +80,7 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
         />
         <div className="scene-thumb-meta">
           <span>S{sc.scene_id}</span>
-          <span>QA {scorePct}%</span>
+          <span>{judge.judged ? `QA ${judge.scorePct}%` : 'QA —'}</span>
         </div>
       </div>
     );
@@ -103,12 +124,9 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
 
       {branches.map((branch) => {
         const isCurrentBranch = branch.branch_id === activeBranchId;
-        const reusedCount = branch.scenes.filter(
-          (s) => Boolean(s.reused_from_branch) || !s.needs_rerender,
+        const reusedCount = branch.scenes.filter((s) =>
+          Boolean(s.reused_from_branch),
         ).length;
-        const savedPct = Math.round(
-          (reusedCount / Math.max(1, branch.scenes.length)) * 100,
-        );
 
         return (
           <div key={branch.branch_id} className="branch-row">
@@ -121,19 +139,29 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
               <div style={{ fontWeight: 700 }}>{getBranchLabelEn(branch)}</div>
               <div style={{ fontSize: '0.71rem', color: 'var(--text-muted)' }}>
                 {branch.forked_from_scene
-                  ? `Forked at Scene ${branch.forked_from_scene} · ${savedPct}% rerender saved`
+                  ? `Forked at Scene ${branch.forked_from_scene} · ${reusedCount}/${branch.scenes.length} scenes reused`
                   : 'Primary Baseline Timeline'}
               </div>
             </button>
 
             {branch.scenes.map((sc, idx) => {
               const isSelected = isCurrentBranch && idx === activeSceneIndex;
-              const isReused =
-                Boolean(sc.reused_from_branch) ||
-                (Boolean(branch.forked_from_scene) && !sc.needs_rerender);
-              const isRerendered = Boolean(sc.needs_rerender);
+              const isReused = Boolean(sc.reused_from_branch);
+              const ownMedia = hasOwnFinalMedia(
+                sc,
+                findParentScene(branch, branches, sc.scene_id),
+              );
+              const nodeKey = sceneKey(branch.branch_id, sc.scene_id);
+              const badge: SceneBadge = sc.media.fallback_to_preview
+                ? 'Degraded'
+                : !ownMedia
+                  ? 'Not rendered'
+                  : isReused
+                    ? 'Reused'
+                    : renderedSceneKeys?.has(nodeKey)
+                      ? 'Rendered'
+                      : 'Cached';
               const { title } = getSceneTextEn(branch.branch_id, sc);
-              const nodeKey = `${branch.branch_id}:${sc.scene_id}`;
 
               return (
                 <div
@@ -142,11 +170,11 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
                   onMouseEnter={() => setHoveredKey(nodeKey)}
                   onMouseLeave={() => setHoveredKey((k) => (k === nodeKey ? null : k))}
                 >
-                  {renderThumbTooltip(sc, nodeKey)}
+                  {renderThumbTooltip(sc, nodeKey, ownMedia)}
                   <button
                     type="button"
                     className={`scene-node-btn ${isSelected ? 'active' : ''} ${
-                      isReused ? 'reused' : ''
+                      badge === 'Reused' ? 'reused' : ''
                     }`}
                     onFocus={() => setHoveredKey(nodeKey)}
                     onBlur={() => setHoveredKey((k) => (k === nodeKey ? null : k))}
@@ -168,23 +196,11 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
                           padding: '1px 6px',
                           borderRadius: 999,
                           fontSize: '0.67rem',
-                          background: isReused
-                            ? 'rgba(52, 211, 153, 0.14)'
-                            : isRerendered
-                              ? 'rgba(251, 191, 36, 0.16)'
-                              : 'rgba(56, 189, 248, 0.14)',
-                          color: isReused
-                            ? '#6ee7b7'
-                            : isRerendered
-                              ? '#fde68a'
-                              : '#7dd3fc',
+                          background: BADGE_STYLE[badge].background,
+                          color: BADGE_STYLE[badge].color,
                         }}
                       >
-                        {isReused
-                          ? 'Reused (0s)'
-                          : isRerendered
-                            ? 'Re-rendered'
-                            : 'Cached'}
+                        {badge}
                       </span>
                     </div>
                     <div

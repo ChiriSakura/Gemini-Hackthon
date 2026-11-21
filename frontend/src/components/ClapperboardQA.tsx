@@ -4,6 +4,8 @@
  * Feature & Use Cases:
  * - Displays `judge()` confidence score, selected take (#1 or #2), auto-retry
  *   count, per-question pass/fail status pills, and active continuity rules.
+ * - When the scene has no judge result of its own, every question is shown in a
+ *   neutral "not judged" state and the score reads `judge() —`.
  * - Displays an interactive Stage Prop Tray with crisp thumbnails (automatically
  *   switching to `/assets/props/crystal_vase_broken.png` when broken) and live
  *   per-scene state badges (`intact` / `broken` / `held` / `glowing`).
@@ -11,6 +13,7 @@
 import React, { useState } from 'react';
 import type { PropRegistryItem, Scene } from '../types/schema';
 import { getPropNameEn } from '../utils/displayLocale';
+import { summarizeJudge } from '../utils/sceneMedia';
 
 function getPropFallbackEmoji(propId: string): string {
   if (propId.includes('umbrella')) return '☂️';
@@ -31,6 +34,8 @@ interface ClapperboardQAProps {
   rules: string[];
   propsRegistry: Record<string, PropRegistryItem>;
   cleanCaptureMode?: boolean;
+  /** False when the scene only carries media/QA copied from its parent branch. */
+  hasOwnRender?: boolean;
 }
 
 export const ClapperboardQA: React.FC<ClapperboardQAProps> = ({
@@ -38,11 +43,12 @@ export const ClapperboardQA: React.FC<ClapperboardQAProps> = ({
   rules,
   propsRegistry,
   cleanCaptureMode = false,
+  hasOwnRender = true,
 }) => {
   const [failedThumbUrls, setFailedThumbUrls] = useState<Record<string, boolean>>({});
   const media = scene.media;
-  const qaItems = media.qa_result?.items;
-  const scorePct = Math.round((media.qa_score ?? 0) * 100);
+  const judge = summarizeJudge(scene, hasOwnRender);
+  const qaItems = judge.judged ? media.qa_result?.items : undefined;
   const propEntries = Object.entries(propsRegistry);
 
   const resolveLivePropState = (propId: string, fallbackState: string): string => {
@@ -56,10 +62,22 @@ export const ClapperboardQA: React.FC<ClapperboardQAProps> = ({
     <div className="clapperboard-strip">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <span style={{ fontWeight: 700, fontSize: '0.82rem', color: '#fde68a' }}>
-          🎬 Clapperboard · Take #{media.selected_candidate_index + 1}
+          🎬 Clapperboard ·{' '}
+          {judge.judged ? `Take #${media.selected_candidate_index + 1}` : 'no take judged yet'}
         </span>
-        <span className="qa-pill pass">judge() {scorePct}%</span>
-        <span className="qa-pill">Retries: {media.qa_retries}</span>
+        {judge.judged ? (
+          <span
+            className={`qa-pill ${judge.allPassed ? 'pass' : 'fail'}`}
+            title={`${judge.passedCount}/${judge.total} checks passed`}
+          >
+            judge() {judge.scorePct}%
+          </span>
+        ) : (
+          <span className="qa-pill" title="No judge result for this scene yet">
+            judge() —
+          </span>
+        )}
+        {judge.judged && <span className="qa-pill">Retries: {media.qa_retries}</span>}
         {media.fallback_to_preview && (
           <span className="qa-pill fail">Degraded (2.5D Preview)</span>
         )}
@@ -100,16 +118,21 @@ export const ClapperboardQA: React.FC<ClapperboardQAProps> = ({
               return (
                 <span
                   key={idx}
-                  className="qa-pill pass"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                  title={parsed.text}
+                  className="qa-pill"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    color: '#94a3b8',
+                  }}
+                  title={`${parsed.text} — not judged yet`}
                 >
                   {!cleanCaptureMode && parsed.cam && (
                     <span className={`cam-mini-badge ${parsed.cam === 'CAM A' ? 'cam-a' : 'cam-b'}`}>
                       {parsed.cam}
                     </span>
                   )}
-                  <span>✓ Q{idx + 1}</span>
+                  <span>Q{idx + 1} · not judged</span>
                 </span>
               );
             })}
