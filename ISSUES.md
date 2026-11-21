@@ -33,7 +33,7 @@
 | R-03 | fork 成功但还没渲染时，放的是父分支的旧成片和旧 QA，还挂着 “Omni Flash Render” | 后端 fork 不清 media（`main.py:199-208`）；前端默认 final 视图（`App.tsx:84-86`、`DualCameraStage.tsx:277-281,502-503`） | fork 时把 `needs_rerender` 场景的 `media` 清空；前端 fork 后切到 2.5D 预览 | 后端已修（`main.py` + `neon_director.py` 清空 `SceneMedia()`，待前端接入） |
 | R-04 | 场记板没有质检结果时也全部打勾 | `ClapperboardQA.tsx:61,98-115` | 没有 `qa_result.items` 时显示灰色 “not judged” | 已派发 `W2-FIX-R03-R04` |
 | R-05 | 评测弹窗的数字全是写死的，标题却写 “live verified”，且和仓库报告对不上 | `EvalModal.tsx:19-40,106,150-168`。写 “20/20 (TPR=1, TNR=1)”，`calibration_20_clips.json` 是 0.95 / TPR 0.929；“0.815 · 39.33s” 找不到来源；0.951 是 2 场景的分数 | 改成读报告文件里的值；去掉 “live verified”，标 “offline eval” | 后端已提供 `/api/eval/summary`，已派发 `W2-FIX-R05` |
-| R-06 | 提交用的图表板写死了和数据不符的数字 | `build_submission_assets.py:243-245,131`。“81%→100%” 实际是单拍 80.9%、双拍 87.2%、重拍后 97.9%（47 个镜头，1 个全败）；“noul 100%” 实际 0.95；“14/14 音频” 实际 4 段 | 文字从 JSON 里算出来，或删掉这几行 | 已派发 `W1-FIX-R06` |
+| R-06 | 提交用的图表板写死了和数据不符的数字 | `build_submission_assets.py:243-245,131`。“81%→100%” 实际是单拍 80.9%、双拍 87.2%、重拍后 97.9%（47 个镜头，1 个全败）；“noul 100%” 实际 0.95；“14/14 音频” 实际 4 段 | 文字从 JSON 里算出来，或删掉这几行 | 代码已修（`785fb2e` 动态从 JSON 计算，待重生成图表及同步 `build_press_kit.py`） |
 | R-07 | baseline 对比不成立 | `eval/stress_test.py:113-146,85-90,33-40`：baseline 和我们问的不是同一组题；只跑 1 次；评的是文字计划不是成片；“1→4 个角色”曲线没意义（代码里只有两个角色的站位）。`eval_cache_savings.py:18-21,85` 是常量算出来的 | 两边用同一组题；标明 plan-level、n=1；删掉角色曲线；省钱数字标 “estimated” | 已修（`stress_test.py` 统一题集 + `README.md` 诚实标注 `plan-level n=1` 与 `estimated`，`W1-FIX-R07` 同步 JSON 标注） |
 | R-08 | `worker_mcp.py` 监听所有网卡的 8000 端口，没有任何验证 | `worker_mcp.py:8,44-50`。同一 Wi-Fi 的人可以让这台电脑上的 agent 执行任意指令 | 现在就关掉，或绑定 `127.0.0.1` | 未修（仍在运行） |
 
@@ -61,7 +61,7 @@
 | R-26 | 拍道具会改当前分支（包括基线 v1）并写盘；Reset Demo 只重置前端 | `main.py:247-254`；`App.tsx:227-249` | 拍道具时先 fork；或 Reset 时让后端恢复 v1 | 未修 |
 | R-27 | 首帧锚定很弱，尾帧存了但没用 | 上传 webm 时首帧 PNG 被丢弃（`main.py:270-279`）；首帧只是当普通参考图加一句话（`video_renderer.py:508,424`）；`main.py:267` | 见 R-09 方案 | 未修 |
 | R-28 | 上传没有校验 | `main.py:271` 扩展名取自客户端文件名；`state_tree.py:46` `branch_id` 直接拼路径 | 扩展名白名单；`branch_id` 用正则校验 | 已修（`main.py` 白名单 + `state_tree.py` 正则校验） |
-| R-36 | 室内撑着伞很奇怪：开场第 1 幕莉亚就在屋里撑开伞（Christina 反馈） | 预设第 1 幕写的是 “holding a crimson umbrella”，没说收着还是撑着，模型默认画成撑开；`shared/mock_branch_1.json`、`prompts.py` 里角色描述、质检题 “holding a red umbrella” 都是这个写法。2.5D 立牌里伞本来就是收着的，所以预览和成片对不上 | ① 预设第 1 幕改成收伞：旁白和角色描述写 “a closed (furled) crimson umbrella held at her side, tip down”；② 伞的 `state` 用 `closed` / `open` 记录，默认 `closed`；③ 质检加一题 “Is the red umbrella closed rather than open?”；④ 规则里加一条 “伞在室内保持收起，除非这一幕明确写了撑开”；⑤ 重渲染并重新缓存第 1 幕（以及其他画成撑伞的缓存幕）；⑥ 剧情上只在 HE 结局第 4 幕撑开，让“撑伞”变成一个有意义的动作。和 R-12（伞做成单独道具）一起改 | 未修 |
+| R-36 | 室内撑着伞很奇怪：开场第 1 幕莉亚就在屋里撑开伞（Christina 反馈） | 预设第 1 幕写的是 “holding a crimson umbrella”，没说收着还是撑着，模型默认画成撑开；`shared/mock_branch_1.json`、`prompts.py` 里角色描述、质检题 “holding a red umbrella” 都是这个写法。2.5D 立牌里伞本来就是收着的，所以预览和成片对不上 | ① 预设第 1 幕改成收伞：旁白和角色描述写 “a closed (furled) crimson umbrella held at her side, tip down”；② 伞的 `state` 用 `closed` / `open` 记录，默认 `closed`；③ 质检加一题 “Is the red umbrella closed rather than open?”；④ 规则里加一条 “伞在室内保持收起，除非这一幕明确写了撑开”；⑤ 重渲染并重新缓存第 1 幕（以及其他画成撑伞的缓存幕）；⑥ 剧情上只在 HE 结局第 4 幕撑开，让“撑伞”变成一个有意义的动作。和 R-12（伞做成单独道具）一起改 | 规则+Prompt+渲染已修（`785fb2e`，待重渲染第 1 幕缓存及独立伞立牌） |
 
 ## P2：有空再修
 

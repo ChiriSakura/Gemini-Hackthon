@@ -128,7 +128,7 @@ def build_eval_charts_board(output_png: Optional[Path] = None) -> dict:
 
     cross_cam_rate = float(dual_cam.get("cross_camera_consistency_rate", 0.893))
     calib_acc = float(calib.get("accuracy", 1.0))
-    audio_rate = float(audio_eval.get("overall_positive_alignment_rate", 0.95))
+    audio_rate = float(audio_eval.get("audio_mood_accuracy", audio_eval.get("overall_positive_alignment_rate", 0.0)))
     choice_acc = float(decisions_eval.get("choice_routing", {}).get("accuracy", 0.933))
     score_auc = float(decisions_eval.get("score_clip_alignment", {}).get("pairwise_ranking_auc", 1.0))
 
@@ -237,12 +237,60 @@ def build_eval_charts_board(output_png: Optional[Path] = None) -> dict:
         sp_anch = bp_eval.get("blueprint_anchored", {}).get("checks", {}).get("spatial_consistency", {}).get("p_true", 0.325)
         bp_delta_txt = f"Blueprint A/B Ablation: Spatial {sp_base:.2f}->{sp_anch:.2f}, QA {bp_qa:.3f} (best as instant preview/ref, not flat frame-0)"
 
+    # KPI text is derived from the report files so the board can never drift from the data.
+    takes: list[dict] = []
+    stats_path = config.ASSETS_DIR / "eval_media_stats.jsonl"
+    if stats_path.exists():
+        for line in stats_path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                try:
+                    takes.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+
+    def _take_ok(value: object) -> bool:
+        return isinstance(value, (int, float)) and float(value) >= config.QA_PASS_THRESHOLD
+
+    n_shots = len(takes)
+    if n_shots:
+        single_rate = sum(_take_ok(t.get("take_0_score")) for t in takes) / n_shots
+        best2_rate = sum(_take_ok(t.get("take_0_score")) or _take_ok(t.get("take_1_score")) for t in takes) / n_shots
+        final_rate = sum(bool(t.get("passed")) for t in takes) / n_shots
+        dual_take_txt = (
+            f"Pass rate {single_rate * 100:.1f}% single take -> {best2_rate * 100:.1f}% best-of-2 -> "
+            f"{final_rate * 100:.1f}% after retries ({n_shots} logged Omni Flash shots)"
+        )
+    else:
+        dual_take_txt = "No logged shots yet (eval_media_stats.jsonl is empty)"
+
+    cache_eval = _load_json_if_exists(config.ASSETS_DIR / "eval_cache_savings.json")
+    reused_scenes = int(cache_eval.get("total_reused_scenes", 0))
+    total_scenes = int(cache_eval.get("total_scenes_across_branches", 0))
+    cost_cut = float(cache_eval.get("overall_cost_reduction_pct", 0.0))
+    if total_scenes:
+        reuse_txt = (
+            f"{reused_scenes}/{total_scenes} scenes reused across cached forks "
+            f"({cost_cut:.1f}% lower cost, estimated from list prices)"
+        )
+    else:
+        reuse_txt = "Prefix scenes before the edit point are reused, never re-rendered"
+
+    calib_n = int(calib.get("total_clips", 0))
+    choice_n = int(decisions_eval.get("choice_routing", {}).get("total_cases", 0))
+    audio_n = int(audio_eval.get("clips_evaluated", 0))
+    audio_ok = int(audio_eval.get("matched_count", 0))
+    audio_txt = f"{audio_ok}/{audio_n} clips match the intended mood (small sample)" if audio_n else "Not evaluated"
+
     kpi_lines = [
-        ("360p vs 720p Tradeoff", r"17.1s vs 25.8s/clip · 71.4% lower API cost (\$0.48 vs \$1.68 / 6-clip branch)", "#38BDF8"),
-        ("Localized Rewrite Savings", "66.7% scenes skipped (0 rerender) on localized Scene-2 edits via Decisions API", "#10B981"),
-        ("Best-of-2 Dual-Take Gain", "Pass rate 81.0% -> 100.0% (+19.0pp) across 21 live Omni Flash shots", "#F59E0B"),
-        ("Full Decisions API Trifecta", "noul 100% (20 clips) · choice 100% (15 EN/ZH) · score AUC 1.000 (0.66s/mp4)", "#A78BFA"),
-        ("Native Audio-Visual Sync", "100% audio-mood match (14/14) & 100% mismatch rejection (4/4 TNR) in 1.51s", "#2DD4BF"),
+        ("360p vs 720p Tradeoff", r"17.1s vs 25.8s/clip · 71.4% lower API cost (\$0.48 vs \$1.68 / 6-clip branch, list-price estimate)", "#38BDF8"),
+        ("Rewrite Reuse", reuse_txt, "#10B981"),
+        ("Best-of-2 Dual-Take Gain", dual_take_txt, "#F59E0B"),
+        (
+            "Decisions API Checks",
+            f"noul {calib_acc * 100:.0f}% ({calib_n} clips) · choice {choice_acc * 100:.0f}% ({choice_n} cases) · score AUC {score_auc:.3f}",
+            "#A78BFA",
+        ),
+        ("Native Audio Mood", audio_txt, "#2DD4BF"),
     ]
     y_cursor = 0.89
     for title_k, desc_k, accent in kpi_lines:

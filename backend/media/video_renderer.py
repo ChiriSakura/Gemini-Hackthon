@@ -18,6 +18,7 @@ Feature & Use Cases:
 
 import asyncio
 import json
+import re
 import shutil
 import time
 import uuid
@@ -335,13 +336,28 @@ def _grid_to_blocking(grid: list[float]) -> str:
     return f"{horiz} ({depth})"
 
 
-def _describe_prop_with_scale(prop_id: str, state: str = "intact", on_floor: bool = False) -> str:
+_UMBRELLA_OPEN_CUES = re.compile(
+    r"\b(open(s|ed|ing)?|unfurl(s|ed|ing)?|under (her|the|a|his|their)( \w+){0,3} umbrella|shared umbrella|"
+    r"shelter(s|ed|ing)?|canopy|shield(s|ed|ing)?)\b",
+    re.IGNORECASE,
+)
+
+
+def _umbrella_is_open(scene: Scene) -> bool:
+    """The umbrella is drawn open only when the scene text says so; indoors it stays furled by default."""
+    return bool(_UMBRELLA_OPEN_CUES.search(f"{scene.title} {scene.narration}"))
+
+
+def _describe_prop_with_scale(prop_id: str, state: str = "intact", on_floor: bool = False, opened: bool = False) -> str:
     """Return a concise, physically anchored natural description with relative SI scale ratios."""
     if prop_id == "red_umbrella":
+        if on_floor:
+            return "ONE single closed crimson red long-handle umbrella (~0.86m, roughly half Lia's height) lying flat on the floor"
+        if opened:
+            return "ONE single open crimson red long-handle umbrella (~0.86m canopy)"
         return (
-            "ONE single closed crimson red long-handle umbrella (~0.86m, roughly half Lia's height) lying flat on the floor"
-            if on_floor
-            else "ONE single open crimson red long-handle umbrella (~0.86m canopy)"
+            "ONE single CLOSED, furled crimson red long-handle umbrella (~0.86m) held at her side with the tip pointing "
+            "down, NOT open, no canopy above her head"
         )
     if prop_id == "crystal_vase":
         return (
@@ -481,7 +497,9 @@ def _build_shot_prompt(
         desc = f"{a.name} ({'silver-haired anime girl in starry midnight-blue cloak' if a.id == 'lia' else 'small realistic black cat with golden moon collar'}) positioned {blocking}, facing {a.facing}, performing {a.action}"
         if a.holding_prop:
             held_prop_ids.add(a.holding_prop)
-            desc += f" holding {_describe_prop_with_scale(a.holding_prop, state='held', on_floor=False)}"
+            desc += (
+                f" holding {_describe_prop_with_scale(a.holding_prop, state='held', on_floor=False, opened=_umbrella_is_open(scene))}"
+            )
         actor_phrases.append(desc)
 
     # Deduplicate props already described on an actor so Omni Flash never draws 2 umbrellas or 2 stars.
