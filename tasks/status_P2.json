@@ -2,11 +2,10 @@
   "agent": "P2_media",
   "branch": "feat/w1-media",
   "current_milestone": "T4",
-  "status": "w1_t3_t4_eval_and_verification_completed",
+  "status": "deep_optimizations_and_w1_t3_t4_queue_completed",
   "omni_flash_latency_sec": 18.64,
   "omni_flash_total_with_io_sec": 22.65,
   "omni_flash_dual_take_parallel_sec": 25.47,
-  "branch_v1_full_cache_sec": 105.63,
   "keep_4_scenes": true,
   "decisions_api_available": true,
   "decisions_multimodal_benchmark": {
@@ -30,15 +29,41 @@
     "resolution": "640x360",
     "fps": 24.0
   },
+  "w1_t3c_dual_cam_consistency": {
+    "report_file": "backend/assets/eval_dual_cam_stats.json",
+    "total_scene_pairs": 7,
+    "passed_checks": "26/28",
+    "cross_camera_consistency_rate": 0.929,
+    "all_consistent_scene_rate": 0.714,
+    "avg_latency_sec": 2.65
+  },
+  "w1_t3d_multi_prop_stress": {
+    "props_tested": ["star_token", "red_umbrella", "crystal_vase"],
+    "elapsed_sec": 31.26,
+    "qa_score": 0.787,
+    "alignment_score": 0.884,
+    "all_three_props_detected": true,
+    "retries": 0
+  },
+  "w1_t3e_calibration_20_clips": {
+    "report_file": "backend/assets/calibration_20_clips.json",
+    "total_clips": 20,
+    "accuracy": 0.95,
+    "true_positive_rate": 0.929,
+    "true_negative_rate": 1.0,
+    "avg_latency_sec": 1.37
+  },
   "eval_media_stats_summary": {
     "log_file": "backend/assets/eval_media_stats.jsonl",
-    "total_shots": 14,
+    "total_shots": 33,
     "threshold": 0.75,
-    "take_1_avg_score": 0.858,
-    "take_2_best_avg_score": 0.866,
-    "take_1_pass_rate": 1.0,
-    "take_2_pass_rate": 1.0,
-    "take_1_won_over_take_0_count": 3
+    "take_1_avg_score": 0.684,
+    "take_2_best_avg_score": 0.835,
+    "take_1_pass_rate": 0.727,
+    "take_2_pass_rate": 0.97,
+    "take_1_won_over_take_0_count": 12,
+    "retried_shots": 6,
+    "retried_passed": 5
   },
   "verified_model_ids": {
     "video": "gemini-omni-flash-preview",
@@ -46,24 +71,17 @@
     "decision": "models/gemini-decision-1"
   },
   "completed_items": [
-    "W1-T2A: Re-cached full 4-scene dual-cam branch_v1 (8 H.264 MP4s + 8 tail PNGs + branch_v1.json) with SI metric scale anchoring (1.62m Lia, 0.30m Nyx cat, 0.75m table, 0.32m vase) & tail-frame environment_notes",
-    "W1-T2B: Wired Decisions API score_clip_alignment() (0.70 QA + 0.30 alignment) + added is_browser_h264() and verified all 14 cached MP4s are native H.264 640x360 24fps",
-    "W1-T2C: Generated transparent backend/assets/props/crystal_vase_broken.png (bottom-flush cropped for Three.js center=(0.5,0.0)) and pre-cached branch_v2_cached.json (6 H.264 MP4s for Scenes 2..4 + reused Scene 1)",
-    "W1-T2D: Verified live photo JPEG create_prop() (13.48s RGBA transparent PNG) and benchmarked v1beta models/gemini-decision-1 directly on .mp4 (accepted! 1.54s w/ video+audio tokens) vs .png (0.93s)",
-    "W1-T3A: Added 1-take vs 2-take pass-rate & retry logger writing to backend/assets/eval_media_stats.jsonl (14 live shots recorded)",
-    "W1-T3B: Added 60s asyncio.wait_for per-take timeout safety guard and get_render_progress()/list_render_progress() helpers in video_renderer.py",
-    "Live-Demo Hardening: Added non-clobbering unique output filenames for live forked branches (keeps branch_v1 intact for side-by-side comparison), Chrome .webm preview duration-mismatch guard + start-frame extraction (prevents Omni Flash 400 errors), and rule_memory.add_rule() auto-distillation on QA repairs",
-    "W1-T3C: Measured Cross-Camera Consistency Rate via models/gemini-decision-1 across 7 scene pairs -> 0.893 (25/28 checks passed, avg 3.92s) saved to backend/assets/eval_dual_cam_stats.json",
-    "W1-T3D: Multi-prop simultaneous stress test (star_token + red_umbrella + crystal_vase) -> passed in 39.33s with qa_score=0.815 (physical scale P(true)=0.88)",
-    "W1-T3E: Generated 20-clip Decisions API calibration dataset (14 positive + 6 negative mismatch) -> 1.000 accuracy (20/20, TPR=1.0, TNR=1.0, avg 2.62s) saved to backend/assets/calibration_20_clips.json",
-    "W1-T4A: Verified post-merge smoke suite + all 14 cached MP4s (8 branch_v1 + 6 branch_v2_cached) return HTTP 200 OK with QA scores 0.776..0.933"
+    "Deep-Opt 1: Generated umbrella-free backend/assets/actors/lia_clean_ref.png & auto-swapped broken crystal_vase_broken.png refs to eliminate duplicate umbrellas and ghost intact vases",
+    "Deep-Opt 2: Replaced raw [col,row] grid tokens with natural cinematography blocking + borderless nighttime lock (eliminated matplotlib coordinate-axis border & Branch 2 sunny-daylight jumps)",
+    "Deep-Opt 3: Deduplicated held props vs stage_props & added SI height estimator estimate_prop_height_m() (eliminated duplicate giant star tokens)",
+    "Deep-Opt 4: Strengthened Cam A wide establishing vs Cam B 45-deg oblique close-up separation + added fast 0.9s cross-camera consistency check & auto-retry + merged Cam A/B Clapperboard QA",
+    "Deep-Opt 5: Upgraded prop_maker.py chroma key to border-connected floodfill (preserves solid green props) + exact timestamp_sec frame extraction + removed duplicate preview-override bug",
+    "Deep-Opt 6: Re-rendered all 14 cached MP4 clips across branch_v1 (Scenes 1..4) and branch_v2_cached (Scenes 2..4) with verified visual quality and H.264 playback",
+    "W1-T3C: Measured Cross-Camera Consistency Rate = 92.9% (26/28) across 7 dual-cam pairs -> backend/assets/eval_dual_cam_stats.json",
+    "W1-T3D: Completed 3-prop simultaneous stress test (star_token + red_umbrella + crystal_vase: qa=0.787, alignment=0.884, 31.26s)",
+    "W1-T3E: Exported 20-clip Decisions API calibration dataset (95.0% accuracy, 100% TNR, 1.37s avg) -> backend/assets/calibration_20_clips.json",
+    "W1-T4A: Verified full P2 smoke test suite passes after all deep optimizations"
   ],
-  "w1_t3_eval_summary": {
-    "cross_camera_consistency_rate": 0.893,
-    "multi_prop_stress_qa_score": 0.815,
-    "calibration_20_accuracy": 1.0,
-    "cached_mp4_http_200_count": 14
-  },
   "blockers": [],
-  "last_updated": "2026-11-21T13:06:00-05:00"
+  "last_updated": "2026-11-21T13:18:00-05:00"
 }

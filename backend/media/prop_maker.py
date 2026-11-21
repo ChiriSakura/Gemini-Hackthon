@@ -13,6 +13,7 @@ Feature & Use Cases:
 
 import asyncio
 import base64
+import hashlib
 import io
 import re
 import tempfile
@@ -31,6 +32,7 @@ from backend.schemas import PropRegistryItem
 
 _IMAGE_MODEL_ALIASES = {
     "gemini-3.1-flash-image-preview": "gemini-nano-banana-2.1",
+    "gemini-3.1-flash-image": "gemini-nano-banana-2.1",
 }
 
 
@@ -40,9 +42,12 @@ def _resolve_image_model() -> str:
 
 
 def _slugify(name: str) -> str:
-    """Create a filesystem-safe prop identifier."""
+    """Create a collision-safe, filesystem-safe prop identifier with deterministic hash suffix."""
+    digest = hashlib.sha1(name.encode("utf-8")).hexdigest()
     slug = re.sub(r"[^a-zA-Z0-9]+", "_", name).strip("_").lower()
-    return slug or "custom_prop"
+    if not slug:
+        return f"prop_{digest[:6]}"
+    return f"{slug[:40]}_{digest[:4]}"
 
 
 _PROP_HEIGHT_KEYWORDS: list[tuple[tuple[str, ...], float]] = [
@@ -100,19 +105,46 @@ def _extract_image_from_bytes(
         cap = cv2.VideoCapture(tmp_path)
         total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
-        if timestamp_sec is not None and timestamp_sec >= 0.0 and fps > 1.0:
-            target_idx = int(round(timestamp_sec * fps))
-            if total > 1:
-                target_idx = max(0, min(total - 1, target_idx))
-            cap.set(cv2.CAP_PROP_POS_FRAMES, target_idx)
+        frame = None
+
+        if timestamp_sec is not None and timestamp_sec >= 0.0:
+            cap.set(cv2.CAP_PROP_POS_MSEC, timestamp_sec * 1000.0)
+            ok, cand = cap.read()
+            if ok and cand is not None:
+                frame = cand
+            elif fps > 1.0:
+                target_idx = int(round(timestamp_sec * fps))
+                if total > 1:
+                    target_idx = max(0, min(total - 1, target_idx))
+                cap.set(cv2.CAP_PROP_POS_FRAMES, target_idx)
+                ok, cand = cap.read()
+                if ok and cand is not None:
+                    frame = cand
         elif total > 1:
             cap.set(cv2.CAP_PROP_POS_FRAMES, total // 2)
-        ok, frame = cap.read()
-        if not ok or frame is None:
+            ok, cand = cap.read()
+            if ok and cand is not None:
+                frame = cand
+
+        # Handle Chrome MediaRecorder .webm clips where CAP_PROP_FRAME_COUNT <= 0.
+        if frame is None:
             cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            ok, frame = cap.read()
+            decoded_frames: list[np.ndarray] = []
+            while len(decoded_frames) < 150:
+                ok, cand = cap.read()
+                if not ok or cand is None:
+                    break
+                decoded_frames.append(cand)
+            if decoded_frames:
+                if timestamp_sec is not None and timestamp_sec >= 0.0:
+                    est_fps = fps if 1.0 <= fps <= 120.0 else 30.0
+                    idx = max(0, min(len(decoded_frames) - 1, int(round(timestamp_sec * est_fps))))
+                else:
+                    idx = len(decoded_frames) // 2
+                frame = decoded_frames[idx]
+
         cap.release()
-        if ok and frame is not None:
+        if frame is not None:
             ok_enc, encoded = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 92])
             if ok_enc:
                 return encoded.tobytes(), "image/jpeg"
@@ -290,6 +322,7 @@ async def create_prop(
     description: str = "",
     camera_frame_bytes: Optional[bytes] = None,
     prop_id: Optional[str] = None,
+    frame_timestamp_sec: Optional[float] = None,
     timestamp_sec: Optional[float] = None,
 ) -> tuple[str, PropRegistryItem]:
     """
@@ -297,6 +330,7 @@ async def create_prop(
 
     Returns `(prop_id, PropRegistryItem)` ready for `props_registry`.
     """
+    resolved_ts = frame_timestamp_sec if frame_timestamp_sec is not None else timestamp_sec
     resolved_id = prop_id or _slugify(name)
     out_path = config.PROPS_DIR / f"{resolved_id}.png"
     origin: Literal["preset", "text_generated", "camera_physical"] = (
@@ -316,7 +350,7 @@ async def create_prop(
         )
     else:
         camera_still = (
-            _extract_image_from_bytes(camera_frame_bytes, timestamp_sec=timestamp_sec)
+            _extract_image_from_bytes(camera_frame_bytes, timestamp_sec=resolved_ts)
             if camera_frame_bytes
             else None
         )

@@ -321,12 +321,24 @@ def _describe_prop_with_scale(prop_id: str, state: str = "intact", on_floor: boo
     return f"ONE single {prop_id.replace('_', ' ')} (~{h_m:.2f}m tall, {loc}, state={state})"
 
 
-def _resolve_clean_actor_ref(path: Path) -> Path:
-    """Prefer umbrella-free `lia_clean_ref.png` for Omni Flash so Lia never gets a duplicate closed umbrella."""
-    if path.name.lower() == "lia.png":
+def _resolve_clean_actor_ref(path: Path, scene: Optional[Scene] = None) -> Path:
+    """
+    Swap raw standee references for cleaner Omni Flash equivalents:
+    - `lia.png` -> umbrella-free `lia_clean_ref.png` (prevents duplicate closed umbrellas).
+    - `crystal_vase.png` -> `crystal_vase_broken.png` when the scene's vase is broken
+      (prevents drawing a second intact vase on the table alongside floor shards).
+    """
+    lower = path.name.lower()
+    if lower == "lia.png":
         clean_ref = config.ACTORS_DIR / "lia_clean_ref.png"
         if clean_ref.is_file():
             return clean_ref
+    if lower == "crystal_vase.png" and scene is not None:
+        vase_broken = any(p.id == "crystal_vase" and p.state == "broken" for p in scene.stage_props)
+        if vase_broken:
+            broken_ref = config.PROPS_DIR / "crystal_vase_broken.png"
+            if broken_ref.is_file():
+                return broken_ref
     return path
 
 
@@ -630,7 +642,7 @@ async def render_single_camera_shot(
     for ref in reference_images:
         p = _resolve_asset_to_local_path(ref)
         if p:
-            p = _resolve_clean_actor_ref(p)
+            p = _resolve_clean_actor_ref(p, scene=scene)
         if p and str(p.resolve()) not in seen_paths:
             seen_paths.add(str(p.resolve()))
             local_refs.append(p)
@@ -774,22 +786,28 @@ def _merge_dual_cam_qa(
     qa_b: JudgeResult,
     cross_cam_item: Optional[JudgeItem] = None,
 ) -> JudgeResult:
-    """Merge Camera A and Camera B QA results so Clapperboard QA surfaces failures from either camera."""
+    """Combine BOTH Camera A (`[CAM A]`) and Camera B (`[CAM B]`) QA items for ClapperboardQA."""
     merged_items: list[JudgeItem] = []
-    # Keep all Camera A items, plus any Camera B items that failed or scored noticeably lower.
-    for idx, item_a in enumerate(qa_a.items):
-        item_b = qa_b.items[idx] if idx < len(qa_b.items) else None
-        if item_b and (not item_b.passed or item_b.confidence < item_a.confidence - 0.12):
-            merged_items.append(
-                JudgeItem(
-                    question=f"[Cam B] {item_b.question}",
-                    passed=item_b.passed,
-                    confidence=item_b.confidence,
-                    reason=item_b.reason,
-                )
+    for item_a in qa_a.items:
+        q_text = item_a.question if item_a.question.startswith("[CAM ") else f"[CAM A] {item_a.question}"
+        merged_items.append(
+            JudgeItem(
+                question=q_text,
+                passed=item_a.passed,
+                confidence=item_a.confidence,
+                reason=item_a.reason,
             )
-        else:
-            merged_items.append(item_a)
+        )
+    for item_b in qa_b.items:
+        q_text = item_b.question if item_b.question.startswith("[CAM ") else f"[CAM B] {item_b.question}"
+        merged_items.append(
+            JudgeItem(
+                question=q_text,
+                passed=item_b.passed,
+                confidence=item_b.confidence,
+                reason=item_b.reason,
+            )
+        )
     if cross_cam_item is not None:
         merged_items.append(cross_cam_item)
     overall = (

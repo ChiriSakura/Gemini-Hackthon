@@ -1,19 +1,19 @@
 {
   "branch_id": "branch_v1",
-  "branch_label": "BE · 雨夜惊逃与碎花瓶（默认缓存主线）",
+  "branch_label": "BE · Rainy Escape & Shattered Vase (Baseline)",
   "parent_branch_id": null,
   "forked_from_scene": null,
   "rewrite_summary": null,
   "contradiction_warning": null,
   "props_registry": {
     "red_umbrella": {
-      "name": "亮红复古长柄伞",
+      "name": "Crimson Vintage Umbrella",
       "image_url": "/assets/actors/lia.png",
       "state": "held",
       "origin": "preset"
     },
     "crystal_vase": {
-      "name": "蓝玫瑰水晶花瓶",
+      "name": "Blue Rose Crystal Vase",
       "image_url": "/assets/props/crystal_vase.png",
       "state": "broken",
       "origin": "preset"
@@ -22,9 +22,9 @@
   "scenes": [
     {
       "scene_id": 1,
-      "title": "雨夜初遇",
+      "title": "Rainy Night Encounter",
       "duration_sec": 4.0,
-      "narration": "暖微光下，莉亚撑着红伞站在玻璃花房左侧，星月黑猫诺克斯蹲在右侧好奇望着中央圆桌上的蓝玫瑰水晶花瓶。",
+      "narration": "Under warm dim lantern light, Lia stands on the left side of the glass conservatory holding a crimson umbrella while black cat Nyx sits on the right gazing at the blue-rose crystal vase on the center table.",
       "vocal_emotion": "neutral",
       "gesture_intent": "none",
       "direction_hint": "none",
@@ -37,7 +37,7 @@
       "actors": [
         {
           "id": "lia",
-          "name": "莉亚",
+          "name": "Lia",
           "asset_url": "/assets/actors/lia.png",
           "grid": [
             0.0,
@@ -49,7 +49,7 @@
         },
         {
           "id": "nyx",
-          "name": "诺克斯",
+          "name": "Nyx",
           "asset_url": "/assets/actors/nyx.png",
           "grid": [
             2.0,
@@ -147,9 +147,9 @@
     },
     {
       "scene_id": 2,
-      "title": "受惊碎瓶",
+      "title": "Startled & Shattered Vase",
       "duration_sec": 4.0,
-      "narration": "莉亚走近想轻抚黑猫，窗外雷声突响，黑猫受惊跃过圆桌扫落水晶花瓶，花瓶当场摔碎在湿冷地板上。",
+      "narration": "As Lia steps closer to pet Nyx, sudden thunder cracks outside; startled, Nyx leaps across the center table and knocks the crystal vase crashing onto the wet floor.",
       "vocal_emotion": "urgent_emotional",
       "gesture_intent": "none",
       "direction_hint": "center",
@@ -162,7 +162,7 @@
       "actors": [
         {
           "id": "lia",
-          "name": "莉亚",
+          "name": "Lia",
           "asset_url": "/assets/actors/lia.png",
           "grid": [
             0.7,
@@ -174,7 +174,7 @@
         },
         {
           "id": "nyx",
-          "name": "诺克斯",
+          "name": "Nyx",
           "asset_url": "/assets/actors/nyx.png",
           "grid": [
             1.5,
@@ -272,9 +272,9 @@
     },
     {
       "scene_id": 3,
-      "title": "警惕躲避",
+      "title": "Wary Retreat in the Corner",
       "duration_sec": 4.0,
-      "narration": "冷雨蓝光下，地上的碎玻璃与蓝玫瑰花瓣仍在；黑猫警惕躲在右角阴影里，莉亚心疼地停在原地。",
+      "narration": "Under cold rainy blue lighting, shattered crystal shards and blue petals remain on the wet floor; Nyx crouches warily in the far-right shadow while Lia pauses sorrowfully.",
       "vocal_emotion": "sad_soft",
       "gesture_intent": "none",
       "direction_hint": "none",
@@ -287,7 +287,7 @@
       "actors": [
         {
           "id": "lia",
-          "name": "莉亚",
+          "name": "Lia",
           "asset_url": "/assets/actors/lia.png",
           "grid": [
             0.5,
@@ -299,7 +299,7 @@
         },
         {
           "id": "nyx",
-          "name": "诺克斯",
+          "name": "Nyx",
           "asset_url": "/assets/actors/nyx.png",
           "grid": [
             2.0,
@@ -390,9 +390,9 @@
     },
     {
       "scene_id": 4,
-      "title": "BE · 雨夜独留",
+      "title": "BE · Left Alone in the Rain",
       "duration_sec": 4.0,
-      "narration": "暴雨倾盆，黑猫转身逃入右角雨幕，B 机位 45° 特写莉亚独自撑红伞站在满地碎玻璃旁。",
+      "narration": "Heavy rain pours down as Nyx turns and flees into the right-corner storm shadows; Camera B closes in at 45 degrees on Lia standing alone under her red umbrella beside broken glass.",
       "vocal_emotion": "sad_soft",
       "gesture_intent": "none",
       "direction_hint": "none",
@@ -405,7 +405,7 @@
       "actors": [
         {
           "id": "lia",
-          "name": "莉亚",
+          "name": "Lia",
           "asset_url": "/assets/actors/lia.png",
           "grid": [
             0.4,
@@ -417,7 +417,7 @@
         },
         {
           "id": "nyx",
-          "name": "诺克斯",
+          "name": "Nyx",
           "asset_url": "/assets/actors/nyx.png",
           "grid": [
             2.0,
@@ -449,55 +449,97 @@
         "cam_a_preview_url": null,
         "cam_b_preview_url": null,
         "cam_a_final_url": "/assets/finals/scene_4_cam_a.mp4",
-        "cam_b_final_url": null,
+        "cam_b_final_url": "/assets/finals/scene_4_cam_b.mp4",
         "cam_a_tail_frame_url": "/assets/tails/scene_4_cam_a_tail.png",
-        "cam_b_tail_frame_url": null,
+        "cam_b_tail_frame_url": "/assets/tails/scene_4_cam_b_tail.png",
         "qa_result": {
-          "overall_score": 0.972,
+          "overall_score": 0.781,
           "all_passed": false,
           "items": [
             {
-              "question": "[Cam B] Is the silver-haired girl alone under her red umbrella looking wistfully down?",
-              "passed": false,
-              "confidence": 0.0,
-              "reason": "BadRequestError: Error code: 400 - {'error': {'message': 'Input blocked: The prompt could not be processed. Please try rephrasing the prompt or using different input. If you think this was an error, [send feedback](https://aistudio.google.com/docs/troubleshooting).', 'code': 'content_blocked'}}"
-            },
-            {
-              "question": "[Cam B] Is the crystal vase still broken on the floor (object permanence)?",
-              "passed": false,
-              "confidence": 0.0,
-              "reason": "BadRequestError: Error code: 400 - {'error': {'message': 'Input blocked: The prompt could not be processed. Please try rephrasing the prompt or using different input. If you think this was an error, [send feedback](https://aistudio.google.com/docs/troubleshooting).', 'code': 'content_blocked'}}"
-            },
-            {
-              "question": "[Cam B] Is the black cat fleeing toward the far right rainy corner?",
-              "passed": false,
-              "confidence": 0.0,
-              "reason": "BadRequestError: Error code: 400 - {'error': {'message': 'Input blocked: The prompt could not be processed. Please try rephrasing the prompt or using different input. If you think this was an error, [send feedback](https://aistudio.google.com/docs/troubleshooting).', 'code': 'content_blocked'}}"
-            },
-            {
-              "question": "[Cam B] Do Camera A and Camera B stay spatially consistent?",
-              "passed": false,
-              "confidence": 0.0,
-              "reason": "BadRequestError: Error code: 400 - {'error': {'message': 'Input blocked: The prompt could not be processed. Please try rephrasing the prompt or using different input. If you think this was an error, [send feedback](https://aistudio.google.com/docs/troubleshooting).', 'code': 'content_blocked'}}"
-            },
-            {
-              "question": "Is the black cat realistically small (below the girl's knee height) with all characters and props resting naturally on surfaces without floating?",
+              "question": "[CAM A] Is the silver-haired girl alone under her red umbrella looking wistfully down?",
               "passed": true,
-              "confidence": 0.914,
-              "reason": "Decision-1 P(true)=0.91"
+              "confidence": 0.713,
+              "reason": "Decision-1 P(true)=0.71"
             },
             {
-              "question": "Is this a clean full-bleed nighttime anime frame with NO black borders, NO coordinate axes or numbers, NO duplicate umbrellas or duplicate star tokens, and consistent nighttime atmosphere?",
+              "question": "[CAM A] Is the crystal vase still broken on the floor (object permanence)?",
               "passed": true,
-              "confidence": 0.918,
+              "confidence": 0.916,
               "reason": "Decision-1 P(true)=0.92"
+            },
+            {
+              "question": "[CAM A] Is the black cat fleeing toward the far right rainy corner?",
+              "passed": true,
+              "confidence": 0.888,
+              "reason": "Decision-1 P(true)=0.89"
+            },
+            {
+              "question": "[CAM A] Do Camera A and Camera B stay spatially consistent?",
+              "passed": true,
+              "confidence": 0.583,
+              "reason": "Decision-1 P(true)=0.58 [LOW_CONFIDENCE: escalate]"
+            },
+            {
+              "question": "[CAM A] Is the black cat realistically small (below the girl's knee height) with all characters and props resting naturally on surfaces without floating?",
+              "passed": true,
+              "confidence": 0.926,
+              "reason": "Decision-1 P(true)=0.93"
+            },
+            {
+              "question": "[CAM A] Is this a clean full-bleed nighttime anime frame with NO black borders, NO coordinate axes or numbers, NO duplicate umbrellas or duplicate star tokens, and consistent nighttime atmosphere?",
+              "passed": true,
+              "confidence": 0.89,
+              "reason": "Decision-1 P(true)=0.89"
+            },
+            {
+              "question": "[CAM B] Is the silver-haired girl alone under her red umbrella looking wistfully down?",
+              "passed": true,
+              "confidence": 0.628,
+              "reason": "Decision-1 P(true)=0.63 [LOW_CONFIDENCE: escalate]"
+            },
+            {
+              "question": "[CAM B] Is the crystal vase still broken on the floor (object permanence)?",
+              "passed": true,
+              "confidence": 0.935,
+              "reason": "Decision-1 P(true)=0.94"
+            },
+            {
+              "question": "[CAM B] Is the black cat fleeing toward the far right rainy corner?",
+              "passed": true,
+              "confidence": 0.793,
+              "reason": "Decision-1 P(true)=0.79"
+            },
+            {
+              "question": "[CAM B] Do Camera A and Camera B stay spatially consistent?",
+              "passed": false,
+              "confidence": 0.618,
+              "reason": "Decision-1 P(true)=0.38 [LOW_CONFIDENCE: escalate]"
+            },
+            {
+              "question": "[CAM B] Is the black cat realistically small (below the girl's knee height) with all characters and props resting naturally on surfaces without floating?",
+              "passed": true,
+              "confidence": 0.805,
+              "reason": "Decision-1 P(true)=0.80"
+            },
+            {
+              "question": "[CAM B] Is this a clean full-bleed nighttime anime frame with NO black borders, NO coordinate axes or numbers, NO duplicate umbrellas or duplicate star tokens, and consistent nighttime atmosphere?",
+              "passed": true,
+              "confidence": 0.87,
+              "reason": "Decision-1 P(true)=0.87"
+            },
+            {
+              "question": "[Dual-Cam] Camera A & Camera B spatial, prop, and nighttime lighting consistency",
+              "passed": true,
+              "confidence": 0.822,
+              "reason": "Cross-Cam Decision-1 P(true)=0.82"
             }
           ]
         },
-        "qa_score": 0.428,
+        "qa_score": 0.777,
         "qa_retries": 2,
         "selected_candidate_index": 0,
-        "fallback_to_preview": true
+        "fallback_to_preview": false
       }
     }
   ]
