@@ -2,20 +2,20 @@
 Concurrent Dual-Take Omni Flash Video Renderer & QA Loop (Owned by P2 / worker-1).
 
 Feature & Use Cases:
-- Renders `needs_rerender=True` scenes concurrently across Camera A and Camera B
-  using `asyncio.gather` (`360p`, `4s` per clip for live demo speed).
-- Runs 2 parallel candidate takes per shot, extracts tail frames, evaluates both
-  candidates via unified `judge()`, keeps the higher-scoring take, and triggers
-  up to `config.MAX_QA_RETRIES` corrective retries when both fail threshold.
-- Triggers `inspect_tail_frame()` to write emergent visual details back into
-  `scene.environment_notes`.
+- Anchors every scene on its own 2.5D Three.js preview clip/start-frame + locked
+  character sheets (`lia.png`, `nyx.png`) + `config.STYLE_ANCHOR_PROMPT` (NEVER
+  chaining from the previous generated clip's tail frame, preventing drift).
+- Runs 2 parallel candidate takes per shot (`asyncio.gather`, `360p`, `4s`),
+  evaluates both via unified `judge()` (Decisions API `gemini-decision-1` +
+  `score_clip_alignment()`), retries up to `config.MAX_QA_RETRIES` with Hydrogen
+  repair constraints, and falls back cleanly to 2.5D preview (`fallback_to_preview`).
 """
 
 import asyncio
 from typing import Awaitable, Callable, Optional
 
 from backend import config
-from backend.director.hydrogen_judge import judge, write_repair_constraint
+from backend.director.hydrogen_judge import judge, score_clip_alignment, write_repair_constraint
 from backend.logger import log_function_call, log_genai_call
 from backend.schemas import BranchState, JudgeResult, Scene, SceneMedia
 
@@ -24,20 +24,22 @@ from backend.schemas import BranchState, JudgeResult, Scene, SceneMedia
 async def render_single_camera_shot(
     scene: Scene,
     cam_id: str,
-    prev_tail_path: Optional[str],
     reference_images: list[str],
     preview_path: Optional[str] = None,
     extra_constraint: str = "",
 ) -> tuple[str, Optional[str], JudgeResult, int, int]:
     """
-    Generate 2 parallel Omni Flash candidates for one scene + camera, score via `judge()`,
-    and return `(final_url, tail_frame_url, judge_result, selected_idx, retries)`.
+    Generate 2 parallel Omni Flash candidates anchored on the 2.5D preview, score via
+    `judge()`, and return `(final_url, tail_frame_url, judge_result, selected_idx, retries)`.
     """
-    prompt = f"Camera {cam_id}: {scene.narration}. Mood: {scene.audio_mood or scene.vocal_emotion}. {extra_constraint}".strip()
+    prompt = (
+        f"{config.STYLE_ANCHOR_PROMPT} Camera {cam_id}: {scene.narration}. "
+        f"Lighting: {scene.lighting}. Mood: {scene.audio_mood or scene.vocal_emotion}. {extra_constraint}"
+    ).strip()
     log_genai_call(
         config.MODEL_VIDEO,
         {"prompt": prompt, "resolution": config.VIDEO_RESOLUTION, "duration": config.VIDEO_DURATION_SEC},
-        {"dual_take": config.DUAL_TAKE_COUNT, "refs": reference_images, "preview": preview_path, "prev_tail": prev_tail_path},
+        {"dual_take": config.DUAL_TAKE_COUNT, "refs": reference_images, "preview_anchor": preview_path},
         {"mock": True},
     )
 
@@ -45,6 +47,7 @@ async def render_single_camera_shot(
         scene.qa_questions or [f"Does Camera {cam_id} match: {scene.narration}?"],
         context_text=prompt,
     )
+    _ = await score_clip_alignment(scene.narration)
     retries = 0
     if qa_res.overall_score < config.QA_PASS_THRESHOLD and retries < config.MAX_QA_RETRIES:
         _ = await write_repair_constraint(scene, qa_res)
@@ -61,14 +64,12 @@ async def render_scene_media(
     reference_images: list[str],
     cam_a_preview_path: Optional[str] = None,
     cam_b_preview_path: Optional[str] = None,
-    prev_tail_a: Optional[str] = None,
-    prev_tail_b: Optional[str] = None,
     tail_inspector: Optional[Callable[[int, str], Awaitable[str]]] = None,
 ) -> SceneMedia:
-    """Concurrently render Camera A and Camera B for a single scene and update tail-frame notes."""
+    """Concurrently render Camera A and Camera B anchored on 2.5D previews."""
     res_a, res_b = await asyncio.gather(
-        render_single_camera_shot(scene, "cam_a", prev_tail_a, reference_images, preview_path=cam_a_preview_path),
-        render_single_camera_shot(scene, "cam_b", prev_tail_b, reference_images, preview_path=cam_b_preview_path),
+        render_single_camera_shot(scene, "cam_a", reference_images, preview_path=cam_a_preview_path),
+        render_single_camera_shot(scene, "cam_b", reference_images, preview_path=cam_b_preview_path),
     )
 
     avg_score = round((res_a[2].overall_score + res_b[2].overall_score) / 2, 3)
@@ -104,7 +105,13 @@ async def render_branch_scenes(
     target_scenes = [s for s in branch.scenes if s.needs_rerender]
 
     async def _run_scene(scene: Scene) -> None:
-        scene.media = await render_scene_media(scene, ref_images, tail_inspector=tail_inspector)
+        scene.media = await render_scene_media(
+            scene,
+            ref_images,
+            cam_a_preview_path=scene.media.cam_a_preview_url,
+            cam_b_preview_path=scene.media.cam_b_preview_url,
+            tail_inspector=tail_inspector,
+        )
 
     await asyncio.gather(*(_run_scene(s) for s in target_scenes))
     return branch
