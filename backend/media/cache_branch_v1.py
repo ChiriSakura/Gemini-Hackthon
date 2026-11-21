@@ -52,7 +52,9 @@ async def cache_all() -> tuple[BranchState, BranchState]:
             scene.reused_from_branch = "branch_v1"
             return
 
-        media = await render_scene_media(scene, ref_images_v2, tail_inspector=inspect_tail_frame)
+        media = await render_scene_media(
+            scene, ref_images_v2, tail_inspector=inspect_tail_frame, overwrite_canonical=True
+        )
         for cam in ("cam_a", "cam_b"):
             src_mp4 = config.FINALS_DIR / f"scene_{scene.scene_id}_{cam}.mp4"
             dst_mp4 = config.FINALS_DIR / f"branch_v2_scene_{scene.scene_id}_{cam}.mp4"
@@ -82,7 +84,9 @@ async def cache_all() -> tuple[BranchState, BranchState]:
     ]
 
     for scene in branch_v1.scenes:
-        scene.media = await render_scene_media(scene, ref_images_v1, tail_inspector=inspect_tail_frame)
+        scene.media = await render_scene_media(
+            scene, ref_images_v1, tail_inspector=inspect_tail_frame, overwrite_canonical=True
+        )
         scene.needs_rerender = False
     save_branch(branch_v1)
     print(f"[Branch 1] Saved {branch_v1.branch_id} ({len(branch_v1.scenes)} scenes)")

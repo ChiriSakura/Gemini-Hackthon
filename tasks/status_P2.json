@@ -51,8 +51,9 @@
     "W1-T2C: Generated transparent backend/assets/props/crystal_vase_broken.png (bottom-flush cropped for Three.js center=(0.5,0.0)) and pre-cached branch_v2_cached.json (6 H.264 MP4s for Scenes 2..4 + reused Scene 1)",
     "W1-T2D: Verified live photo JPEG create_prop() (13.48s RGBA transparent PNG) and benchmarked v1beta models/gemini-decision-1 directly on .mp4 (accepted! 1.54s w/ video+audio tokens) vs .png (0.93s)",
     "W1-T3A: Added 1-take vs 2-take pass-rate & retry logger writing to backend/assets/eval_media_stats.jsonl (14 live shots recorded)",
-    "W1-T3B: Added 60s asyncio.wait_for per-take timeout safety guard and get_render_progress()/list_render_progress() helpers in video_renderer.py"
+    "W1-T3B: Added 60s asyncio.wait_for per-take timeout safety guard and get_render_progress()/list_render_progress() helpers in video_renderer.py",
+    "Live-Demo Hardening: Added non-clobbering unique output filenames for live forked branches (keeps branch_v1 intact for side-by-side comparison), Chrome .webm preview duration-mismatch guard + start-frame extraction (prevents Omni Flash 400 errors), and rule_memory.add_rule() auto-distillation on QA repairs"
   ],
   "blockers": [],
-  "last_updated": "2026-11-21T13:01:00-05:00"
+  "last_updated": "2026-11-21T13:03:00-05:00"
 }

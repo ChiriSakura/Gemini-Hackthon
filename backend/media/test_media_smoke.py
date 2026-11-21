@@ -79,7 +79,7 @@ def run_smoke_tests() -> None:
         assert prop_json["item"]["origin"] == "camera_physical"
         assert client.get(prop_json["image_url"]).status_code == 200
 
-        # 5. Verify POST /api/media/render-scene contract on scene 1
+        # 5. Verify POST /api/media/render-scene contract on scene 1 (unique non-clobbering output URL)
         resp_render = client.post(
             "/api/media/render-scene",
             data={"branch_id": "branch_v1", "scene_id": 1},
@@ -87,8 +87,17 @@ def run_smoke_tests() -> None:
         assert resp_render.status_code == 200, resp_render.text
         render_json = resp_render.json()
         assert render_json["scene_id"] == 1
-        assert render_json["media"]["cam_a_final_url"] == "/assets/finals/scene_1_cam_a.mp4"
-        assert render_json["media"]["cam_b_final_url"] == "/assets/finals/scene_1_cam_b.mp4"
+        assert render_json["media"]["cam_a_final_url"].startswith("/assets/finals/scene_1_cam_a_")
+        assert render_json["media"]["cam_a_final_url"].endswith(".mp4")
+        assert render_json["media"]["cam_b_final_url"].startswith("/assets/finals/scene_1_cam_b_")
+        assert render_json["media"]["cam_b_final_url"].endswith(".mp4")
+
+        # 6. Verify preview duration guard extracts crisp start frame and avoids 400 mismatch
+        from backend.media.video_renderer import _prepare_preview_media_sync
+        start_img, raw_vid = _prepare_preview_media_sync(config.FINALS_DIR / "scene_1_cam_a.mp4", target_duration_sec=3)
+        assert start_img is not None and start_img.is_file(), "Expected extracted start frame"
+        assert raw_vid is None, "Expected mismatched duration preview video to be safely bypassed"
+        start_img.unlink(missing_ok=True)
     finally:
         config.DEMO_MODE = prev_demo
         (config.PROPS_DIR / "smoke_prop.png").unlink(missing_ok=True)
