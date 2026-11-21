@@ -36,6 +36,7 @@ import {
   type DualCameraStageHandle,
 } from './components/DualCameraStage';
 import { EvalModal } from './components/EvalModal';
+import { ModelsPanel } from './components/ModelsPanel';
 import { StoryBranchTree } from './components/StoryBranchTree';
 import { INITIAL_MOCK_BRANCHES } from './data/mockBranches';
 import type { PreviewExportResult } from './stage/ThreeStageManager';
@@ -143,6 +144,7 @@ export default function App(): React.ReactElement {
     return new URLSearchParams(window.location.search).get('clean') === '1';
   });
   const [evalModalOpen, setEvalModalOpen] = useState<boolean>(false);
+  const [modelsOpen, setModelsOpen] = useState<boolean>(false);
   const [isPlayingStory, setIsPlayingStory] = useState<boolean>(false);
   const [, setTargetSceneId] = useState<number>(2);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -1110,9 +1112,12 @@ export default function App(): React.ReactElement {
   return (
     <div className="app-shell" data-mood={activeScene.lighting}>
       <header className="topbar">
-        <span className="brand" title="Genesis">
-          Genesis
+        <span className="brand" title="StageGenesis">
+          StageGenesis
         </span>
+        <button type="button" className="topbar-tab" onClick={() => setModelsOpen(true)}>
+          Models &amp; Evaluation
+        </button>
         {apiStatus === 'saved' && (
           <span
             className="mode-badge saved"
@@ -1283,6 +1288,7 @@ export default function App(): React.ReactElement {
         onSubmitThrow={handleSubmitThrow}
       />
 
+      <ModelsPanel open={modelsOpen} onClose={() => setModelsOpen(false)} />
       <EvalModal
         open={evalModalOpen}
         onClose={() => setEvalModalOpen(false)}

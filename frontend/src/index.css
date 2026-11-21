@@ -2848,3 +2848,65 @@ body::before {
   border-radius: inherit;
   pointer-events: none;
 }
+
+
+/* Models & Evaluation panel */
+.topbar-tab {
+  margin-left: 18px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(253, 230, 138, 0.35);
+  background: transparent;
+  color: #fde68a;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+.topbar-tab:hover { background: rgba(253, 230, 138, 0.14); }
+.models-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 16px;
+  overflow-y: auto;
+  background: rgba(6, 8, 20, 0.78);
+  backdrop-filter: blur(6px);
+}
+.models-panel {
+  width: min(920px, 100%);
+  padding: 28px 32px 32px;
+  border-radius: 20px;
+  border: 1px solid rgba(253, 230, 138, 0.28);
+  background: linear-gradient(160deg, rgba(30, 24, 66, 0.96), rgba(12, 14, 34, 0.98));
+  color: #e2e8f0;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+}
+.models-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.models-head h2 { margin: 0; font-size: 22px; font-weight: 600; color: #fde68a; letter-spacing: 0.02em; }
+.models-close { border: 0; background: transparent; color: #cbd5e1; font-size: 26px; line-height: 1; cursor: pointer; }
+.models-panel h3 { margin: 22px 0 10px; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(203, 213, 225, 0.7); }
+.models-flow { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.models-flow li { display: grid; grid-template-columns: 110px 220px 1fr; gap: 14px; align-items: baseline; padding: 10px 14px; border-radius: 12px; background: rgba(148, 163, 184, 0.08); }
+.models-step { font-weight: 600; color: #f8fafc; }
+.models-name { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; color: #fde68a; overflow-wrap: anywhere; }
+.models-job { font-size: 13px; line-height: 1.45; color: rgba(226, 232, 240, 0.85); }
+.models-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.models-tile { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 14px; background: rgba(253, 230, 138, 0.07); border: 1px solid rgba(253, 230, 138, 0.16); }
+.models-tile-value { font-size: 24px; font-weight: 600; color: #fde68a; font-variant-numeric: tabular-nums; }
+.models-tile-label { font-size: 13px; color: #f1f5f9; }
+.models-tile-note { font-size: 11.5px; color: rgba(203, 213, 225, 0.65); }
+.models-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.models-table th { text-align: left; font-weight: 500; color: rgba(203, 213, 225, 0.7); padding: 6px 10px; border-bottom: 1px solid rgba(148, 163, 184, 0.25); }
+.models-table td { padding: 7px 10px; border-bottom: 1px solid rgba(148, 163, 184, 0.12); }
+.models-foot, .models-empty { margin: 10px 0 0; font-size: 12.5px; line-height: 1.5; color: rgba(203, 213, 225, 0.75); }
+@media (max-width: 640px) { .models-flow li { grid-template-columns: 1fr; gap: 4px; } }
+
+.arch { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; }
+.arch-node { display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 10px 12px; min-width: 104px; border-radius: 12px; border: 1px solid rgba(165, 180, 252, 0.35); background: rgba(99, 102, 241, 0.14); font-size: 13px; font-weight: 600; color: #f8fafc; }
+.arch-node small { font-size: 11px; font-weight: 400; color: #fde68a; }
+.arch-node.in, .arch-node.out { background: rgba(253, 230, 138, 0.1); border-color: rgba(253, 230, 138, 0.35); }
+.arch-node.state { background: rgba(45, 212, 191, 0.12); border-color: rgba(45, 212, 191, 0.4); }
+.arch-arrow { align-self: center; color: rgba(203, 213, 225, 0.6); font-size: 16px; }
