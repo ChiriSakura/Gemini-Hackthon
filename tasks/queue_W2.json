@@ -4,55 +4,43 @@
   "pull_main_first": true,
   "batch_deadline": "16:50",
   "owned_paths": ["frontend/**", "tasks/status_P3.json"],
-  "note": "Master merged 9765781 (all 10 W2-T8A..T8J tasks passed: tsc clean, vite build 893ms, 0 CJK UI hits!). Pull main first, then run these 8 T9 Final Stability, Offline Fallback & Self-Test tasks!",
+  "note": "Master merged a6b1c15 (W2-T9A..T9H all passed 100%: tsc, build 893ms, verify-locale & verify_frontend!). Pull main first, then execute these 6 low-risk T10 Final Pre-Pitch Stability & QA checks (avoid risky visual refactors before live demo!).",
   "parallel_tasks": [
     {
-      "task_id": "W2-T9A",
+      "task_id": "W2-T10A",
       "priority": "P0",
-      "title": "Sync `frontend/src/data/mockBranches.ts` to 100% Native English + Add `branch_v3` & `branch_v4` Offline Previews",
-      "details": "Audit `frontend/src/data/mockBranches.ts` so fallback mock data uses idiomatic English strings natively (even before `displayLocale.ts`) and optionally includes lightweight preview presets for all 4 story arcs cleanly when FastAPI is offline."
+      "title": "Extend `verify-locale.mjs` to Scan All 4 Cached Branches (`branch_v1`..`branch_v4`)",
+      "details": "Update `frontend/scripts/verify-locale.mjs` so it checks all 4 cached branch JSONs (`branch_v1`, `branch_v2_cached`, `branch_v3_starlight_cached`, `branch_v4_umbrella_shield_cached`) for 0 CJK leaks and scene continuity."
     },
     {
-      "task_id": "W2-T9B",
+      "task_id": "W2-T10B",
       "priority": "P0",
-      "title": "Verify `StageErrorBoundary` Clean Recovery & Canvas WebGL Context-Loss Guard",
-      "details": "In `frontend/src/stage/ThreeStageManager.ts` and `StageErrorBoundary.tsx`: attach `webglcontextlost` / `webglcontextrestored` listeners cleanly on `canvasA`/`canvasB` so rapid laptop sleep/wake during Hackathon booth sessions never leaves a black Three.js canvas."
+      "title": "Include `showcase_desk_*.png` & Submission Assets in `verify_frontend.mjs`",
+      "details": "Extend `frontend/scripts/verify_frontend.mjs` to assert that `demo_comparison_be_vs_he.mp4`, `pitch_demo_reel_1min.mp4`, `hook_10s_dualcam_twist.mp4`, `eval_dashboard_12s.mp4`, `showcase_storyboard_strip.png`, and `showcase_desk_*.png` exist on disk so nothing referenced in `EvalModal` can 404 during pitch."
     },
     {
-      "task_id": "W2-T9C",
+      "task_id": "W2-T10C",
       "priority": "P1",
-      "title": "Add `frontend/scripts/verify_frontend.mjs` Automated Sanity Script",
-      "details": "Create `frontend/scripts/verify_frontend.mjs` (zero extra npm deps) checking: (1) zero CJK characters in `frontend/src` & `index.html`, (2) all referenced `/assets/actors/*` & `/assets/props/*` files exist under `frontend/public/assets/` or `backend/assets/`, and (3) `dist/index.html` + asset chunks exist cleanly after `npm run build`."
+      "title": "Clean Three.js Disposal & WebGL Texture/Geometry Memory Leak Guard",
+      "details": "Audit `ThreeStageManager.ts` `dispose()` to verify every cloned mirrored actor texture (`repeat.x = -1`), shadow ring geometry/material, and particle system cleanly disposes without console WebGL warnings on ErrorBoundary recovery remounts."
     },
     {
-      "task_id": "W2-T9D",
+      "task_id": "W2-T10D",
       "priority": "P1",
-      "title": "Pause Background `<video>` Autoplay Elements When `EvalModal` Opens",
-      "details": "In `frontend/src/components/DualCameraStage.tsx` / `App.tsx`: when `evalModalOpen` is true and the user watches `demo_comparison_be_vs_he.mp4` or `hook_10s_dualcam_twist.mp4`, mute/pause the stage `<video>` elements behind the modal so audio tracks never overlap."
+      "title": "Unit Regression Test Script (`frontend/scripts/test_stage_helpers.mjs`)",
+      "details": "Add a fast pure-Node regression script testing branch helper utilities (`soundCue`, `mockBranches` invariant checks: valid 3x3 grids `[0..2]`, valid `lighting` presets, unique branch IDs, and `stageClient` FormData helper edge cases)."
     },
     {
-      "task_id": "W2-T9E",
+      "task_id": "W2-T10E",
       "priority": "P1",
-      "title": "Clean `displayLocale.ts` Check & Unit-Testable Translation Coverage",
-      "details": "In `frontend/src/utils/displayLocale.ts`: ensure every CJK keyword or actor/prop alias maps cleanly to consistent English terminology (`Lia`, `Nyx`, `Crimson Vintage Umbrella`, `Blue Rose Crystal Vase`, `Starlight Keepsake`) matching `shared/mock_branch_1.json` & `mock_branch_2.json`."
+      "title": "Keyboard Focus & Clean Capture URL Query Toggle (`?clean=1`)",
+      "details": "In `frontend/src/App.tsx`: allow launching directly into Clean Capture Mode if `?clean=1` is present in `window.location.search` (plus keep `C` key toggle) so screen-recording a clean 1-minute demo starts zero-clutter from frame 0."
     },
     {
-      "task_id": "W2-T9F",
-      "priority": "P1",
-      "title": "Pre-Demo Checklist Drawer / Dry-Run Indicator in `EvalModal.tsx`",
-      "details": "Add a compact 4-bullet 'Live Booth Checklist' badge inside `EvalModal.tsx` (`Mic Ready · Cam Ready · API Live · 4 Cached Branches Loaded`) reading live runtime states cleanly."
-    },
-    {
-      "task_id": "W2-T9G",
-      "priority": "P1",
-      "title": "Verify `npm run build` Bundle Size & Zero Unused Imports (`tsc --noEmit`)",
-      "details": "Confirm zero TypeScript unused locals/warnings, verify chunk splitting (`three-vendor`, `react-vendor`, app chunk) stays optimal, and record bundle metrics in `tasks/status_P3.json`."
-    },
-    {
-      "task_id": "W2-T9H",
+      "task_id": "W2-T10F",
       "priority": "P0",
-      "title": "Run `node frontend/scripts/verify_frontend.mjs` & Final Pre-Pitch Lock in `tasks/status_P3.json`",
-      "details": "Execute `npx tsc --noEmit && npm run build && node scripts/verify_frontend.mjs` inside `frontend/`, verify all checks pass 100%, and mark P3 ready for final pitch rehearsal in `tasks/status_P3.json`."
+      "title": "Run Complete Frontend Pre-Pitch Gate & Lock `tasks/status_P3.json`",
+      "details": "Run `npx tsc --noEmit && npm run build && node scripts/verify-locale.mjs && node scripts/verify_frontend.mjs && node scripts/test_stage_helpers.mjs` and mark final status cleanly in `tasks/status_P3.json`."
     }
   ]
 }
