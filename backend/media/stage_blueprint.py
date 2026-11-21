@@ -428,6 +428,138 @@ def render_scene_blueprint(scene: Scene, cam_id: str, output_path: Path) -> Path
     return output_path
 
 
+_FACING_VECTORS: dict[str, tuple[float, float]] = {
+    "right": (1.0, 0.0),
+    "left": (-1.0, 0.0),
+    "front": (0.0, 1.0),
+    "back": (0.0, -1.0),
+}
+
+
+def _describe_view_aspect(cam_pos: tuple[float, float, float], wx: float, wz: float, facing: str) -> str:
+    """Compute how an actor facing `facing` in 3D world space appears from `cam_pos`."""
+    tx, tz = cam_pos[0] - wx, cam_pos[2] - wz
+    t_norm = math.hypot(tx, tz) or 1.0
+    vx, vz = _FACING_VECTORS.get(str(facing).lower(), (0.0, 1.0))
+    cosang = max(-1.0, min(1.0, (tx * vx + tz * vz) / t_norm))
+    ang = math.degrees(math.acos(cosang))
+    if ang < 30.0:
+        return "front view"
+    if ang < 75.0:
+        return "three-quarter front view"
+    if ang < 105.0:
+        return "side profile"
+    if ang < 150.0:
+        return "three-quarter rear view"
+    return "rear view"
+
+
+def _side_of_table(screen_x: float, table_screen_x: float) -> str:
+    dx = screen_x - table_screen_x
+    if dx < -36.0:
+        return "left of the table"
+    if dx > 36.0:
+        return "right of the table"
+    return "centered at the table"
+
+
+def compute_dual_cam_epipolar_guide(scene: Scene) -> dict:
+    """
+    Project every actor and active stage prop from their exact shared 3D world coordinates `(wx, wy, wz)`
+    through both Camera A (`P_A`) and Camera B (`P_B`) projection matrices.
+
+    Returns exact screen-space positions, relative table sides, depths, and viewing angles for both panels,
+    plus a concise natural-language constraint summary for 3D-first split-screen video generation.
+    """
+    cam_a = PerspectiveCamera(44.0, (0.0, 2.75, 6.2), (0.0, 0.9, 0.0))
+    cam_b = PerspectiveCamera(36.0, (3.25, 1.95, 3.55), (0.0, 0.9, 0.0))
+    tbl_a = cam_a.project((0.0, 0.0, 0.0)) or (WIDTH / 2.0, HEIGHT / 2.0, 6.2)
+    tbl_b = cam_b.project((0.0, 0.0, 0.0)) or (WIDTH / 2.0, HEIGHT / 2.0, 4.8)
+
+    actor_rows: list[dict] = []
+    prop_rows: list[dict] = []
+    clauses: list[str] = []
+
+    for actor in scene.actors:
+        wx, wz = grid_to_world(actor.grid)
+        pa = cam_a.project((wx, 0.0, wz))
+        pb = cam_b.project((wx, 0.0, wz))
+        if pa is None or pb is None:
+            continue
+        side_a = _side_of_table(pa[0], tbl_a[0])
+        side_b = _side_of_table(pb[0], tbl_b[0])
+        view_a = _describe_view_aspect((0.0, 2.75, 6.2), wx, wz, actor.facing)
+        view_b = _describe_view_aspect((3.25, 1.95, 3.55), wx, wz, actor.facing)
+        row = {
+            "id": actor.id,
+            "name": actor.name,
+            "world": [round(wx, 2), 0.0, round(wz, 2)],
+            "facing": actor.facing,
+            "cam_a": {"x_pct": round(pa[0] / WIDTH, 3), "depth_m": round(pa[2], 2), "side": side_a, "view": view_a},
+            "cam_b": {"x_pct": round(pb[0] / WIDTH, 3), "depth_m": round(pb[2], 2), "side": side_b, "view": view_b},
+        }
+        actor_rows.append(row)
+        clauses.append(
+            f"{actor.name} stands {side_a} in LEFT panel ({view_a}) and {side_b} in RIGHT panel ({view_b}, "
+            f"{'closer to' if pb[2] < tbl_b[2] - 0.35 else 'further from'} Camera B)"
+        )
+
+    for prop in scene.stage_props:
+        wx, wz = grid_to_world(prop.grid)
+        wy = 0.02 if prop.on_floor else 0.75
+        pa = cam_a.project((wx, wy, wz))
+        pb = cam_b.project((wx, wy, wz))
+        if pa is None or pb is None:
+            continue
+        side_a = _side_of_table(pa[0], tbl_a[0])
+        side_b = _side_of_table(pb[0], tbl_b[0])
+        surface = "on the floor" if prop.on_floor else "on the center round table"
+        row = {
+            "id": prop.id,
+            "world": [round(wx, 2), wy, round(wz, 2)],
+            "state": prop.state,
+            "on_floor": prop.on_floor,
+            "cam_a": {"x_pct": round(pa[0] / WIDTH, 3), "depth_m": round(pa[2], 2), "side": side_a},
+            "cam_b": {"x_pct": round(pb[0] / WIDTH, 3), "depth_m": round(pb[2], 2), "side": side_b},
+        }
+        prop_rows.append(row)
+        label = prop.id.replace("_", " ")
+        clauses.append(f"{label} ({prop.state}, {surface}) sits {side_a} in LEFT panel and {side_b} in RIGHT panel")
+
+    prompt_summary = (
+        "Exact 3D dual-camera geometric projection (identical world coordinates seen from +45 deg right orbit): "
+        + "; ".join(clauses)
+        + "."
+        if clauses
+        else ""
+    )
+    return {"actors": actor_rows, "props": prop_rows, "prompt_summary": prompt_summary}
+
+
+@log_function_call
+def render_dual_cam_split_guide(scene: Scene, output_path: Path) -> Path:
+    """
+    Render a paired 1280x720 split-screen 3D geometric projection guide (Cam A left, Cam B right,
+    matching `_compose_split_frame_sync` exact letterbox bands) from shared 3D world coordinates.
+    """
+    tmp_a = output_path.with_name(f"{output_path.stem}_a.png")
+    tmp_b = output_path.with_name(f"{output_path.stem}_b.png")
+    try:
+        render_scene_blueprint(scene, "cam_a", tmp_a)
+        render_scene_blueprint(scene, "cam_b", tmp_b)
+        img_a = Image.open(tmp_a).convert("RGB").resize((640, 360), Image.Resampling.LANCZOS)
+        img_b = Image.open(tmp_b).convert("RGB").resize((640, 360), Image.Resampling.LANCZOS)
+        canvas = Image.new("RGB", (1280, 720), (0, 0, 0))
+        canvas.paste(img_a, (0, 180))
+        canvas.paste(img_b, (640, 180))
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        canvas.save(output_path, format="PNG")
+        return output_path
+    finally:
+        tmp_a.unlink(missing_ok=True)
+        tmp_b.unlink(missing_ok=True)
+
+
 @log_function_call
 def render_all_cached_blueprints() -> dict:
     """Pre-render dual-camera 2.5D blueprint frames across branch_v1, v2, v3, and v4."""

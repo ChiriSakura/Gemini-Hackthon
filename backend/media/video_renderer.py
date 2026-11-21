@@ -562,6 +562,37 @@ def _milden_safety_phrasing(text: str) -> str:
     return out
 
 
+_CAMERA_DIRECTIVE_PATTERNS = (
+    # e.g. "Camera B closes in at 45 degrees on Lia..." -> "Lia..."
+    re.compile(
+        r"\bCamera\s+[AB]\s+(?:closes\s+in|zooms\s+in|cuts|pulls\s+back|pans|orbits|frames|focuses)"
+        r"(?:\s+(?:at|by|to|in|from)\s+[^,;:.]{1,32})?\s+(?:on|onto|toward|towards)\s+",
+        re.IGNORECASE,
+    ),
+    # e.g. "Camera A wide establishing shot shows ..." -> ""
+    re.compile(
+        r"\bCamera\s+[AB]\s+(?:wide|close-up|45-degree|side|front)[^,;:.]{0,40}\b(?:shows?|captures?|reveals?)\s+",
+        re.IGNORECASE,
+    ),
+    # e.g. "in Camera B" / "from Camera A's 45-degree angle"
+    re.compile(r"\b(?:in|from|on|via)\s+Camera\s+[AB](?:'s)?(?:\s+(?:wide|close-up|45-degree|side|front)\s+(?:shot|view|angle))?", re.IGNORECASE),
+    re.compile(r"\bCamera\s+[AB]\b", re.IGNORECASE),
+)
+
+
+def _strip_camera_directives(text: str) -> str:
+    """
+    Strip single-camera phrasing (`Camera A/B closes in...`) from scene narration so both panels
+    always execute the exact same world-space physical event without camera-divergent actions.
+    """
+    cleaned = text or ""
+    for pat in _CAMERA_DIRECTIVE_PATTERNS:
+        cleaned = pat.sub("", cleaned)
+    cleaned = re.sub(r"\s+([,;:.!?])", r"\1", cleaned)
+    cleaned = re.sub(r"\s{2,}", " ", cleaned).strip(" ;,")
+    return cleaned or (text or "")
+
+
 def _resolve_clean_actor_ref(path: Path, scene: Optional[Scene] = None) -> Path:
     """
     Swap raw standee references for cleaner Omni Flash equivalents:
@@ -789,7 +820,7 @@ def _build_shot_prompt(
             f"{_describe_prop_with_scale(p.id, state=p.state, on_floor=p.on_floor, entry_motion=prop_entry, prop_descriptions=prop_descriptions)} ({blocking})"
         )
 
-    safe_narration = _milden_safety_phrasing(scene.narration)
+    safe_narration = _milden_safety_phrasing(_strip_camera_directives(scene.narration))
     parts = [
         config.STYLE_ANCHOR_PROMPT,
         "Full-bleed borderless anime cinema frame inside a nighttime rooftop glass conservatory — NO black borders, NO coordinate axes, NO tick marks, NO numbers, NO text or captions.",
@@ -1855,8 +1886,38 @@ async def _render_split_screen_pair(
     )
 
     umbrella_rule = (
-        "" if _umbrella_is_open(scene) else "The red umbrella stays closed and furled for the whole clip. "
+        "The red umbrella is OPEN above Lia's head in BOTH the left panel and the right panel identically. "
+        if _umbrella_is_open(scene)
+        else "The red umbrella stays CLOSED and furled in Lia's LEFT hand (the hand closer to the center table) in BOTH the left panel and the right panel for the whole clip. "
     )
+    epipolar_summary = ""
+    layout_guide_path: Optional[Path] = None
+    uploaded_layout_guide: Optional[tuple[str, str]] = None
+    try:
+        from backend.media.stage_blueprint import compute_dual_cam_epipolar_guide, render_dual_cam_split_guide
+
+        epipolar_info = compute_dual_cam_epipolar_guide(scene)
+        epipolar_summary = (epipolar_info.get("prompt_summary") or "").strip()
+        if epipolar_summary:
+            epipolar_summary += " "
+        # Attach a 3D-projected paired dual-cam layout guide when actors/props moved or custom props were injected.
+        if scene.needs_rerender or active_custom_props:
+            candidate_guide = config.TAILS_DIR / f"{stem}_3d_guide.png"
+            layout_guide_path = await asyncio.to_thread(render_dual_cam_split_guide, scene, candidate_guide)
+            if layout_guide_path and layout_guide_path.is_file():
+                uploaded_layout_guide = await _get_or_upload_uri(layout_guide_path, use_cache=False)
+    except Exception:
+        epipolar_summary = ""
+        uploaded_layout_guide = None
+
+    layout_guide_rule = (
+        "Image 2 is an exact 3D dual-camera projection layout of the shared stage coordinates (LEFT = Camera A, RIGHT = Camera B): "
+        "follow its exact spatial positions and table-side placement of every character and prop in both panels, "
+        "while keeping Image 1's anime art style, lighting, and conservatory architecture. "
+        if uploaded_layout_guide is not None
+        else ""
+    )
+    clean_action = _milden_safety_phrasing(_strip_camera_directives(scene.narration))
     prompt = (
         "Split-screen video. The frame holds two panels side by side with black bars above and below, exactly as in "
         "Image 1. Both panels show the SAME room and the SAME moment, filmed by two synchronized cameras that never move. "
@@ -1865,12 +1926,14 @@ async def _render_split_screen_pair(
         "Every character, limb, held object, and fallen prop keeps the EXACT SAME 3D world-space floor coordinates relative to "
         "the center table, the same handedness, and the same body/head facing direction relative to the room in both panels — "
         "never mirror positions across the table or swap which hand holds an object between panels. "
+        f"{epipolar_summary}"
+        f"{layout_guide_rule}"
         "Every movement happens at exactly the same instant in both panels: the same characters do the same action "
         "with the same timing, only seen from the two camera positions. The world is one and the same in both panels: "
         "anything opened, closed, picked up, put down, broken or spilled looks identical in both, and every object "
         "lies in the same place on the floor. Both cameras are locked on tripods: no pan, "
         "no orbit, no zoom, no cut. Keep the black bars and the vertical split exactly where they are for the whole clip. "
-        f"Action in the scene: {_milden_safety_phrasing(scene.narration)} "
+        f"Action in the scene: {clean_action} "
         f"{extra_prop_rule}"
         f"{umbrella_rule}"
         "Every character and object keeps the size it has in Image 1, in both panels. "
@@ -1880,19 +1943,25 @@ async def _render_split_screen_pair(
     input_parts: list[dict] = [
         {"type": "image", "uri": uploaded[0], "mime_type": uploaded[1]},
     ]
+    if uploaded_layout_guide is not None:
+        input_parts.append({"type": "image", "uri": uploaded_layout_guide[0], "mime_type": uploaded_layout_guide[1]})
     for uri, mime in uploaded_extra_props:
         input_parts.append({"type": "image", "uri": uri, "mime_type": mime})
     input_parts.append({"type": "text", "text": prompt})
     duration_int = max(3, min(10, int(round(scene.duration_sec or config.VIDEO_DURATION_SEC))))
     split_video = config.FINALS_DIR / f"{stem}_split.mp4"
     t0 = time.perf_counter()
-    await asyncio.wait_for(
-        asyncio.to_thread(
-            _generate_omni_take_sync, _resolve_video_model(), input_parts, duration_int, "720p",
-            config.VIDEO_ASPECT_RATIO, split_video,
-        ),
-        timeout=90.0,
-    )
+    try:
+        await asyncio.wait_for(
+            asyncio.to_thread(
+                _generate_omni_take_sync, _resolve_video_model(), input_parts, duration_int, "720p",
+                config.VIDEO_ASPECT_RATIO, split_video,
+            ),
+            timeout=90.0,
+        )
+    finally:
+        if layout_guide_path is not None:
+            layout_guide_path.unlink(missing_ok=True)
     video_sec = round(time.perf_counter() - t0, 2)
     out_a = config.FINALS_DIR / f"scene_{scene.scene_id}_cam_a_{tag}_sync.mp4"
     out_b = config.FINALS_DIR / f"scene_{scene.scene_id}_cam_b_{tag}_sync.mp4"
