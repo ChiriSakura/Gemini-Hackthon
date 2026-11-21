@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-21T15:17:03",
+  "generated_at": "2026-11-21T15:27:58",
   "all_passed": true,
   "scene_ref_pruning": {
     "passed": true,
@@ -22,7 +22,7 @@
   "concurrent_burst_stress": {
     "passed": true,
     "concurrent_jobs": 6,
-    "elapsed_sec": 0.019,
+    "elapsed_sec": 0.025,
     "unique_prop_ids": 3,
     "unique_cam_a_outputs": 3,
     "unique_cam_b_outputs": 3,

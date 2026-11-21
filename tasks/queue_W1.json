@@ -38,18 +38,6 @@
       "details": "USER SPEEDUP REQUEST (15:25 EST): When generating a brand-new unseen object (not matching cached category templates), optimize `create_prop()` in `backend/media/prop_maker.py` for MAXIMUM speed over fine surface detail: (1) Downscale `camera_still` to max `384px` JPEG (quality 80) before sending to `_resolve_image_model()` so upload/tokenization latency drops sharply; (2) When the object name is already known (`name` is non-generic, e.g. from `/perceive` or user input) + OpenCV HSV already extracted dominant color, prefer an ultra-lean text-only or `384px` single-call prompt: `'Simple clean 2D anime cel-shaded game icon of a <color> <object>: keep ONLY what the object is and its primary color; omit fine labels, small patterns, or complex lighting details. Solid #00FF00 chroma green background.'`; (3) Never run a sequential second Vision LLM call before image gen, and output cutout at `max_size=384` for fast transfer. Keep total live capture->PNG time as fast as possible."
     },
     {
-      "task_id": "W1-V2-B1",
-      "priority": "P1",
-      "title": "Measure Live A/B Consistency Score Under Fixed-Room Pipeline (`conservatory_cam_a/b.png`)",
-      "details": "Render 1 live Scene 2/3 pair using `conservatory_cam_a.png` + `conservatory_cam_b.png` + isolated props at `CROSS_CAM_THRESHOLD = 0.80`, measure Decisions API score, and write `backend/assets/eval_dual_cam_fixed_room.json` & `status_P2.json`."
-    },
-    {
-      "task_id": "W1-V2-B2",
-      "priority": "P1",
-      "title": "Live Benchmark `fast_live_mode=True` Turnaround (Target 10–20s Unfreeze)",
-      "details": "Render 1 live Scene 5 single-take clip via `render_scene_media(..., fast_live_mode=True)` with an everyday prop, log exact seconds into `backend/assets/eval_fast_live_latency.json`."
-    },
-    {
       "task_id": "W1-V2-B3",
       "priority": "P1",
       "title": "Everyday User-Requested Prop Kit (`yellow soda can`, `chips snack bag`, `black smartphone`, `silver laptop`)",

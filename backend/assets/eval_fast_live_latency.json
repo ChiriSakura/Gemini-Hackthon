@@ -1,0 +1,56 @@
+{
+  "task_id": "W1-V2-B2",
+  "timestamp": "2026-11-21T15:22:31",
+  "scene_id": 5,
+  "parent_scene_id": 4,
+  "end_freeze_mode": "sculpture",
+  "actor_action": "catch_from_camera",
+  "everyday_prop_used": "showcase_desk_coffee_mug.png",
+  "fast_live_mode": true,
+  "target_budget_sec": [
+    10.0,
+    20.0
+  ],
+  "parallel_ref_upload_sec": 4.6,
+  "wall_clock_sec": 28.16,
+  "cold_total_with_parallel_upload_sec": 32.76,
+  "within_20s_target": false,
+  "within_25s_interactive_slo": false,
+  "qa_score": 0.895,
+  "qa_retries": 0,
+  "fallback_to_preview": false,
+  "cam_a_url": "/assets/finals/scene_5_fast_live_cam_a.mp4",
+  "cam_b_url": "/assets/finals/scene_5_fast_live_cam_b.mp4",
+  "cam_a_tail_url": "/assets/tails/scene_5_fast_live_cam_a_tail.png",
+  "cam_b_tail_url": "/assets/tails/scene_5_fast_live_cam_b_tail.png",
+  "cam_a_h264": true,
+  "cam_b_h264": true,
+  "cam_a_bytes": 1735914,
+  "cam_b_bytes": 1581316,
+  "qa_items": [
+    {
+      "question": "[CAM A] Is a single ceramic coffee mug cleanly present with Lia or on the central round table?",
+      "passed": true,
+      "confidence": 0.868,
+      "reason": "Decision-1 P(true)=0.87"
+    },
+    {
+      "question": "[CAM A] Does the intact crystal vase remain on the central round table with small black cat Nyx nearby?",
+      "passed": true,
+      "confidence": 0.908,
+      "reason": "Decision-1 P(true)=0.91"
+    },
+    {
+      "question": "[CAM B] Is a single ceramic coffee mug cleanly present with Lia or on the central round table?",
+      "passed": true,
+      "confidence": 0.875,
+      "reason": "Decision-1 P(true)=0.87"
+    },
+    {
+      "question": "[CAM B] Does the intact crystal vase remain on the central round table with small black cat Nyx nearby?",
+      "passed": true,
+      "confidence": 0.928,
+      "reason": "Decision-1 P(true)=0.93"
+    }
+  ]
+}

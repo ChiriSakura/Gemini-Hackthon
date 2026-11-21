@@ -199,17 +199,55 @@ def build_eval_charts_board(output_png: Optional[Path] = None) -> dict:
     h2, l2 = ax2_twin.get_legend_handles_labels()
     ax2.legend(h1 + h2, l1 + l2, loc="lower left", frameon=True, facecolor="#0F172A", edgecolor="#334155", fontsize=8.5)
 
+    # Compute live Best-of-2 media QA stats first so Panel 3 and Panel 4 share identical verified numbers (R-06).
+    # Filter to dual-take shots (`take_1_score is not None`) so single-take `fast_live_mode` benchmark rows
+    # never distort the Best-of-2 dual-take gain denominator.
+    all_takes: list[dict] = []
+    stats_path = config.ASSETS_DIR / "eval_media_stats.jsonl"
+    if stats_path.exists():
+        for line in stats_path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                try:
+                    all_takes.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+    takes = [t for t in all_takes if t.get("take_1_score") is not None] or all_takes
+
+    def _take_ok(value: object) -> bool:
+        return isinstance(value, (int, float)) and float(value) >= config.QA_PASS_THRESHOLD
+
+    n_shots = len(takes)
+    if n_shots:
+        single_rate = sum(_take_ok(t.get("take_0_score")) for t in takes) / n_shots
+        best2_rate = sum(_take_ok(t.get("take_0_score")) or _take_ok(t.get("take_1_score")) for t in takes) / n_shots
+        final_rate = sum(bool(t.get("passed")) for t in takes) / n_shots
+        dual_take_txt = (
+            f"Pass rate {single_rate * 100:.1f}% single take -> {best2_rate * 100:.1f}% best-of-2 -> "
+            f"{final_rate * 100:.1f}% after retries ({n_shots} logged Best-of-2 shots)"
+        )
+    else:
+        single_rate = 0.0
+        best2_rate = 0.0
+        final_rate = 0.0
+        dual_take_txt = "No logged shots yet (eval_media_stats.jsonl is empty)"
+
+    calib_n = int(calib.get("total_clips", 0))
+    choice_n = int(decisions_eval.get("choice_routing", {}).get("total_cases", 0))
+    audio_n = int(audio_eval.get("clips_evaluated", 0))
+    audio_ok = int(audio_eval.get("matched_count", 0))
+    audio_txt = f"{audio_ok}/{audio_n} clips match the intended mood (small sample)" if audio_n else "Not evaluated"
+
     # Panel 3: Multimodal Decisions API & Dual-Camera Reliability
     ax3 = axes[1, 0]
     metrics_p3 = [
-        "Decisions `noul`\n(20-Clip Calib)",
+        f"Decisions `noul`\n({calib_n or 20}-Clip Calib)",
         "Decisions `score`\n(MP4 AUC)",
-        "Decisions `choice`\n(15-Dir Route)",
+        f"Decisions `choice`\n({choice_n or 15}-Dir Route)",
         "Audio-Visual\nMood Sync",
         "Dual-Cam\nConsistency",
-        "Best-of-2 QA\nPass (21 Shots)",
+        f"Post-Repair QA\nPass ({n_shots} Shots)" if n_shots else "Post-Repair QA\nPass Rate",
     ]
-    vals_p3 = [calib_acc, score_auc, choice_acc, audio_rate, cross_cam_rate, 1.0]
+    vals_p3 = [calib_acc, score_auc, choice_acc, audio_rate, cross_cam_rate, final_rate]
     cols_p3 = ["#38BDF8", "#818CF8", "#A78BFA", "#2DD4BF", "#F59E0B", "#10B981"]
     y_pos = np.arange(len(metrics_p3))
     bars3 = ax3.barh(y_pos, vals_p3, color=cols_p3, height=0.58, edgecolor="#0F172A")
@@ -237,32 +275,6 @@ def build_eval_charts_board(output_png: Optional[Path] = None) -> dict:
         sp_anch = bp_eval.get("blueprint_anchored", {}).get("checks", {}).get("spatial_consistency", {}).get("p_true", 0.325)
         bp_delta_txt = f"Blueprint A/B Ablation: Spatial {sp_base:.2f}->{sp_anch:.2f}, QA {bp_qa:.3f} (best as instant preview/ref, not flat frame-0)"
 
-    # KPI text is derived from the report files so the board can never drift from the data.
-    takes: list[dict] = []
-    stats_path = config.ASSETS_DIR / "eval_media_stats.jsonl"
-    if stats_path.exists():
-        for line in stats_path.read_text(encoding="utf-8").splitlines():
-            if line.strip():
-                try:
-                    takes.append(json.loads(line))
-                except json.JSONDecodeError:
-                    continue
-
-    def _take_ok(value: object) -> bool:
-        return isinstance(value, (int, float)) and float(value) >= config.QA_PASS_THRESHOLD
-
-    n_shots = len(takes)
-    if n_shots:
-        single_rate = sum(_take_ok(t.get("take_0_score")) for t in takes) / n_shots
-        best2_rate = sum(_take_ok(t.get("take_0_score")) or _take_ok(t.get("take_1_score")) for t in takes) / n_shots
-        final_rate = sum(bool(t.get("passed")) for t in takes) / n_shots
-        dual_take_txt = (
-            f"Pass rate {single_rate * 100:.1f}% single take -> {best2_rate * 100:.1f}% best-of-2 -> "
-            f"{final_rate * 100:.1f}% after retries ({n_shots} logged Omni Flash shots)"
-        )
-    else:
-        dual_take_txt = "No logged shots yet (eval_media_stats.jsonl is empty)"
-
     cache_eval = _load_json_if_exists(config.ASSETS_DIR / "eval_cache_savings.json")
     reused_scenes = int(cache_eval.get("total_reused_scenes", 0))
     total_scenes = int(cache_eval.get("total_scenes_across_branches", 0))
@@ -274,12 +286,6 @@ def build_eval_charts_board(output_png: Optional[Path] = None) -> dict:
         )
     else:
         reuse_txt = "Prefix scenes before the edit point are reused, never re-rendered"
-
-    calib_n = int(calib.get("total_clips", 0))
-    choice_n = int(decisions_eval.get("choice_routing", {}).get("total_cases", 0))
-    audio_n = int(audio_eval.get("clips_evaluated", 0))
-    audio_ok = int(audio_eval.get("matched_count", 0))
-    audio_txt = f"{audio_ok}/{audio_n} clips match the intended mood (small sample)" if audio_n else "Not evaluated"
 
     kpi_lines = [
         ("360p vs 720p Tradeoff", r"17.1s vs 25.8s/clip · 71.4% lower API cost (\$0.48 vs \$1.68 / 6-clip branch, list-price estimate)", "#38BDF8"),
