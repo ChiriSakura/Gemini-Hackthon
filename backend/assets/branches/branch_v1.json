@@ -1,64 +1,62 @@
 {
   "branch_id": "branch_v1",
+  "branch_label": "BE · 雨夜惊逃与碎花瓶（默认缓存主线）",
   "parent_branch_id": null,
-  "forked_from_scene": 1,
+  "forked_from_scene": null,
+  "rewrite_summary": null,
   "contradiction_warning": null,
   "props_registry": {
     "red_umbrella": {
-      "prop_id": "red_umbrella",
-      "name": "红伞",
-      "image_url": "/assets/props/red_umbrella.png",
-      "state": "intact",
-      "source_type": "text"
+      "name": "亮红复古长柄伞",
+      "image_url": "/assets/actors/lia.png",
+      "state": "held",
+      "origin": "preset"
     },
     "crystal_vase": {
-      "prop_id": "crystal_vase",
-      "name": "水晶花瓶",
+      "name": "蓝玫瑰水晶花瓶",
       "image_url": "/assets/props/crystal_vase.png",
-      "state": "intact",
-      "source_type": "text"
-    }
-  },
-  "actors_registry": {
-    "heroine": {
-      "actor_id": "heroine",
-      "name": "少女",
-      "portrait_url": "/assets/actors/heroine.png",
-      "color_hex": "#E91E63"
-    },
-    "detective": {
-      "actor_id": "detective",
-      "name": "侦探",
-      "portrait_url": "/assets/actors/detective.png",
-      "color_hex": "#1E88E5"
+      "state": "broken",
+      "origin": "preset"
     }
   },
   "scenes": [
     {
       "scene_id": 1,
-      "narration": "雨夜舞台中央，少女撑着红伞等待侦探，桌旁放着水晶花瓶。",
-      "vocal_emotion": "calm_mystery",
-      "lighting": "warm_gold",
-      "camera_shake": 0.0,
-      "environment_notes": "",
-      "was_regenerated": true,
+      "title": "雨夜初遇",
+      "duration_sec": 4.0,
+      "narration": "暖微光下，莉亚撑着红伞站在玻璃花房左侧，星月黑猫诺克斯蹲在右侧好奇望着中央圆桌上的蓝玫瑰水晶花瓶。",
+      "vocal_emotion": "neutral",
+      "gesture_intent": "none",
+      "direction_hint": "none",
+      "lighting": "warm_dim",
+      "camera_shake": false,
+      "audio_mood": "soft_rain_and_quiet_glasshouse_ambience",
+      "environment_notes": "glass_conservatory_night_clean_floor",
+      "needs_rerender": false,
+      "reused_from_branch": null,
       "actors": [
         {
-          "id": "heroine",
+          "id": "lia",
+          "name": "莉亚",
+          "asset_url": "/assets/actors/lia.png",
           "grid": [
-            1,
-            1
+            0.0,
+            1.0
           ],
+          "facing": "right",
           "action": "stand",
           "holding_prop": "red_umbrella"
         },
         {
-          "id": "detective",
+          "id": "nyx",
+          "name": "诺克斯",
+          "asset_url": "/assets/actors/nyx.png",
           "grid": [
-            1,
-            0
+            2.0,
+            1.0
           ],
-          "action": "walk_in",
+          "facing": "left",
+          "action": "sit",
           "holding_prop": null
         }
       ],
@@ -66,52 +64,71 @@
         {
           "id": "crystal_vase",
           "grid": [
-            0,
-            2
+            1.0,
+            1.0
           ],
-          "on_floor": false
+          "on_floor": false,
+          "state": "intact"
         }
       ],
       "qa_questions": [
-        "Is the heroine holding the red umbrella?",
-        "Is the crystal vase intact on the side?"
+        "Is the silver-haired girl standing on the left holding a red umbrella?",
+        "Is the black cat with a golden moon collar sitting on the right?",
+        "Is the crystal vase with a blue rose standing intact on the center round table?",
+        "Do Camera A (front wide) and Camera B (45-degree close-up) match actor positions?",
+        "Are there no extra unintended human characters in the scene?"
       ],
       "media": {
         "cam_a_preview_url": null,
         "cam_b_preview_url": null,
         "cam_a_final_url": null,
         "cam_b_final_url": null,
-        "tail_frame_url": null,
-        "qa_results": [],
-        "qa_score": 0.95,
-        "qa_retries": 0
+        "cam_a_tail_frame_url": null,
+        "cam_b_tail_frame_url": null,
+        "qa_result": null,
+        "qa_score": 0.97,
+        "qa_retries": 0,
+        "selected_candidate_index": 0,
+        "fallback_to_preview": false
       }
     },
     {
       "scene_id": 2,
-      "narration": "侦探质问少女的秘密，少女情绪激动但仍紧握红伞。",
-      "vocal_emotion": "tense",
-      "lighting": "warm_gold",
-      "camera_shake": 0.0,
-      "environment_notes": "",
-      "was_regenerated": true,
+      "title": "受惊碎瓶",
+      "duration_sec": 4.0,
+      "narration": "莉亚走近想轻抚黑猫，窗外雷声突响，黑猫受惊跃过圆桌扫落水晶花瓶，花瓶当场摔碎在湿冷地板上。",
+      "vocal_emotion": "urgent_emotional",
+      "gesture_intent": "none",
+      "direction_hint": "center",
+      "lighting": "cold_blue",
+      "camera_shake": true,
+      "audio_mood": "sudden_thunderclap_and_shattering_crystal_glass",
+      "environment_notes": "floor_has_glass_shards_and_scattered_blue_rose_petals",
+      "needs_rerender": false,
+      "reused_from_branch": null,
       "actors": [
         {
-          "id": "heroine",
+          "id": "lia",
+          "name": "莉亚",
+          "asset_url": "/assets/actors/lia.png",
           "grid": [
-            1,
-            1
+            0.7,
+            1.0
           ],
-          "action": "argue",
+          "facing": "right",
+          "action": "reach",
           "holding_prop": "red_umbrella"
         },
         {
-          "id": "detective",
+          "id": "nyx",
+          "name": "诺克斯",
+          "asset_url": "/assets/actors/nyx.png",
           "grid": [
-            1,
-            2
+            1.5,
+            0.9
           ],
-          "action": "point",
+          "facing": "right",
+          "action": "jump",
           "holding_prop": null
         }
       ],
@@ -119,52 +136,71 @@
         {
           "id": "crystal_vase",
           "grid": [
-            0,
-            2
+            1.0,
+            1.2
           ],
-          "on_floor": false
+          "on_floor": true,
+          "state": "broken"
         }
       ],
       "qa_questions": [
-        "Are both characters facing each other on stage?",
-        "Is the heroine still holding the red umbrella?"
+        "Is the crystal vase shattered on the floor with blue rose petals around it?",
+        "Is the black cat startled and leaping away to the right?",
+        "Is the silver-haired girl still holding the red umbrella?",
+        "Is the lighting cold rainy blue?",
+        "Are there no extra unintended characters in the scene?"
       ],
       "media": {
         "cam_a_preview_url": null,
         "cam_b_preview_url": null,
         "cam_a_final_url": null,
         "cam_b_final_url": null,
-        "tail_frame_url": null,
-        "qa_results": [],
-        "qa_score": 0.92,
-        "qa_retries": 0
+        "cam_a_tail_frame_url": null,
+        "cam_b_tail_frame_url": null,
+        "qa_result": null,
+        "qa_score": 0.95,
+        "qa_retries": 0,
+        "selected_candidate_index": 1,
+        "fallback_to_preview": false
       }
     },
     {
       "scene_id": 3,
-      "narration": "争执升级，两人各自退开一步，花瓶在桌角微微晃动。",
-      "vocal_emotion": "anxious",
+      "title": "警惕躲避",
+      "duration_sec": 4.0,
+      "narration": "冷雨蓝光下，地上的碎玻璃与蓝玫瑰花瓣仍在；黑猫警惕躲在右角阴影里，莉亚心疼地停在原地。",
+      "vocal_emotion": "sad_soft",
+      "gesture_intent": "none",
+      "direction_hint": "none",
       "lighting": "cold_blue",
-      "camera_shake": 0.0,
-      "environment_notes": "",
-      "was_regenerated": true,
+      "camera_shake": false,
+      "audio_mood": "steady_heavy_rain_melancholic_piano",
+      "environment_notes": "floor_has_glass_shards_and_scattered_blue_rose_petals_wet_reflections",
+      "needs_rerender": false,
+      "reused_from_branch": null,
       "actors": [
         {
-          "id": "heroine",
+          "id": "lia",
+          "name": "莉亚",
+          "asset_url": "/assets/actors/lia.png",
           "grid": [
-            2,
-            0
+            0.5,
+            1.2
           ],
-          "action": "step_back",
+          "facing": "right",
+          "action": "stand",
           "holding_prop": "red_umbrella"
         },
         {
-          "id": "detective",
+          "id": "nyx",
+          "name": "诺克斯",
+          "asset_url": "/assets/actors/nyx.png",
           "grid": [
-            0,
-            1
+            2.0,
+            2.0
           ],
-          "action": "inspect",
+          "facing": "left",
+          "action": "crouch",
           "holding_prop": null
         }
       ],
@@ -172,51 +208,70 @@
         {
           "id": "crystal_vase",
           "grid": [
-            0,
-            2
+            1.0,
+            1.2
           ],
-          "on_floor": false
+          "on_floor": true,
+          "state": "broken"
         }
       ],
       "qa_questions": [
-        "Are the heroine and detective separated across the stage?"
+        "Are the broken crystal vase shards still visibly lying on the wet floor?",
+        "Is the black cat crouching cautiously in the right corner?",
+        "Is the silver-haired girl standing still holding her red umbrella?",
+        "Is the lighting consistently cold rainy blue?"
       ],
       "media": {
         "cam_a_preview_url": null,
         "cam_b_preview_url": null,
         "cam_a_final_url": null,
         "cam_b_final_url": null,
-        "tail_frame_url": null,
-        "qa_results": [],
-        "qa_score": 0.9,
-        "qa_retries": 0
+        "cam_a_tail_frame_url": null,
+        "cam_b_tail_frame_url": null,
+        "qa_result": null,
+        "qa_score": 0.94,
+        "qa_retries": 0,
+        "selected_candidate_index": 0,
+        "fallback_to_preview": false
       }
     },
     {
       "scene_id": 4,
-      "narration": "少女撑着红伞独自走入雨幕，真相被带走。",
-      "vocal_emotion": "melancholy",
+      "title": "BE · 雨夜独留",
+      "duration_sec": 4.0,
+      "narration": "暴雨倾盆，黑猫转身逃入右角雨幕，B 机位 45° 特写莉亚独自撑红伞站在满地碎玻璃旁。",
+      "vocal_emotion": "sad_soft",
+      "gesture_intent": "none",
+      "direction_hint": "none",
       "lighting": "cold_blue",
-      "camera_shake": 0.0,
-      "environment_notes": "",
-      "was_regenerated": true,
+      "camera_shake": false,
+      "audio_mood": "heavy_rainstorm_fading_footsteps_sad_cello",
+      "environment_notes": "floor_has_glass_shards_and_scattered_blue_rose_petals_heavy_rain",
+      "needs_rerender": false,
+      "reused_from_branch": null,
       "actors": [
         {
-          "id": "heroine",
+          "id": "lia",
+          "name": "莉亚",
+          "asset_url": "/assets/actors/lia.png",
           "grid": [
-            2,
-            2
+            0.4,
+            1.15
           ],
-          "action": "exit",
+          "facing": "right",
+          "action": "stand",
           "holding_prop": "red_umbrella"
         },
         {
-          "id": "detective",
+          "id": "nyx",
+          "name": "诺克斯",
+          "asset_url": "/assets/actors/nyx.png",
           "grid": [
-            1,
-            1
+            2.0,
+            2.0
           ],
-          "action": "watch",
+          "facing": "right",
+          "action": "flee",
           "holding_prop": null
         }
       ],
@@ -224,24 +279,31 @@
         {
           "id": "crystal_vase",
           "grid": [
-            0,
-            2
+            1.0,
+            1.2
           ],
-          "on_floor": false
+          "on_floor": true,
+          "state": "broken"
         }
       ],
       "qa_questions": [
-        "Is the heroine leaving with the red umbrella?"
+        "Is the silver-haired girl alone under her red umbrella looking wistfully down?",
+        "Is the crystal vase still broken on the floor (object permanence)?",
+        "Is the black cat fleeing toward the far right rainy corner?",
+        "Do Camera A and Camera B stay spatially consistent?"
       ],
       "media": {
         "cam_a_preview_url": null,
         "cam_b_preview_url": null,
         "cam_a_final_url": null,
         "cam_b_final_url": null,
-        "tail_frame_url": null,
-        "qa_results": [],
-        "qa_score": 0.93,
-        "qa_retries": 0
+        "cam_a_tail_frame_url": null,
+        "cam_b_tail_frame_url": null,
+        "qa_result": null,
+        "qa_score": 0.96,
+        "qa_retries": 0,
+        "selected_candidate_index": 0,
+        "fallback_to_preview": false
       }
     }
   ]

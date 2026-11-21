@@ -1,29 +1,63 @@
 /**
- * Locked TypeScript Data Contract for StageState Frontend (Owned by Coordinator, consumed by P3).
+ * Locked TypeScript Data Contract for StageState Frontend (mirrors `shared/schema.json`).
  *
  * Feature & Use Cases:
- * - Strictly mirrors `schema.json` and `backend/schemas.py` so the Three.js
- *   stage, branch tree, and Clapperboard QA strip can develop independently
- *   with zero backend integration friction.
+ * - Strictly matches `shared/schema.json` and `backend/schemas.py` so the
+ *   Three.js 2.5D stage (Lia & Nyx), Clapperboard QA strip, and Branch Tree
+ *   work seamlessly against `shared/mock_branch_1.json` and live FastAPI routes.
  */
 
-export interface ActorPlacement {
-  id: string;
-  grid: [number, number];
-  action: string;
-  holding_prop: string | null;
+export type LightingPreset = 'warm_dim' | 'cold_blue' | 'warm_transition' | 'warm_gold_snow';
+export type VocalEmotion = 'neutral' | 'gentle_whisper' | 'urgent_emotional' | 'angry_shout' | 'joyful' | 'sad_soft';
+export type GestureIntent =
+  | 'none'
+  | 'point_left'
+  | 'point_right'
+  | 'point_center'
+  | 'stop_rewind'
+  | 'beckon_soothe'
+  | 'show_physical_prop';
+
+export interface DirectorInputParsed {
+  target_scene_id: number;
+  instruction: string;
+  vocal_emotion: VocalEmotion;
+  gesture_intent: GestureIntent;
+  direction_hint: 'none' | 'left' | 'center' | 'right' | 'front' | 'back';
+  has_physical_prop: boolean;
+  prop_name?: string | null;
+  prop_description?: string | null;
+  prop_frame_timestamp_sec?: number | null;
 }
 
-export interface StagePropPlacement {
-  id: string;
-  grid: [number, number];
-  on_floor: boolean;
-}
-
-export interface QAResult {
+export interface JudgeItem {
   question: string;
   passed: boolean;
   confidence: number;
+  reason?: string;
+}
+
+export interface JudgeResult {
+  overall_score: number;
+  all_passed: boolean;
+  items: JudgeItem[];
+}
+
+export interface ActorState {
+  id: 'lia' | 'nyx';
+  name: string;
+  asset_url: string;
+  grid: [number, number];
+  facing: 'left' | 'right' | 'front' | 'center';
+  action: 'stand' | 'walk' | 'kneel' | 'reach' | 'sit' | 'jump' | 'crouch' | 'flee' | 'nuzzle' | 'shared_umbrella';
+  holding_prop: string | null;
+}
+
+export interface StagePropState {
+  id: string;
+  grid: [number, number];
+  on_floor: boolean;
+  state: 'intact' | 'broken' | 'held' | 'glowing';
 }
 
 export interface SceneMedia {
@@ -31,47 +65,49 @@ export interface SceneMedia {
   cam_b_preview_url: string | null;
   cam_a_final_url: string | null;
   cam_b_final_url: string | null;
-  tail_frame_url: string | null;
-  qa_results: QAResult[];
+  cam_a_tail_frame_url: string | null;
+  cam_b_tail_frame_url: string | null;
+  qa_result?: JudgeResult;
   qa_score: number;
   qa_retries: number;
+  selected_candidate_index: 0 | 1;
+  fallback_to_preview: boolean;
 }
 
-export interface SceneState {
+export interface Scene {
   scene_id: number;
+  title: string;
+  duration_sec: number;
   narration: string;
-  vocal_emotion: string;
-  lighting: string;
-  camera_shake: number;
+  vocal_emotion: VocalEmotion;
+  gesture_intent: GestureIntent;
+  direction_hint: string;
+  lighting: LightingPreset;
+  camera_shake: boolean;
+  audio_mood: string;
   environment_notes: string;
-  was_regenerated: boolean;
-  actors: ActorPlacement[];
-  stage_props: StagePropPlacement[];
+  needs_rerender: boolean;
+  reused_from_branch: string | null;
+  actors: ActorState[];
+  stage_props: StagePropState[];
   qa_questions: string[];
   media: SceneMedia;
 }
 
-export interface PropAsset {
-  prop_id: string;
+export interface PropRegistryItem {
   name: string;
   image_url: string;
   state: string;
-  source_type: 'text' | 'camera';
-}
-
-export interface ActorAsset {
-  actor_id: string;
-  name: string;
-  portrait_url: string;
-  color_hex: string;
+  origin: 'preset' | 'text_generated' | 'camera_physical';
 }
 
 export interface BranchState {
   branch_id: string;
+  branch_label: string;
   parent_branch_id: string | null;
-  forked_from_scene: number;
-  contradiction_warning?: string | null;
-  props_registry: Record<string, PropAsset>;
-  actors_registry: Record<string, ActorAsset>;
-  scenes: SceneState[];
+  forked_from_scene: number | null;
+  rewrite_summary: string | null;
+  contradiction_warning: string | null;
+  props_registry: Record<string, PropRegistryItem>;
+  scenes: Scene[];
 }

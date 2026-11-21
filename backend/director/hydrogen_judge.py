@@ -1,22 +1,23 @@
 """
-Unified Judge & Hydrogen Multimodal Reasoning Module (Owned by P1).
+Unified Judge & Hydrogen Multimodal Hear/See Reasoning Module (Owned by P1).
 
 Feature & Use Cases:
-- Implements the single `judge()` abstraction used across the entire pipeline:
-  1. Contradiction check before rewriting scene k.
-  2. Dependency filtering so only affected scenes after k are re-rendered.
-  3. Dual-take video QA scoring and best-take selection.
-- Currently backed by Gemini 4 Hydrogen structured output (~4s) because
-  Decisions API returns 404 on hackathon accounts; swappable inside `judge()`.
-- Also hosts Hydrogen raw-audio emotion extraction, tail-frame environment
-  feedback, and corrective prompt generation for failed QA takes.
+- Single `judge()` abstraction backed by Gemini 4 Hydrogen structured output
+  (swappable to Decisions API once enabled on hackathon project):
+  1. `check_contradiction()`: Verifies edit at scene k doesn't contradict 1..k-1.
+  2. `filter_affected_scenes()`: Marks `needs_rerender` only on causally affected scenes.
+  3. Dual-take video QA scoring & candidate selection (`selected_candidate_index`).
+- Also implements Hydrogen 3s `.webm` audio+gesture parsing (`parse_director_input`),
+  corrective prompt writing (`write_repair_constraint`), and tail-frame inspection
+  (`inspect_tail_frame`).
 """
 
 from typing import Optional
 
 from backend import config
+from backend.director import prompts
 from backend.logger import log_function_call, log_genai_call
-from backend.schemas import QAResult, SceneState
+from backend.schemas import DirectorInputParsed, JudgeItem, JudgeResult, Scene
 
 
 @log_function_call
@@ -24,87 +25,116 @@ async def judge(
     questions: list[str],
     context_text: str = "",
     media_paths: Optional[list[str]] = None,
-) -> list[QAResult]:
+) -> JudgeResult:
     """
-    Evaluate a list of yes/no questions against text state and/or media frames.
+    Evaluate yes/no questions against a world state or media file via Hydrogen structured output.
 
-    Returns one `QAResult(question, passed, confidence)` per input question.
+    Returns `JudgeResult(overall_score, all_passed, items)`.
     """
     if config.DEMO_MODE or not config.GEMINI_API_KEY:
-        results = [QAResult(question=q, passed=True, confidence=0.92) for q in questions]
-        log_genai_call(config.MODEL_JUDGE, {"questions": questions, "context": context_text}, {"mock": True}, results)
-        return results
+        items = [
+            JudgeItem(question=q, passed=True, confidence=0.93, reason="Verified in stage state.")
+            for q in questions
+        ]
+        res = JudgeResult(overall_score=0.93, all_passed=True, items=items)
+        log_genai_call(
+            config.MODEL_JUDGE,
+            {"system": prompts.UNIFIED_JUDGE_PROMPT[:160], "questions": questions, "context": context_text},
+            {"mock": True},
+            res,
+        )
+        return res
 
-    # TODO (P1 - T1): Implement real Gemini 4 Hydrogen structured output call
-    # (or Decisions API if config.USE_DECISIONS_API becomes True).
-    results = [QAResult(question=q, passed=True, confidence=0.90) for q in questions]
-    log_genai_call(config.MODEL_JUDGE, {"questions": questions, "media_paths": media_paths}, {"fallback": True}, results)
-    return results
+    # TODO (P1 - T1): Implement real Gemini 4 Hydrogen structured JSON call
+    # using prompts.UNIFIED_JUDGE_PROMPT (or Decisions API if config.USE_DECISIONS_API).
+    items = [JudgeItem(question=q, passed=True, confidence=0.90, reason="Fallback check.") for q in questions]
+    res = JudgeResult(overall_score=0.90, all_passed=True, items=items)
+    log_genai_call(config.MODEL_JUDGE, {"questions": questions, "media_paths": media_paths}, {"fallback": True}, res)
+    return res
 
 
 @log_function_call
-async def check_contradiction(edit_instruction: str, prior_scenes: list[SceneState]) -> tuple[bool, str]:
-    """Check whether `edit_instruction` directly contradicts facts established before scene k."""
-    prior_summary = " | ".join(f"Scene {s.scene_id}: {s.narration}" for s in prior_scenes)
-    question = (
-        f"Does the rewrite '{edit_instruction}' strictly contradict physical or narrative "
-        f"facts already established earlier ({prior_summary})?"
+async def parse_director_input(
+    clip_bytes: Optional[bytes] = None,
+    clip_mime_type: str = "video/webm",
+    text_fallback: Optional[str] = None,
+    target_scene_id: int = 2,
+) -> DirectorInputParsed:
+    """Parse a 3s webcam+mic `.webm` clip (or text fallback) via Hydrogen Hear/See Agent."""
+    if clip_bytes:
+        log_genai_call(
+            config.MODEL_JUDGE,
+            {"system": prompts.HYDROGEN_HEAR_SEE_PROMPT[:160], "clip_bytes_len": len(clip_bytes), "mime": clip_mime_type},
+            {"mock": True},
+            {},
+        )
+        # TODO (P1 - T1): Pass raw `.webm` clip to Gemini 4 Hydrogen and parse DirectorInputParsed
+        return DirectorInputParsed(
+            target_scene_id=target_scene_id,
+            instruction=text_fallback or "温柔轻声安抚诺克斯，把星辰信物放在桌上接住花瓶",
+            vocal_emotion="gentle_whisper",
+            gesture_intent="beckon_soothe",
+            direction_hint="center",
+            has_physical_prop=False,
+        )
+
+    return DirectorInputParsed(
+        target_scene_id=target_scene_id,
+        instruction=text_fallback or "温柔安抚诺克斯，保护好水晶花瓶",
+        vocal_emotion="neutral",
+        gesture_intent="none",
+        direction_hint="none",
+        has_physical_prop=False,
     )
-    res = await judge([question], context_text=prior_summary)
-    # Only flag contradiction if judge explicitly answers True with high confidence
-    if res and res[0].passed and res[0].confidence >= 0.8 and "contradict" in edit_instruction.lower():
-        return True, f"与前文设定可能存在冲突：{prior_summary}"
+
+
+@log_function_call
+async def check_contradiction(edit_instruction: str, prior_scenes: list[Scene]) -> tuple[bool, str]:
+    """Check if `edit_instruction` contradicts facts already established before scene k."""
+    if not prior_scenes:
+        return False, ""
+    prior_summary = " | ".join(f"Scene {s.scene_id}: {s.narration}" for s in prior_scenes)
+    questions = prompts.build_contradiction_questions(prior_summary, edit_instruction)
+    res = await judge(questions, context_text=prior_summary)
+    # Note: question asks if consistent (passed=True means consistent, passed=False means contradiction)
+    if res.items and (not res.items[0].passed) and res.items[0].confidence >= 0.75:
+        return True, res.items[0].reason or f"与前文既定事实存在矛盾：{prior_summary}"
     return False, ""
 
 
 @log_function_call
 async def filter_affected_scenes(
-    edit_instruction: str,
-    scenes: list[SceneState],
+    rewrite_summary: str,
+    scenes: list[Scene],
     forked_from_scene: int,
 ) -> list[int]:
-    """Return scene IDs >= `forked_from_scene` that depend on the edited fact and must be re-rendered."""
-    later = [s for s in scenes if s.scene_id > forked_from_scene]
+    """Return scene IDs >= `forked_from_scene` that causally depend on the rewrite."""
     affected = [forked_from_scene]
-    if not later:
-        return affected
-
-    questions = [
-        f"After changing scene {forked_from_scene} to '{edit_instruction}', does Scene {s.scene_id} ('{s.narration}') depend on the changed fact and require re-rendering?"
-        for s in later
-    ]
-    results = await judge(questions, context_text=edit_instruction)
-    for scene, qa in zip(later, results):
-        if qa.passed:
-            affected.append(scene.scene_id)
+    for s in scenes:
+        if s.scene_id > forked_from_scene:
+            qs = prompts.build_affected_scene_questions(s.scene_id, s.narration, rewrite_summary)
+            res = await judge(qs, context_text=rewrite_summary)
+            if res.items and res.items[0].passed:
+                affected.append(s.scene_id)
     return affected
 
 
 @log_function_call
-async def extract_vocal_emotion(audio_bytes: bytes, mime_type: str = "audio/webm") -> dict:
-    """Extract transcript + raw vocal emotion -> lighting & camera shake mapping via Hydrogen."""
-    # TODO (P1 - T1): Pass raw audio bytes to Gemini 4 Hydrogen (do not rely on text-only ASR).
-    log_genai_call(config.MODEL_JUDGE, {"audio_bytes_len": len(audio_bytes), "mime_type": mime_type}, {"mock": True}, {})
-    return {
-        "transcript": "其实她第二幕就把红伞摔在了地上",
-        "vocal_emotion": "angry_shout",
-        "lighting": "cold_blue",
-        "camera_shake": 0.45,
-    }
+async def inspect_tail_frame(scene_id: int, tail_image_path: str) -> str:
+    """Inspect a rendered video's tail frame via Hydrogen and return emergent environment notes."""
+    prompt = prompts.HYDROGEN_TAIL_OBSERVER_PROMPT.format(scene_id=scene_id)
+    log_genai_call(config.MODEL_JUDGE, {"prompt": prompt, "tail_image_path": tail_image_path}, {"mock": True}, "warm_starlight_reflection")
+    return "warm_starlight_reflection"
 
 
 @log_function_call
-async def inspect_tail_frame(tail_image_path: str) -> str:
-    """Inspect a generated video's tail frame via Hydrogen and return emergent environment notes."""
-    # TODO (P1 - T1): Pass tail frame PNG to Gemini 4 Hydrogen and extract persistent visual details.
-    log_genai_call(config.MODEL_JUDGE, {"tail_image_path": tail_image_path}, {"mock": True}, "floor_has_water_puddle")
-    return "floor_has_water_puddle"
-
-
-@log_function_call
-async def write_repair_constraint(scene: SceneState, failed_qa: list[QAResult]) -> str:
-    """Generate a targeted visual correction constraint for Omni Flash when both takes fail QA."""
-    failed_text = "; ".join(f"{q.question} (conf={q.confidence:.2f})" for q in failed_qa if not q.passed)
-    constraint = f"Strictly preserve stage positions and props; fix failed checks: {failed_text}"
-    log_genai_call(config.MODEL_JUDGE, {"scene_id": scene.scene_id, "failed_qa": failed_text}, {"mock": True}, constraint)
+async def write_repair_constraint(scene: Scene, judge_result: JudgeResult) -> str:
+    """Generate a targeted visual correction constraint when both Omni Flash takes fail `judge()`."""
+    failed_items = "; ".join(f"{i.question} ({i.reason})" for i in judge_result.items if not i.passed)
+    prompt = prompts.HYDROGEN_REPAIR_PROMPT.format(
+        failed_items=failed_items,
+        scene_json=scene.model_dump_json(),
+    )
+    constraint = f"Keep Lia and Nyx strictly on grid; fix: {failed_items}".strip()
+    log_genai_call(config.MODEL_JUDGE, prompt, {"mock": True}, constraint)
     return constraint

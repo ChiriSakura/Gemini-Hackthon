@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stagestate.local/shared/schema.json",
+  "title": "StageState Shared Contract (P1 Director / P2 Media / P3 Frontend)",
+  "type": "object",
+  "$defs": {
+    "GridCoord": {
+      "type": "array",
+      "description": "3x3 stage grid [col, row], values in 0..2 (col 0=left, 1=center, 2=right; row 0=back, 1=mid, 2=front)",
+      "prefixItems": [
+        { "type": "number", "minimum": 0, "maximum": 2 },
+        { "type": "number", "minimum": 0, "maximum": 2 }
+      ],
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "LightingPreset": {
+      "type": "string",
+      "enum": ["warm_dim", "cold_blue", "warm_transition", "warm_gold_snow"]
+    },
+    "VocalEmotion": {
+      "type": "string",
+      "enum": ["neutral", "gentle_whisper", "urgent_emotional", "angry_shout", "joyful", "sad_soft"]
+    },
+    "GestureIntent": {
+      "type": "string",
+      "enum": ["none", "point_left", "point_right", "point_center", "stop_rewind", "beckon_soothe", "show_physical_prop"]
+    },
+    "DirectorInputParsed": {
+      "type": "object",
+      "description": "Output of Hydrogen Hear/See Agent from 3s webcam+mic .webm or text",
+      "required": ["target_scene_id", "instruction", "vocal_emotion", "gesture_intent", "direction_hint", "has_physical_prop"],
+      "properties": {
+        "target_scene_id": { "type": "integer", "minimum": 1, "maximum": 4 },
+        "instruction": { "type": "string" },
+        "vocal_emotion": { "$ref": "#/$defs/VocalEmotion" },
+        "gesture_intent": { "$ref": "#/$defs/GestureIntent" },
+        "direction_hint": { "type": "string", "enum": ["none", "left", "center", "right", "front", "back"] },
+        "has_physical_prop": { "type": "boolean" },
+        "prop_name": { "type": ["string", "null"] },
+        "prop_description": { "type": ["string", "null"] },
+        "prop_frame_timestamp_sec": { "type": ["number", "null"] }
+      }
+    },
+    "JudgeItem": {
+      "type": "object",
+      "required": ["question", "passed", "confidence"],
+      "properties": {
+        "question": { "type": "string" },
+        "passed": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "reason": { "type": "string" }
+      }
+    },
+    "JudgeResult": {
+      "type": "object",
+      "description": "Unified judge() output (implemented via Hydrogen structured output; swappable to Decisions API)",
+      "required": ["overall_score", "all_passed", "items"],
+      "properties": {
+        "overall_score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "all_passed": { "type": "boolean" },
+        "items": { "type": "array", "items": { "$ref": "#/$defs/JudgeItem" } }
+      }
+    },
+    "ActorState": {
+      "type": "object",
+      "required": ["id", "name", "grid", "action"],
+      "properties": {
+        "id": { "type": "string", "enum": ["lia", "nyx"] },
+        "name": { "type": "string" },
+        "asset_url": { "type": "string" },
+        "grid": { "$ref": "#/$defs/GridCoord" },
+        "facing": { "type": "string", "enum": ["left", "right", "front", "center"] },
+        "action": { "type": "string", "enum": ["stand", "walk", "kneel", "reach", "sit", "jump", "crouch", "flee", "nuzzle", "shared_umbrella"] },
+        "holding_prop": { "type": ["string", "null"] }
+      }
+    },
+    "StagePropState": {
+      "type": "object",
+      "required": ["id", "grid", "state"],
+      "properties": {
+        "id": { "type": "string" },
+        "grid": { "$ref": "#/$defs/GridCoord" },
+        "on_floor": { "type": "boolean" },
+        "state": { "type": "string", "enum": ["intact", "broken", "held", "glowing"] }
+      }
+    },
+    "SceneMedia": {
+      "type": "object",
+      "properties": {
+        "cam_a_preview_url": { "type": ["string", "null"] },
+        "cam_b_preview_url": { "type": ["string", "null"] },
+        "cam_a_final_url": { "type": ["string", "null"] },
+        "cam_b_final_url": { "type": ["string", "null"] },
+        "cam_a_tail_frame_url": { "type": ["string", "null"] },
+        "cam_b_tail_frame_url": { "type": ["string", "null"] },
+        "qa_result": { "$ref": "#/$defs/JudgeResult" },
+        "qa_score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "qa_retries": { "type": "integer", "minimum": 0 },
+        "selected_candidate_index": { "type": "integer", "enum": [0, 1] },
+        "fallback_to_preview": { "type": "boolean" }
+      }
+    },
+    "Scene": {
+      "type": "object",
+      "required": ["scene_id", "title", "narration", "lighting", "actors", "stage_props", "qa_questions"],
+      "properties": {
+        "scene_id": { "type": "integer", "minimum": 1, "maximum": 4 },
+        "title": { "type": "string" },
+        "duration_sec": { "type": "number", "default": 4.0 },
+        "narration": { "type": "string" },
+        "vocal_emotion": { "$ref": "#/$defs/VocalEmotion" },
+        "gesture_intent": { "$ref": "#/$defs/GestureIntent" },
+        "direction_hint": { "type": "string" },
+        "lighting": { "$ref": "#/$defs/LightingPreset" },
+        "camera_shake": { "type": "boolean", "default": false },
+        "audio_mood": { "type": "string" },
+        "environment_notes": { "type": "string" },
+        "needs_rerender": { "type": "boolean", "default": true },
+        "reused_from_branch": { "type": ["string", "null"] },
+        "actors": { "type": "array", "items": { "$ref": "#/$defs/ActorState" } },
+        "stage_props": { "type": "array", "items": { "$ref": "#/$defs/StagePropState" } },
+        "qa_questions": { "type": "array", "items": { "type": "string" } },
+        "media": { "$ref": "#/$defs/SceneMedia" }
+      }
+    }
+  },
+  "required": ["branch_id", "branch_label", "props_registry", "scenes"],
+  "properties": {
+    "branch_id": { "type": "string" },
+    "branch_label": { "type": "string" },
+    "parent_branch_id": { "type": ["string", "null"] },
+    "forked_from_scene": { "type": ["integer", "null"] },
+    "rewrite_summary": { "type": ["string", "null"] },
+    "contradiction_warning": { "type": ["string", "null"] },
+    "props_registry": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["name", "image_url", "state"],
+        "properties": {
+          "name": { "type": "string" },
+          "image_url": { "type": "string" },
+          "state": { "type": "string" },
+          "origin": { "type": "string", "enum": ["preset", "text_generated", "camera_physical"] }
+        }
+      }
+    },
+    "scenes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Scene" }
+    }
+  }
+}

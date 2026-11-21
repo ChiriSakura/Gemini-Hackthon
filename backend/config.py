@@ -3,10 +3,8 @@ Centralized Configuration Module for StageState.
 
 Feature & Use Cases:
 - Single source of truth for all Gemini 4 model identifiers (Neon, Hydrogen,
-  Omni Flash, Image models), video rendering settings, QA thresholds, retry
-  limits, and filesystem asset paths.
-- Allows instant switching between Mock/Demo mode and live Gemini API mode via
-  environment variables without modifying feature code.
+  Omni Flash, Image models), shared asset paths, video rendering settings,
+  QA thresholds, and retry limits.
 """
 
 import os
@@ -17,6 +15,11 @@ load_dotenv()
 
 # Base paths
 BASE_DIR: Path = Path(__file__).resolve().parent.parent
+SHARED_DIR: Path = BASE_DIR / "shared"
+SHARED_ASSETS_DIR: Path = SHARED_DIR / "assets"
+SHARED_MOCK_BRANCH_1: Path = SHARED_DIR / "mock_branch_1.json"
+SHARED_MOCK_BRANCH_2: Path = SHARED_DIR / "mock_branch_2.json"
+
 BACKEND_DIR: Path = BASE_DIR / "backend"
 ASSETS_DIR: Path = BACKEND_DIR / "assets"
 ACTORS_DIR: Path = ASSETS_DIR / "actors"
@@ -44,7 +47,7 @@ USE_DECISIONS_API: bool = os.getenv("USE_DECISIONS_API", "false").lower() == "tr
 # Stage & Video Defaults (tuned for 5-hour hackathon live demo speed)
 DEFAULT_SCENE_COUNT: int = int(os.getenv("DEFAULT_SCENE_COUNT", "4"))
 VIDEO_RESOLUTION: str = os.getenv("VIDEO_RESOLUTION", "360p")
-VIDEO_DURATION_SEC: int = int(os.getenv("VIDEO_DURATION_SEC", "4"))
+VIDEO_DURATION_SEC: float = float(os.getenv("VIDEO_DURATION_SEC", "4.0"))
 VIDEO_ASPECT_RATIO: str = "16:9"
 DUAL_TAKE_COUNT: int = 2
 

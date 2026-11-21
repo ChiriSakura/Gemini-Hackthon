@@ -2,56 +2,72 @@
 Gemini 4 Neon Stage Director Module (Owned by P1).
 
 Feature & Use Cases:
-- Takes a rewrite instruction + existing branch scenes + props registry and
-  deterministically re-plans scenes `forked_from_scene..N` in a single Neon call
-  while preserving scenes `1..forked_from_scene-1` verbatim.
-- Outputs structured `SceneState` objects conforming to `schema.json`.
+- Uses `NEON_DIRECTOR_PROMPT` from `backend/director/prompts.py` to re-plan
+  scenes `forked_from_scene..4` in one shot while leaving scenes
+  `1..(forked_from_scene - 1)` completely untouched (`needs_rerender=False`).
+- Preserves causal object permanence (e.g., broken vs. intact `crystal_vase`,
+  live physical props like `star_token`) and maps vocal emotion / gestures to
+  stage lighting and camera shake.
 """
 
 from backend import config
+from backend.director import prompts
 from backend.logger import log_function_call, log_genai_call
-from backend.schemas import PropAsset, SceneState
+from backend.schemas import DirectorInputParsed, PropRegistryItem, Scene
 
 
 @log_function_call
 async def plan_scenes(
-    instruction: str,
-    base_scenes: list[SceneState],
-    forked_from_scene: int,
-    props_registry: dict[str, PropAsset],
-) -> list[SceneState]:
+    parsed_input: DirectorInputParsed,
+    base_scenes: list[Scene],
+    parent_branch_id: str,
+    props_registry: dict[str, PropRegistryItem],
+) -> list[Scene]:
     """
-    Re-plan scenes from `forked_from_scene` onward using Gemini 4 Neon.
+    Re-plan scenes from `parsed_input.target_scene_id` onward via Gemini 4 Neon.
 
-    Preserves all scenes prior to `forked_from_scene` unchanged, and updates
-    actor grid positions, held/floor props, lighting, narration, and QA checks
-    for scenes `>= forked_from_scene`.
+    Scenes before `target_scene_id` keep `needs_rerender=False` and record
+    `reused_from_branch=parent_branch_id`.
     """
-    preserved = [s.model_copy(deep=True) for s in base_scenes if s.scene_id < forked_from_scene]
-    for s in preserved:
-        s.was_regenerated = False
+    k = parsed_input.target_scene_id
+    preserved: list[Scene] = []
+    for s in base_scenes:
+        if s.scene_id < k:
+            copy_s = s.model_copy(deep=True)
+            copy_s.needs_rerender = False
+            copy_s.reused_from_branch = parent_branch_id
+            preserved.append(copy_s)
 
     if config.DEMO_MODE or not config.GEMINI_API_KEY:
-        # Mock deterministic rewrite for immediate P2/P3 parallel testing
-        updated = []
+        updated: list[Scene] = []
         for s in base_scenes:
-            if s.scene_id >= forked_from_scene:
+            if s.scene_id >= k:
                 copy_s = s.model_copy(deep=True)
-                copy_s.was_regenerated = True
-                if copy_s.scene_id == forked_from_scene:
-                    copy_s.narration = f"[改写] {instruction}"
+                copy_s.needs_rerender = True
+                copy_s.reused_from_branch = None
+                copy_s.vocal_emotion = parsed_input.vocal_emotion
+                copy_s.gesture_intent = parsed_input.gesture_intent
+                copy_s.direction_hint = parsed_input.direction_hint
+                if copy_s.scene_id == k:
+                    copy_s.narration = f"[改写第 {k} 幕] {parsed_input.instruction}"
                 else:
-                    copy_s.narration = f"[受改写影响续写] {copy_s.narration}"
+                    copy_s.narration = f"[因果延续] {copy_s.narration}"
                 updated.append(copy_s)
-        log_genai_call(config.MODEL_DIRECTOR, instruction, {"mock": True}, {"updated_count": len(updated)})
+        log_genai_call(
+            config.MODEL_DIRECTOR,
+            {"system": prompts.NEON_DIRECTOR_PROMPT[:200], "input": parsed_input.model_dump()},
+            {"mock": True},
+            {"updated_count": len(updated)},
+        )
         return preserved + updated
 
-    # TODO (P1 - T1): Replace with live google-genai call to config.MODEL_DIRECTOR
-    # returning structured SceneState list, logged via log_genai_call().
-    updated = [s.model_copy(deep=True) for s in base_scenes if s.scene_id >= forked_from_scene]
+    # TODO (P1 - T1): Call config.MODEL_DIRECTOR with prompts.NEON_DIRECTOR_PROMPT
+    # and structured output matching `shared/schema.json` scenes array.
+    updated = [s.model_copy(deep=True) for s in base_scenes if s.scene_id >= k]
     for s in updated:
-        s.was_regenerated = True
-        if s.scene_id == forked_from_scene:
-            s.narration = f"[Neon] {instruction}"
-    log_genai_call(config.MODEL_DIRECTOR, instruction, {"fallback": True}, {"updated_count": len(updated)})
+        s.needs_rerender = True
+        s.reused_from_branch = None
+        if s.scene_id == k:
+            s.narration = f"[Neon] {parsed_input.instruction}"
+    log_genai_call(config.MODEL_DIRECTOR, parsed_input.model_dump(), {"fallback": True}, {"updated_count": len(updated)})
     return preserved + updated

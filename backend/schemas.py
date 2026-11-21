@@ -2,111 +2,136 @@
 Pydantic Data Contract Schemas for StageState.
 
 Feature & Use Cases:
-- Mirrors `schema.json` strictly so P1 (Director), P2 (Media), and P3 (Frontend)
-  communicate over a typed, validated contract with zero integration drift.
+- Mirrors `shared/schema.json` strictly so P1 (Director), P2 (Media), and P3
+  (Frontend) communicate over a typed, validated contract with zero drift.
 """
 
 from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
 
-class ActorPlacement(BaseModel):
-    """Represents a character's grid coordinate, action, and held prop in a scene."""
-
-    id: str
-    grid: list[int] = Field(min_length=2, max_length=2, description="[row, col] on 3x3 grid (0..2)")
-    action: str = "idle"
-    holding_prop: Optional[str] = None
-
-
-class StagePropPlacement(BaseModel):
-    """Represents a prop resting on the stage floor or table."""
-
-    id: str
-    grid: list[int] = Field(min_length=2, max_length=2)
-    on_floor: bool = True
+LightingPreset = Literal["warm_dim", "cold_blue", "warm_transition", "warm_gold_snow"]
+VocalEmotion = Literal["neutral", "gentle_whisper", "urgent_emotional", "angry_shout", "joyful", "sad_soft"]
+GestureIntent = Literal[
+    "none",
+    "point_left",
+    "point_right",
+    "point_center",
+    "stop_rewind",
+    "beckon_soothe",
+    "show_physical_prop",
+]
 
 
-class QAResult(BaseModel):
-    """Single yes/no evaluation result from the unified judge() interface."""
+class DirectorInputParsed(BaseModel):
+    """Output of Hydrogen Hear/See Agent from a 3s webcam+mic .webm clip or text."""
+
+    target_scene_id: int = Field(default=2, ge=1, le=4)
+    instruction: str
+    vocal_emotion: VocalEmotion = "neutral"
+    gesture_intent: GestureIntent = "none"
+    direction_hint: Literal["none", "left", "center", "right", "front", "back"] = "none"
+    has_physical_prop: bool = False
+    prop_name: Optional[str] = None
+    prop_description: Optional[str] = None
+    prop_frame_timestamp_sec: Optional[float] = None
+
+
+class JudgeItem(BaseModel):
+    """Single yes/no evaluation item returned by unified `judge()`."""
 
     question: str
     passed: bool
     confidence: float = Field(ge=0.0, le=1.0)
+    reason: str = ""
+
+
+class JudgeResult(BaseModel):
+    """Unified `judge()` output (Hydrogen structured output; swappable with Decisions API)."""
+
+    overall_score: float = Field(ge=0.0, le=1.0)
+    all_passed: bool
+    items: list[JudgeItem] = Field(default_factory=list)
+
+
+class ActorState(BaseModel):
+    """Represents Lia or Nyx grid coordinate [col, row], facing, action, and held prop."""
+
+    id: Literal["lia", "nyx"]
+    name: str
+    asset_url: str = ""
+    grid: list[float] = Field(min_length=2, max_length=2)
+    facing: Literal["left", "right", "front", "center"] = "front"
+    action: Literal[
+        "stand", "walk", "kneel", "reach", "sit", "jump", "crouch", "flee", "nuzzle", "shared_umbrella"
+    ] = "stand"
+    holding_prop: Optional[str] = None
+
+
+class StagePropState(BaseModel):
+    """Represents a prop positioned on the 3x3 stage grid."""
+
+    id: str
+    grid: list[float] = Field(min_length=2, max_length=2)
+    on_floor: bool = False
+    state: Literal["intact", "broken", "held", "glowing"] = "intact"
 
 
 class SceneMedia(BaseModel):
-    """Stores dual-camera preview clips, final renders, tail frame, and QA metadata."""
+    """Stores dual-camera previews, final renders, tail frames, and `judge()` QA metadata."""
 
     cam_a_preview_url: Optional[str] = None
     cam_b_preview_url: Optional[str] = None
     cam_a_final_url: Optional[str] = None
     cam_b_final_url: Optional[str] = None
-    tail_frame_url: Optional[str] = None
-    qa_results: list[QAResult] = Field(default_factory=list)
+    cam_a_tail_frame_url: Optional[str] = None
+    cam_b_tail_frame_url: Optional[str] = None
+    qa_result: Optional[JudgeResult] = None
     qa_score: float = 0.0
     qa_retries: int = 0
+    selected_candidate_index: Literal[0, 1] = 0
+    fallback_to_preview: bool = False
 
 
-class SceneState(BaseModel):
+class Scene(BaseModel):
     """Complete world-state snapshot and rendered artifacts for a single scene."""
 
-    scene_id: int
+    scene_id: int = Field(ge=1, le=4)
+    title: str
+    duration_sec: float = 4.0
     narration: str
-    vocal_emotion: str = "neutral"
-    lighting: str = "warm_gold"
-    camera_shake: float = 0.0
+    vocal_emotion: VocalEmotion = "neutral"
+    gesture_intent: GestureIntent = "none"
+    direction_hint: str = "none"
+    lighting: LightingPreset = "warm_dim"
+    camera_shake: bool = False
+    audio_mood: str = ""
     environment_notes: str = ""
-    was_regenerated: bool = True
-    actors: list[ActorPlacement] = Field(default_factory=list)
-    stage_props: list[StagePropPlacement] = Field(default_factory=list)
+    needs_rerender: bool = True
+    reused_from_branch: Optional[str] = None
+    actors: list[ActorState] = Field(default_factory=list)
+    stage_props: list[StagePropState] = Field(default_factory=list)
     qa_questions: list[str] = Field(default_factory=list)
     media: SceneMedia = Field(default_factory=SceneMedia)
 
 
-class PropAsset(BaseModel):
-    """Registered 2D transparent prop asset generated by text or webcam snapshot."""
+class PropRegistryItem(BaseModel):
+    """Registered prop asset entry in `props_registry`."""
 
-    prop_id: str
     name: str
     image_url: str
     state: str = "intact"
-    source_type: Literal["text", "camera"] = "text"
-
-
-class ActorAsset(BaseModel):
-    """Registered protagonist portrait asset locked for visual consistency."""
-
-    actor_id: str
-    name: str
-    portrait_url: str
-    color_hex: str = "#E91E63"
+    origin: Literal["preset", "text_generated", "camera_physical"] = "preset"
 
 
 class BranchState(BaseModel):
-    """Top-level story branch returned to the frontend and persisted to disk."""
+    """Top-level branch contract matching `shared/schema.json`."""
 
     branch_id: str
+    branch_label: str
     parent_branch_id: Optional[str] = None
-    forked_from_scene: int = 1
+    forked_from_scene: Optional[int] = None
+    rewrite_summary: Optional[str] = None
     contradiction_warning: Optional[str] = None
-    props_registry: dict[str, PropAsset] = Field(default_factory=dict)
-    actors_registry: dict[str, ActorAsset] = Field(default_factory=dict)
-    scenes: list[SceneState] = Field(default_factory=list)
-
-
-class RewriteRequest(BaseModel):
-    """API payload to create or fork a story branch from scene k."""
-
-    parent_branch_id: str = "branch_v1"
-    forked_from_scene: int = 1
-    instruction: str
-    force_ignore_contradiction: bool = False
-
-
-class CreatePropRequest(BaseModel):
-    """API payload to generate a new prop from text or base64 webcam frame."""
-
-    branch_id: str = "branch_v1"
-    name: str
-    camera_image_base64: Optional[str] = None
+    props_registry: dict[str, PropRegistryItem] = Field(default_factory=dict)
+    scenes: list[Scene] = Field(default_factory=list)

@@ -1,21 +1,20 @@
 """
-Live Prop & Actor Portrait Generator (Owned by P2).
+Live Prop Generator (Owned by P2 / worker-1).
 
 Feature & Use Cases:
-- Converts either a text prompt ("give her a red umbrella") or a live webcam
-  frame (e.g., judge holding a soda can or sketch) into a stage-consistent 2D
-  prop image on chroma green background, strips the green screen to transparent
-  PNG, and saves it to `backend/assets/props/`.
+- Converts either a text description or a raw webcam snapshot into a stage-styled
+  2D prop on solid chroma-green background via `config.MODEL_IMAGE`, removes the
+  green screen into a transparent RGBA PNG, and returns a `PropRegistryItem`.
 """
 
 import re
-from typing import Optional
+from typing import Literal, Optional
 
 from PIL import Image
 
 from backend import config
 from backend.logger import log_function_call, log_genai_call
-from backend.schemas import PropAsset
+from backend.schemas import PropRegistryItem
 
 
 def _slugify(name: str) -> str:
@@ -26,37 +25,38 @@ def _slugify(name: str) -> str:
 
 @log_function_call
 async def create_prop(
-    name_or_prompt: str,
+    name: str,
+    description: str = "",
     camera_frame_bytes: Optional[bytes] = None,
-    style_hint: str = "anime 2.5D stage prop",
-) -> PropAsset:
+    prop_id: Optional[str] = None,
+) -> tuple[str, PropRegistryItem]:
     """
-    Generate a transparent PNG prop from text or a raw webcam image.
+    Generate a transparent PNG prop from text or webcam frame and save under `backend/assets/props/`.
 
-    Saves the output under `backend/assets/props/<prop_id>.png` and returns
-    a `PropAsset` ready to be added to `props_registry`.
+    Returns `(prop_id, PropRegistryItem)` ready for `props_registry`.
     """
-    prop_id = _slugify(name_or_prompt)
-    out_path = config.PROPS_DIR / f"{prop_id}.png"
-    source_type = "camera" if camera_frame_bytes else "text"
+    resolved_id = prop_id or _slugify(name)
+    out_path = config.PROPS_DIR / f"{resolved_id}.png"
+    origin: Literal["preset", "text_generated", "camera_physical"] = (
+        "camera_physical" if camera_frame_bytes else "text_generated"
+    )
 
     if config.DEMO_MODE or not config.GEMINI_API_KEY or not out_path.exists():
-        # Placeholder transparent colored badge so 3D stage never breaks during T0/T1
-        img = Image.new("RGBA", (256, 256), (233, 30, 99, 220))
+        img = Image.new("RGBA", (256, 256), (255, 215, 64, 230))
         img.save(out_path, format="PNG")
         log_genai_call(
             config.MODEL_IMAGE,
-            {"prompt": name_or_prompt, "style": style_hint, "has_camera_frame": bool(camera_frame_bytes)},
+            {"name": name, "description": description, "has_camera_frame": bool(camera_frame_bytes)},
             {"placeholder": True},
             {"saved_path": str(out_path)},
         )
 
-    # TODO (P2 - T1): Call config.MODEL_IMAGE with chroma-green prompt (+ camera_frame_bytes if present),
-    # then key out green background into RGBA PNG and save to `out_path`.
-    return PropAsset(
-        prop_id=prop_id,
-        name=name_or_prompt,
-        image_url=f"/assets/props/{prop_id}.png",
+    # TODO (P2 - T1): Call config.MODEL_IMAGE with chroma-green prompt (+ camera_frame_bytes),
+    # then key out green background into transparent RGBA PNG at `out_path`.
+    item = PropRegistryItem(
+        name=name,
+        image_url=f"/assets/props/{resolved_id}.png",
         state="intact",
-        source_type=source_type,
+        origin=origin,
     )
+    return resolved_id, item

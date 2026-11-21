@@ -20,7 +20,7 @@ frontend/dist/
 frontend/.vite/
 npm-debug.log*
 
-# Generated / Large temporary media (keep demo_cache if curated)
+# Generated / Large temporary media (keep shared/assets and frontend/public/assets)
 tmp/
 *.tmp
 logs/*.log

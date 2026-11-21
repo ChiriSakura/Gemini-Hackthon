@@ -1,36 +1,40 @@
 """
-FastAPI Entrypoint for StageState.
+FastAPI Entrypoint for StageState (Coordinated Contract Surface).
 
 Feature & Use Cases:
-- Exposes unified REST endpoints for Frontend (P3) to:
-  1. Fetch cached/current story branches (`GET /api/branches`, `GET /api/branches/{branch_id}`).
-  2. Rewrite history from scene k with text or raw audio (`POST /api/rewrite`, `POST /api/rewrite/audio`).
-  3. Create live stage props from text or webcam frame (`POST /api/props`).
-  4. Trigger concurrent AI video rendering from uploaded dual-camera 3D previews (`POST /api/render`).
-- Serves static generated assets under `/assets`.
+- Exposes the agreed HTTP API surface shared by P1 (Director), P2 (Media), and P3 (Frontend):
+  - `GET  /api/health`: Service status and active model registry.
+  - `GET  /api/branches`: List all persisted story branches (starts with cached `branch_v1`).
+  - `GET  /api/branches/{branch_id}`: Fetch a specific branch.
+  - `POST /api/director/fork`: Accepts 3s webcam+mic `.webm` (or text fallback), parses
+    multimodal cues via Hydrogen, creates any physical prop, checks contradictions,
+    re-plans `k..4` via Neon, and filters affected scenes via `judge()`.
+  - `POST /api/media/create-prop`: Text or webcam snapshot -> transparent PNG prop.
+  - `POST /api/media/render-scene`: Renders a scene (or whole branch) concurrently via Omni Flash + `judge()`.
 """
 
-import base64
+import json
 from typing import Optional
+
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from backend import config
-from backend.director.state_tree import get_branch, list_branches, save_branch
-from backend.director.neon_director import plan_scenes
 from backend.director.hydrogen_judge import (
     check_contradiction,
-    extract_vocal_emotion,
     filter_affected_scenes,
     inspect_tail_frame,
+    parse_director_input,
 )
+from backend.director.neon_director import plan_scenes
+from backend.director.state_tree import get_branch, list_branches, save_branch
 from backend.logger import log_function_call
 from backend.media.prop_maker import create_prop
-from backend.media.video_renderer import render_branch_scenes
-from backend.schemas import BranchState, CreatePropRequest, RewriteRequest
+from backend.media.video_renderer import render_branch_scenes, render_scene_media
+from backend.schemas import BranchState, Scene
 
-app = FastAPI(title="StageState Director API", version="0.1.0")
+app = FastAPI(title="StageState Director API", version="0.2.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -41,12 +45,14 @@ app.add_middleware(
 )
 
 app.mount("/assets", StaticFiles(directory=str(config.ASSETS_DIR)), name="assets")
+if config.SHARED_ASSETS_DIR.exists():
+    app.mount("/shared-assets", StaticFiles(directory=str(config.SHARED_ASSETS_DIR)), name="shared-assets")
 
 
 @app.get("/api/health")
 @log_function_call
 def health_check() -> dict:
-    """Return service status and active model configuration."""
+    """Return service health and centralized Gemini 4 model registry."""
     return {
         "status": "ok",
         "demo_mode": config.DEMO_MODE,
@@ -62,117 +68,134 @@ def health_check() -> dict:
 @app.get("/api/branches", response_model=list[BranchState])
 @log_function_call
 def api_list_branches() -> list[BranchState]:
-    """List all persisted story branches (including cached Branch 1)."""
+    """Return all saved branches (seeds `branch_v1` from `shared/mock_branch_1.json` if empty)."""
     return list_branches()
 
 
 @app.get("/api/branches/{branch_id}", response_model=BranchState)
 @log_function_call
 def api_get_branch(branch_id: str) -> BranchState:
-    """Fetch a single branch by ID."""
+    """Return a single branch by ID."""
     branch = get_branch(branch_id)
     if not branch:
         raise HTTPException(status_code=404, detail=f"Branch {branch_id} not found")
     return branch
 
 
-@app.post("/api/props")
+@app.post("/api/director/fork", response_model=BranchState)
 @log_function_call
-async def api_create_prop(req: CreatePropRequest) -> dict:
-    """Generate a stage-styled transparent prop from text or webcam frame and register it."""
-    raw_bytes: Optional[bytes] = None
-    if req.camera_image_base64:
-        b64_part = req.camera_image_base64.split(",")[-1]
-        raw_bytes = base64.b64decode(b64_part)
-
-    prop_asset = await create_prop(name_or_prompt=req.name, camera_frame_bytes=raw_bytes)
-    branch = get_branch(req.branch_id)
-    if branch:
-        branch.props_registry[prop_asset.prop_id] = prop_asset
-        save_branch(branch)
-    return {"prop": prop_asset}
-
-
-@app.post("/api/rewrite", response_model=BranchState)
-@log_function_call
-async def api_rewrite_branch(req: RewriteRequest) -> BranchState:
-    """Check contradictions, re-plan scenes k..N via Neon, and filter affected scenes via judge()."""
-    parent = get_branch(req.parent_branch_id)
+async def api_director_fork(
+    parent_branch_id: str = Form("branch_v1"),
+    target_scene_id: int = Form(2),
+    text: Optional[str] = Form(None),
+    force_ignore_contradiction: bool = Form(False),
+    clip: Optional[UploadFile] = File(None),
+) -> BranchState:
+    """Fork a story branch from `target_scene_id` using 3s `.webm` gesture+voice clip or text fallback."""
+    parent = get_branch(parent_branch_id)
     if not parent:
-        raise HTTPException(status_code=404, detail=f"Parent branch {req.parent_branch_id} not found")
+        raise HTTPException(status_code=404, detail=f"Parent branch {parent_branch_id} not found")
 
-    prior_scenes = [s for s in parent.scenes if s.scene_id < req.forked_from_scene]
-    if not req.force_ignore_contradiction and prior_scenes:
-        has_conflict, reason = await check_contradiction(req.instruction, prior_scenes)
+    clip_bytes = await clip.read() if clip else None
+    parsed = await parse_director_input(
+        clip_bytes=clip_bytes,
+        clip_mime_type=(clip.content_type if clip else "video/webm") or "video/webm",
+        text_fallback=text,
+        target_scene_id=target_scene_id,
+    )
+
+    updated_registry = dict(parent.props_registry)
+    if parsed.has_physical_prop and parsed.prop_name:
+        prop_id, prop_item = await create_prop(
+            name=parsed.prop_name,
+            description=parsed.prop_description or parsed.prop_name,
+            camera_frame_bytes=clip_bytes,
+        )
+        updated_registry[prop_id] = prop_item
+
+    prior_scenes = [s for s in parent.scenes if s.scene_id < parsed.target_scene_id]
+    if not force_ignore_contradiction and prior_scenes:
+        has_conflict, reason = await check_contradiction(parsed.instruction, prior_scenes)
         if has_conflict:
             return BranchState(
-                branch_id=f"{req.parent_branch_id}_conflict",
-                parent_branch_id=req.parent_branch_id,
-                forked_from_scene=req.forked_from_scene,
+                branch_id=f"{parent_branch_id}_conflict",
+                branch_label=f"冲突提示：{parsed.instruction[:18]}",
+                parent_branch_id=parent_branch_id,
+                forked_from_scene=parsed.target_scene_id,
+                rewrite_summary=parsed.instruction,
                 contradiction_warning=reason,
-                props_registry=parent.props_registry,
-                actors_registry=parent.actors_registry,
+                props_registry=updated_registry,
                 scenes=parent.scenes,
             )
 
     new_scenes = await plan_scenes(
-        instruction=req.instruction,
+        parsed_input=parsed,
         base_scenes=parent.scenes,
-        forked_from_scene=req.forked_from_scene,
-        props_registry=parent.props_registry,
+        parent_branch_id=parent.branch_id,
+        props_registry=updated_registry,
     )
-    affected_ids = await filter_affected_scenes(req.instruction, new_scenes, req.forked_from_scene)
+    affected_ids = await filter_affected_scenes(parsed.instruction, new_scenes, parsed.target_scene_id)
     for scene in new_scenes:
-        scene.was_regenerated = scene.scene_id >= req.forked_from_scene and scene.scene_id in affected_ids
+        if scene.scene_id >= parsed.target_scene_id:
+            scene.needs_rerender = scene.scene_id in affected_ids
+            if not scene.needs_rerender:
+                scene.reused_from_branch = parent.branch_id
 
     new_branch_id = f"branch_v{len(list_branches()) + 1}"
     new_branch = BranchState(
         branch_id=new_branch_id,
+        branch_label=f"改写第 {parsed.target_scene_id} 幕：{parsed.instruction[:16]}",
         parent_branch_id=parent.branch_id,
-        forked_from_scene=req.forked_from_scene,
-        props_registry=parent.props_registry,
-        actors_registry=parent.actors_registry,
+        forked_from_scene=parsed.target_scene_id,
+        rewrite_summary=parsed.instruction,
+        props_registry=updated_registry,
         scenes=new_scenes,
     )
     save_branch(new_branch)
     return new_branch
 
 
-@app.post("/api/rewrite/audio", response_model=BranchState)
+@app.post("/api/media/create-prop")
 @log_function_call
-async def api_rewrite_audio(
-    parent_branch_id: str = Form("branch_v1"),
-    forked_from_scene: int = Form(2),
-    force_ignore_contradiction: bool = Form(False),
-    audio: UploadFile = File(...),
-) -> BranchState:
-    """Ingest raw voice audio, extract vocal emotion + transcript via Hydrogen, and rewrite."""
-    audio_bytes = await audio.read()
-    vocal_info = await extract_vocal_emotion(audio_bytes, mime_type=audio.content_type or "audio/webm")
-    req = RewriteRequest(
-        parent_branch_id=parent_branch_id,
-        forked_from_scene=forked_from_scene,
-        instruction=vocal_info["transcript"],
-        force_ignore_contradiction=force_ignore_contradiction,
-    )
-    branch = await api_rewrite_branch(req)
-    for scene in branch.scenes:
-        if scene.scene_id == forked_from_scene:
-            scene.vocal_emotion = vocal_info.get("vocal_emotion", scene.vocal_emotion)
-            scene.lighting = vocal_info.get("lighting", scene.lighting)
-            scene.camera_shake = vocal_info.get("camera_shake", scene.camera_shake)
-    save_branch(branch)
-    return branch
+async def api_media_create_prop(
+    name: str = Form(...),
+    description: str = Form(""),
+    branch_id: str = Form("branch_v1"),
+    image: Optional[UploadFile] = File(None),
+) -> dict:
+    """Create a transparent 2D stage prop from text or a camera image snapshot."""
+    img_bytes = await image.read() if image else None
+    prop_id, item = await create_prop(name=name, description=description, camera_frame_bytes=img_bytes)
+    branch = get_branch(branch_id)
+    if branch:
+        branch.props_registry[prop_id] = item
+        save_branch(branch)
+    return {"prop_id": prop_id, "image_url": item.image_url, "item": item}
 
 
-@app.post("/api/render/{branch_id}", response_model=BranchState)
+@app.post("/api/media/render-scene")
 @log_function_call
-async def api_render_branch(branch_id: str) -> BranchState:
-    """Concurrently render all `was_regenerated=True` scenes via Omni Flash + judge() QA."""
+async def api_media_render_scene(
+    branch_id: str = Form("branch_v1"),
+    scene_id: Optional[int] = Form(None),
+    scene_json: Optional[str] = Form(None),
+) -> dict:
+    """Render either a specific `scene_id` or all `needs_rerender=True` scenes in `branch_id`."""
     branch = get_branch(branch_id)
     if not branch:
         raise HTTPException(status_code=404, detail=f"Branch {branch_id} not found")
 
-    updated_branch = await render_branch_scenes(branch, tail_inspector=inspect_tail_frame)
-    save_branch(updated_branch)
-    return updated_branch
+    if scene_id is not None:
+        target = next((s for s in branch.scenes if s.scene_id == scene_id), None)
+        if not target and scene_json:
+            target = Scene.model_validate_json(scene_json)
+        if not target:
+            raise HTTPException(status_code=404, detail=f"Scene {scene_id} not found")
+        refs = [str(config.SHARED_ASSETS_DIR / "lia.png"), str(config.SHARED_ASSETS_DIR / "nyx.png")]
+        target.media = await render_scene_media(target, refs, tail_inspector=inspect_tail_frame)
+        save_branch(branch)
+        return {"scene_id": target.scene_id, "media": target.media, "environment_notes": target.environment_notes}
+
+    updated = await render_branch_scenes(branch, tail_inspector=inspect_tail_frame)
+    save_branch(updated)
+    return json.loads(updated.model_dump_json())
