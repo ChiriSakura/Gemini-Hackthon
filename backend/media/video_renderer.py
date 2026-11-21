@@ -21,6 +21,7 @@ import base64
 import json
 import re
 import shutil
+import subprocess
 import time
 import uuid
 from pathlib import Path
@@ -1539,6 +1540,134 @@ async def _render_cam_b_from_keyframes(
     )
 
 
+def _compose_split_frame_sync(cam_a_frame: Path, cam_b_frame: Path, out_path: Path) -> Path:
+    """Put Camera A (left) and Camera B (right) side by side in one 16:9 frame, with black bars above and below."""
+    img_a = cv2.imread(str(cam_a_frame))
+    img_b = cv2.imread(str(cam_b_frame))
+    if img_a is None or img_b is None:
+        raise RuntimeError("missing start frame for the split-screen render")
+    canvas = np.zeros((720, 1280, 3), np.uint8)
+    canvas[180:540, 0:640] = cv2.resize(img_a, (640, 360))
+    canvas[180:540, 640:1280] = cv2.resize(img_b, (640, 360))
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    if not _write_png_safe(out_path, canvas):
+        raise RuntimeError("could not write the split-screen start frame")
+    return out_path
+
+
+def _crop_split_panel_sync(split_video: Path, right_panel: bool, out_path: Path) -> Path:
+    """Cut one panel (left = Camera A, right = Camera B) out of the split-screen clip, keeping the sound."""
+    x_expr = "iw/2" if right_panel else "0"
+    subprocess.run(
+        [
+            "ffmpeg", "-y", "-loglevel", "error", "-i", str(split_video),
+            "-filter:v", f"crop=iw/2:ih/2:{x_expr}:ih/4",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
+            "-c:a", "copy", "-movflags", "+faststart", str(out_path),
+        ],
+        check=True,
+        timeout=60,
+    )
+    return out_path
+
+
+async def _render_split_screen_pair(
+    scene: Scene, cam_a_start: Path, cam_b_start: Path
+) -> tuple[tuple[str, Optional[str], JudgeResult, int, int], tuple[str, Optional[str], JudgeResult, int, int]]:
+    """
+    Render Camera A and Camera B in ONE video generation, as two panels of a split screen, then cut them apart.
+
+    Because both views come out of the same generation, the actors do the same action at the same instant in both,
+    and each camera stays where its start frame put it. Returns (camera A result, camera B result).
+    """
+    tag = uuid.uuid4().hex[:6]
+    stem = f"scene_{scene.scene_id}_sync_{tag}"
+    split_frame = await asyncio.to_thread(
+        _compose_split_frame_sync, cam_a_start, cam_b_start, config.TAILS_DIR / f"{stem}_start.png"
+    )
+    uploaded = await _get_or_upload_uri(split_frame, use_cache=False)
+    umbrella_rule = (
+        "" if _umbrella_is_open(scene) else "The red umbrella stays closed and furled for the whole clip. "
+    )
+    prompt = (
+        "Split-screen video. The frame holds two panels side by side with black bars above and below, exactly as in "
+        "Image 1. Both panels show the SAME room and the SAME moment, filmed by two synchronized cameras that never move. "
+        "LEFT panel = Camera A, the front wide shot. RIGHT panel = Camera B, the fixed 45 degree side shot of the same scene. "
+        "Every movement happens at exactly the same instant in both panels: the same characters do the same action "
+        "with the same timing, only seen from the two camera positions. Both cameras are locked on tripods: no pan, "
+        "no orbit, no zoom, no cut. Keep the black bars and the vertical split exactly where they are for the whole clip. "
+        f"Action in the scene: {_milden_safety_phrasing(scene.narration)} "
+        f"{umbrella_rule}"
+        "Every character and object keeps the size it has in Image 1, in both panels. "
+        "All weather stays outside the glass; the room interior and the floor are dry. Anime cel-shaded style. "
+        "No text, numbers, labels, arrows, measurement lines, captions or watermarks anywhere in the picture."
+    )
+    input_parts = [
+        {"type": "image", "uri": uploaded[0], "mime_type": uploaded[1]},
+        {"type": "text", "text": prompt},
+    ]
+    duration_int = max(3, min(10, int(round(scene.duration_sec or config.VIDEO_DURATION_SEC))))
+    split_video = config.FINALS_DIR / f"{stem}_split.mp4"
+    t0 = time.perf_counter()
+    await asyncio.wait_for(
+        asyncio.to_thread(
+            _generate_omni_take_sync, _resolve_video_model(), input_parts, duration_int, "720p",
+            config.VIDEO_ASPECT_RATIO, split_video,
+        ),
+        timeout=90.0,
+    )
+    video_sec = round(time.perf_counter() - t0, 2)
+    out_a = config.FINALS_DIR / f"scene_{scene.scene_id}_cam_a_{tag}_sync.mp4"
+    out_b = config.FINALS_DIR / f"scene_{scene.scene_id}_cam_b_{tag}_sync.mp4"
+    await asyncio.gather(
+        asyncio.to_thread(_crop_split_panel_sync, split_video, False, out_a),
+        asyncio.to_thread(_crop_split_panel_sync, split_video, True, out_b),
+    )
+    tail_a = await asyncio.to_thread(_extract_tail_frame_sync, out_a, config.TAILS_DIR / f"{out_a.stem}_tail.png")
+    tail_b = await asyncio.to_thread(_extract_tail_frame_sync, out_b, config.TAILS_DIR / f"{out_b.stem}_tail.png")
+    questions = list(scene.qa_questions) or [f"Does the clip show: {scene.narration}?"]
+    qa_a, qa_b = await asyncio.gather(
+        judge(questions, context_text=scene.narration, media_paths=[str(out_a)]),
+        judge(questions, context_text=scene.narration, media_paths=[str(out_b)]),
+    )
+    log_genai_call(
+        model=_resolve_video_model(),
+        prompt={"mode": "split_screen_pair", "scene_id": scene.scene_id},
+        config={"video_sec": video_sec},
+        output={"cam_a": out_a.name, "cam_b": out_b.name, "qa_a": qa_a.overall_score, "qa_b": qa_b.overall_score},
+    )
+    return (
+        (f"/assets/finals/{out_a.name}", f"/assets/tails/{out_a.stem}_tail.png" if tail_a else None, qa_a, 0, 0),
+        (f"/assets/finals/{out_b.name}", f"/assets/tails/{out_b.stem}_tail.png" if tail_b else None, qa_b, 0, 0),
+    )
+
+
+async def _split_pair_from_cam_a(scene: Scene, cam_a_final_url: str):
+    """First scene of a chain: take Camera A's opening frame, derive Camera B's opening frame from it, render both together."""
+    cam_a_video = _resolve_asset_to_local_path(cam_a_final_url)
+    if not cam_a_video or not cam_a_video.is_file():
+        return None
+    a_first = config.TAILS_DIR / f"{cam_a_video.stem}_first.png"
+    if not await asyncio.to_thread(_extract_frame_at_sync, cam_a_video, 0.3, a_first):
+        return None
+    layout_b: Optional[Path] = None
+    try:
+        from backend.media.stage_blueprint import render_scene_blueprint
+
+        layout_b = await asyncio.to_thread(
+            render_scene_blueprint, scene, "cam_b", config.TAILS_DIR / f"{cam_a_video.stem}_layout_b.png"
+        )
+    except Exception:
+        layout_b = None
+    b_first = config.TAILS_DIR / f"{cam_a_video.stem}_camb_first.png"
+    same_view = await asyncio.to_thread(
+        _derive_rotated_cam_b_keyframe_sync, a_first, b_first, _build_size_chart(scene), layout_b, _cam_b_blocking(scene)
+    )
+    if same_view >= CAM_B_SAME_VIEW_THRESHOLD:
+        return None
+    return await _render_split_screen_pair(scene, a_first, b_first)
+
+
 @log_function_call
 async def render_scene_media(
     scene: Scene,
@@ -1559,7 +1688,29 @@ async def render_scene_media(
     # Sequential geometric derivation: ALWAYS render Camera A first, then geometrically derive
     # Camera B (+45-degree right-side orbit) strictly anchored on Camera A's actual rendered frame
     # so room architecture, furniture, props, and 3D character facing directions match 1:1.
-    res_a = await render_single_camera_shot(
+    # Continuing a chain: both cameras start from the previous scene's own last frames and are rendered together.
+    split_pair = None
+    # The opening scene starts from one fixed pair of frames (same instant, Camera A and Camera B positions),
+    # so the two camera positions are set once and every later scene inherits them through the tail frames.
+    opening_a = config.ASSETS_DIR / "stages" / "opening_cam_a.png"
+    opening_b = config.ASSETS_DIR / "stages" / "opening_cam_b.png"
+    use_opening = scene.scene_id == 1 and not (prev_tail_a and prev_tail_b) and opening_a.is_file() and opening_b.is_file()
+    if config.CAM_B_KEYFRAMES_FROM_A and not fast_live_mode and ((prev_tail_a and prev_tail_b) or use_opening):
+        try:
+            start_a = opening_a if use_opening else _resolve_asset_to_local_path(prev_tail_a)
+            start_b = opening_b if use_opening else _resolve_asset_to_local_path(prev_tail_b)
+            if start_a and start_b and start_a.is_file() and start_b.is_file():
+                split_pair = await _render_split_screen_pair(scene, start_a, start_b)
+        except Exception as exc:
+            log_genai_call(
+                model=_resolve_video_model(),
+                prompt={"mode": "split_screen_pair", "scene_id": scene.scene_id},
+                config={},
+                output={"fallback": f"{type(exc).__name__}: {str(exc)[:200]}"},
+            )
+            split_pair = None
+
+    res_a = split_pair[0] if split_pair else await render_single_camera_shot(
         scene,
         "cam_a",
         prev_tail_a,
@@ -1581,10 +1732,12 @@ async def render_scene_media(
             "+45-degree clockwise camera orbit to the front-right around the central table."
         )
 
-    res_b_keyframed = None
-    if config.CAM_B_KEYFRAMES_FROM_A and not fast_live_mode and res_a[0]:
+    res_b_keyframed = split_pair[1] if split_pair else None
+    if split_pair is None and config.CAM_B_KEYFRAMES_FROM_A and not fast_live_mode and res_a[0]:
         try:
-            res_b_keyframed = await _render_cam_b_from_keyframes(scene, res_a[0], res_a[1])
+            first_pair = await _split_pair_from_cam_a(scene, res_a[0])
+            if first_pair:
+                res_a, res_b_keyframed = first_pair
         except Exception as exc:  # any failure falls back to the reference-image path below
             log_genai_call(
                 model=_resolve_video_model(),
