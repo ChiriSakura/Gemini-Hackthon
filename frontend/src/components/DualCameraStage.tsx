@@ -141,6 +141,32 @@ export const DualCameraStage: React.FC<DualCameraStageProps> = ({
   };
 
   useEffect(() => {
+    if (viewMode !== 'final') return;
+    const syncTimer = window.setInterval(() => {
+      const master = videoARef.current;
+      if (!master || master.paused || master.readyState < 2) return;
+      const followers = [
+        videoBRef.current,
+        compareOldVideoRef.current,
+        compareNewVideoRef.current,
+      ];
+      for (const vid of followers) {
+        if (!vid || vid.paused || vid.readyState < 2) continue;
+        const duration = Number.isFinite(vid.duration) && vid.duration > 0 ? vid.duration : null;
+        if (duration && master.currentTime >= duration) continue;
+        if (Math.abs(vid.currentTime - master.currentTime) > 0.25) {
+          try {
+            vid.currentTime = master.currentTime;
+          } catch {
+            // Ignore seek errors while media buffer updates
+          }
+        }
+      }
+    }, 1500);
+    return () => window.clearInterval(syncTimer);
+  }, [viewMode, activeSceneIndex, activeBranch.branch_id, compareBranch?.branch_id]);
+
+  useEffect(() => {
     if (!autoCutEnabled) return;
     const timer = window.setInterval(() => {
       setActiveCutCam((prev) => (prev === 'A' ? 'B' : 'A'));
