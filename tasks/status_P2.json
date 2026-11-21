@@ -1,8 +1,8 @@
 {
   "agent": "P2_media",
   "branch": "feat/w1-media",
-  "current_milestone": "T3",
-  "status": "w1_queue_all_6_tasks_completed_and_verified",
+  "current_milestone": "T4",
+  "status": "w1_t3_t4_eval_and_verification_completed",
   "omni_flash_latency_sec": 18.64,
   "omni_flash_total_with_io_sec": 22.65,
   "omni_flash_dual_take_parallel_sec": 25.47,
@@ -52,8 +52,18 @@
     "W1-T2D: Verified live photo JPEG create_prop() (13.48s RGBA transparent PNG) and benchmarked v1beta models/gemini-decision-1 directly on .mp4 (accepted! 1.54s w/ video+audio tokens) vs .png (0.93s)",
     "W1-T3A: Added 1-take vs 2-take pass-rate & retry logger writing to backend/assets/eval_media_stats.jsonl (14 live shots recorded)",
     "W1-T3B: Added 60s asyncio.wait_for per-take timeout safety guard and get_render_progress()/list_render_progress() helpers in video_renderer.py",
-    "Live-Demo Hardening: Added non-clobbering unique output filenames for live forked branches (keeps branch_v1 intact for side-by-side comparison), Chrome .webm preview duration-mismatch guard + start-frame extraction (prevents Omni Flash 400 errors), and rule_memory.add_rule() auto-distillation on QA repairs"
+    "Live-Demo Hardening: Added non-clobbering unique output filenames for live forked branches (keeps branch_v1 intact for side-by-side comparison), Chrome .webm preview duration-mismatch guard + start-frame extraction (prevents Omni Flash 400 errors), and rule_memory.add_rule() auto-distillation on QA repairs",
+    "W1-T3C: Measured Cross-Camera Consistency Rate via models/gemini-decision-1 across 7 scene pairs -> 0.893 (25/28 checks passed, avg 3.92s) saved to backend/assets/eval_dual_cam_stats.json",
+    "W1-T3D: Multi-prop simultaneous stress test (star_token + red_umbrella + crystal_vase) -> passed in 39.33s with qa_score=0.815 (physical scale P(true)=0.88)",
+    "W1-T3E: Generated 20-clip Decisions API calibration dataset (14 positive + 6 negative mismatch) -> 1.000 accuracy (20/20, TPR=1.0, TNR=1.0, avg 2.62s) saved to backend/assets/calibration_20_clips.json",
+    "W1-T4A: Verified post-merge smoke suite + all 14 cached MP4s (8 branch_v1 + 6 branch_v2_cached) return HTTP 200 OK with QA scores 0.776..0.933"
   ],
+  "w1_t3_eval_summary": {
+    "cross_camera_consistency_rate": 0.893,
+    "multi_prop_stress_qa_score": 0.815,
+    "calibration_20_accuracy": 1.0,
+    "cached_mp4_http_200_count": 14
+  },
   "blockers": [],
-  "last_updated": "2026-11-21T13:03:00-05:00"
+  "last_updated": "2026-11-21T13:06:00-05:00"
 }
