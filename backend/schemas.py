@@ -24,10 +24,9 @@ GestureIntent = Literal[
 
 
 class DirectorInputParsed(BaseModel):
-    """Output of Hydrogen Hear/See Agent from a 3s-30s webcam+mic .webm clip or text."""
+    """Output of Hydrogen Hear/See Agent from a webcam+mic .webm clip or text."""
 
     target_scene_id: int = Field(default=2, ge=1)
-    mode: Literal["extend", "fork"] = "fork"
     instruction: str
     vocal_emotion: VocalEmotion = "neutral"
     gesture_intent: GestureIntent = "none"
@@ -36,6 +35,7 @@ class DirectorInputParsed(BaseModel):
     prop_name: Optional[str] = None
     prop_description: Optional[str] = None
     prop_frame_timestamp_sec: Optional[float] = None
+    mode: Literal["extend", "fork"] = "extend"
     needs_prop_prompt: bool = False
     prop_prompt_hint: Optional[str] = None
 

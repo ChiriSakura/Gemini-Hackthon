@@ -17,7 +17,7 @@ from backend import config
 from backend.director import prompts
 from backend.director.genai_client import generate_structured
 from backend.logger import log_function_call, log_genai_call
-from backend.schemas import DirectorInputParsed, PropRegistryItem, Scene, SceneMedia, StagePropState
+from backend.schemas import DirectorInputParsed, PropRegistryItem, Scene, SceneMedia
 
 
 class _NeonScenesResponse(BaseModel):
@@ -193,7 +193,6 @@ async def plan_scenes(
             contents=[prompt_text],
             response_schema=_NeonScenesResponse,
             temperature=0.25 if attempt == 0 else 0.1,
-            thinking_level="LOW",
         )
         rewritten_by_id = {s.scene_id: s for s in resp.scenes if s.scene_id >= k}
         # R-17 backfill: ensure Neon cannot silently drop scenes k..N
@@ -226,91 +225,79 @@ async def plan_scenes(
 @log_function_call
 async def extend_single_scene(
     parsed_input: DirectorInputParsed,
-    prev_scene: Scene,
-    next_scene_id: int,
+    prior_scenes: list[Scene],
     props_registry: dict[str, PropRegistryItem],
     learned_rules: list[str] | None = None,
-    thrown_prop_id: str | None = None,
+    end_freeze_mode: str = "sculpture",
 ) -> Scene:
     """
-    Generate ONE next scene (`Scene N+1`) from a frozen sculpture snapshot in <3s (`thinking_level="LOW"`).
-
-    Avoids multi-scene planning overhead (fixes R-41 latency) and supports unbounded open-ended
-    storylines (`Design_Infinite_Sculpture.md`).
+    Generate ONLY the single next scene `Scene N+1` inheriting the world state
+    and `environment_notes` of the frozen sculpture at `prior_scenes[-1]`
+    (Design_Infinite_Sculpture.md Sec 4.A — 3x faster single-scene planning).
     """
+    assert prior_scenes, "extend_single_scene requires at least one prior scene snapshot"
+    prev_scene = prior_scenes[-1]
+    next_id = prev_scene.scene_id + 1
+    freeze_val = "none" if end_freeze_mode == "none" else "sculpture"
+
     if config.DEMO_MODE or not config.GEMINI_API_KEY:
         next_scene = prev_scene.model_copy(deep=True)
-        next_scene.scene_id = next_scene_id
+        next_scene.scene_id = next_id
         next_scene.parent_scene_id = prev_scene.scene_id
-        next_scene.end_freeze_mode = "sculpture"
-        next_scene.needs_rerender = True
-        next_scene.reused_from_branch = None
-        next_scene.media = SceneMedia()
-        next_scene.title = f"Act {next_scene_id} · Living Sculpture Twist"
-        next_scene.narration = f"[Continued from S{prev_scene.scene_id}] {parsed_input.instruction}"
+        next_scene.end_freeze_mode = freeze_val  # type: ignore[assignment]
+        next_scene.title = f"Act {next_id} · Live Continuation"
+        next_scene.narration = f"[Scene {next_id}] {parsed_input.instruction}"
         next_scene.vocal_emotion = parsed_input.vocal_emotion
         next_scene.gesture_intent = parsed_input.gesture_intent
         next_scene.direction_hint = parsed_input.direction_hint
-        if thrown_prop_id and not any(p.id == thrown_prop_id for p in next_scene.stage_props):
-            next_scene.stage_props.append(
-                StagePropState(
-                    id=thrown_prop_id,
-                    grid=[1.15, 1.1],
-                    on_floor=False,
-                    state="glowing",
-                    entry_motion="throw_arc",
-                    entry_origin=[1.0, 2.0, 2.4],
-                )
-            )
-        return _sanitize_scenes_invariants([prev_scene.model_copy(deep=True), next_scene])[-1]
+        next_scene.needs_rerender = True
+        next_scene.reused_from_branch = None
+        next_scene.media = SceneMedia()
+        sanitized = _sanitize_scenes_invariants([*prior_scenes, next_scene])
+        return sanitized[-1]
 
     rules_block = ""
     if learned_rules:
-        rules_block = "\nGeneral stage continuity rules:\n- " + "\n- ".join(learned_rules)
+        rules_block = "\nStory-agnostic continuity rules:\n- " + "\n- ".join(learned_rules)
 
-    user_prompt = (
-        f"next_scene_id = {next_scene_id}\n"
-        f"thrown_prop_id = {thrown_prop_id or 'None'}\n"
+    base_prompt = (
+        f"Generate ONLY the single next scene with scene_id={next_id} continuing seamlessly "
+        f"from the frozen sculpture state of Scene {prev_scene.scene_id}.\n"
+        f"previous_sculpture_scene = {prev_scene.model_dump_json()}\n"
         f"props_registry = {json.dumps({pid: p.model_dump() for pid, p in props_registry.items()}, ensure_ascii=False)}\n"
-        f"parsed_directive = {parsed_input.model_dump_json()}\n"
-        f"prev_scene = {prev_scene.model_dump_json()}\n"
+        f"director_instruction = {parsed_input.model_dump_json()}\n"
         f"{rules_block}\n\n"
-        f"Output ONLY a single Scene object with scene_id={next_scene_id} inside `scenes`."
+        f"Preserve object permanence (broken vase stays broken unless explicitly fixed), "
+        f"carry forward environment_notes, keep grid coords in [0..2, 0..2], and output strict JSON for `Scene`."
     )
-    resp = await generate_structured(
-        model=config.MODEL_DIRECTOR,
-        system_instruction=prompts.NEON_EXTEND_SCENE_PROMPT,
-        contents=[user_prompt],
-        response_schema=_NeonScenesResponse,
-        temperature=0.25,
-        thinking_level="LOW",
-    )
-    candidate = next((s for s in resp.scenes), None)
-    if candidate is None:
-        candidate = prev_scene.model_copy(deep=True)
-        candidate.narration = parsed_input.instruction
-        candidate.title = f"Act {next_scene_id} · Encore"
 
-    candidate.scene_id = next_scene_id
-    candidate.parent_scene_id = prev_scene.scene_id
-    candidate.end_freeze_mode = "sculpture"
-    candidate.needs_rerender = True
-    candidate.reused_from_branch = None
-    candidate.media = SceneMedia()
-    for actor in candidate.actors:
-        if not actor.asset_url:
-            actor.asset_url = f"/assets/actors/{actor.id}.png"
-    if thrown_prop_id and not any(p.id == thrown_prop_id for p in candidate.stage_props) and not any(
-        a.holding_prop == thrown_prop_id for a in candidate.actors
-    ):
-        candidate.stage_props.append(
-            StagePropState(
-                id=thrown_prop_id,
-                grid=[1.15, 1.1],
-                on_floor=False,
-                state="glowing",
-                entry_motion="throw_arc",
-                entry_origin=[1.0, 2.0, 2.4],
-            )
+    last_scene: Scene | None = None
+    invariant_errors: list[str] = []
+    for attempt in range(2):
+        prompt_text = base_prompt
+        if invariant_errors:
+            prompt_text += "\n\nFIX THESE INVARIANT VIOLATIONS:\n- " + "\n- ".join(invariant_errors)
+        candidate = await generate_structured(
+            model=config.MODEL_DIRECTOR,
+            system_instruction=prompts.NEON_DIRECTOR_PROMPT,
+            contents=[prompt_text],
+            response_schema=Scene,
+            temperature=0.25 if attempt == 0 else 0.1,
+            thinking_level="LOW",
         )
-    return _sanitize_scenes_invariants([prev_scene.model_copy(deep=True), candidate])[-1]
+        candidate.scene_id = next_id
+        candidate.parent_scene_id = prev_scene.scene_id
+        candidate.end_freeze_mode = freeze_val  # type: ignore[assignment]
+        candidate.needs_rerender = True
+        candidate.reused_from_branch = None
+        candidate.media = SceneMedia()
+        for actor in candidate.actors:
+            if not actor.asset_url:
+                actor.asset_url = f"/assets/actors/{actor.id}.png"
+        last_scene = candidate
+        invariant_errors = validate_scene_invariants([*prior_scenes, candidate])
+        if not invariant_errors:
+            return candidate
+
+    assert last_scene is not None
+    return _sanitize_scenes_invariants([*prior_scenes, last_scene])[-1]

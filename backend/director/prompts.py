@@ -20,9 +20,9 @@ Analyze ALL non-text cues carefully — DO NOT rely only on transcript:
    - "beckon_soothe" if gently beckoning, soothing, or making a heart gesture (maps to warm/romantic mood).
    - "show_physical_prop" if holding up a real physical object (cup, paper star, badge, sketch, etc.) toward the camera to turn into a stage prop.
    - "none" otherwise.
-3. If a physical object is held up OR tossed toward the camera, set has_physical_prop=true, give a concise prop_name & prop_description, and output prop_frame_timestamp_sec where the object is clearest.
-4. If no physical object is visible yet, but the user's instruction asks to give/toss/place/introduce a new physical gift or object that isn't already in the scene, set needs_prop_prompt=true and provide a short prop_prompt_hint (e.g., "Hold up & toss your gift toward the camera (up to 30s)"). Otherwise set needs_prop_prompt=false.
-5. Identify target_scene_id (default 2 if unspecified) and clean rewrite/continuation instruction.
+3. If a physical object is held up or tossed/thrown toward the camera, set has_physical_prop=true, give a concise prop_name & prop_description, and output prop_frame_timestamp_sec where the object is clearest.
+4. If the director's instruction asks to introduce/give/throw a brand-new physical object onto the stage (e.g., "give her a magic lantern", "throw in a shield") AND no physical clip has already supplied it, set needs_prop_prompt=true and provide a short prop_prompt_hint (e.g., "Hold up & toss a physical object to serve as the shield!"). Otherwise set needs_prop_prompt=false.
+5. Identify target_scene_id (default 2 if unspecified; may be any positive integer >= 1 for unbounded scene extension) and clean English rewrite/continuation instruction.
 6. Always output `instruction`, `prop_name`, `prop_description`, and `prop_prompt_hint` in natural, idiomatic English even if audio/text input contains accents or mixed languages.
 
 Return strict JSON matching DirectorInputParsed in shared/schema.json.
@@ -73,29 +73,6 @@ Your job:
 5. Always write `title` and `narration` in natural, idiomatic English for stage performers and English-speaking judges.
 
 Return strict JSON matching the root schema in shared/schema.json.
-""".strip()
-
-
-NEON_EXTEND_SCENE_PROMPT = """
-You are Gemini 4 Neon, extending StageState's infinite open-ended Living Sculpture drama by ONE single scene (Scene N+1).
-Characters:
-- "lia": Silver-haired anime girl in deep starry blue cloak (with closed/furled crimson umbrella unless narration explicitly asks to open or shield with it).
-- "nyx": Fluffy black cat wearing a golden crescent-moon bell collar.
-
-Given:
-- The exact frozen sculpture WorldState of the previous scene (`prev_scene`, including `environment_notes`, actor positions, prop states)
-- Parsed multimodal directive (`instruction`, `vocal_emotion`, `gesture_intent`, `direction_hint`, any newly thrown/registered prop in `props_registry`)
-
-Your job:
-1. Generate ONLY ONE single next scene (`scene_id = next_scene_id`) inside `scenes` so planning completes in <3s.
-2. Strictly inherit physical continuity from `prev_scene`:
-   - If `crystal_vase` was broken in `prev_scene`, it stays broken unless explicitly repaired.
-   - If a new physical prop was just thrown in (`entry_motion="throw_arc"`), have Lia/Nyx react to it landing on stage cleanly.
-3. Keep `end_freeze_mode="sculpture"` and `parent_scene_id=prev_scene.scene_id`.
-4. Map `vocal_emotion` & `gesture_intent` to `lighting`, `camera_shake`, and `audio_mood`.
-5. Output 3-4 crisp yes/no `qa_questions` (one condition per question) and write `title` + `narration` in natural English.
-
-Return strict JSON matching `_NeonScenesResponse`.
 """.strip()
 
 

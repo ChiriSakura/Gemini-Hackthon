@@ -32,7 +32,6 @@
       "required": ["target_scene_id", "instruction", "vocal_emotion", "gesture_intent", "direction_hint", "has_physical_prop"],
       "properties": {
         "target_scene_id": { "type": "integer", "minimum": 1 },
-        "mode": { "type": "string", "enum": ["extend", "fork"], "default": "fork" },
         "instruction": { "type": "string" },
         "vocal_emotion": { "$ref": "#/$defs/VocalEmotion" },
         "gesture_intent": { "$ref": "#/$defs/GestureIntent" },
@@ -41,6 +40,7 @@
         "prop_name": { "type": ["string", "null"] },
         "prop_description": { "type": ["string", "null"] },
         "prop_frame_timestamp_sec": { "type": ["number", "null"] },
+        "mode": { "type": "string", "enum": ["extend", "fork"], "default": "extend" },
         "needs_prop_prompt": { "type": "boolean", "default": false },
         "prop_prompt_hint": { "type": ["string", "null"] }
       }
@@ -88,7 +88,7 @@
         "on_floor": { "type": "boolean" },
         "state": { "type": "string", "enum": ["intact", "broken", "held", "glowing"] },
         "entry_motion": { "type": "string", "enum": ["place", "throw_arc", "held"], "default": "place" },
-        "entry_origin": { "type": ["array", "null"], "minItems": 2, "maxItems": 3 }
+        "entry_origin": { "type": ["array", "null"], "items": { "type": "number" }, "minItems": 2, "maxItems": 3 }
       }
     },
     "SceneMedia": {
