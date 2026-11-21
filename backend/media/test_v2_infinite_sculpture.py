@@ -15,7 +15,12 @@ from fastapi.testclient import TestClient
 from backend import config
 from backend.director.state_tree import get_branch
 from backend.main import app
-from backend.media.prop_maker import _detect_throw_peak_frame_idx, _extract_image_from_bytes, create_prop
+from backend.media.prop_maker import (
+    _detect_throw_peak_frame_idx,
+    _extract_image_from_bytes,
+    create_prop,
+    estimate_prop_height_m,
+)
 from backend.media.video_renderer import (
     CROSS_CAM_THRESHOLD,
     _build_shot_prompt,
@@ -57,6 +62,11 @@ def test_30s_throw_peak_window_and_degraded_flag() -> None:
     finally:
         avi_tmp.unlink(missing_ok=True)
 
+    # Everyday thrown object SI height scaling (0.13m..0.28m)
+    assert estimate_prop_height_m("Soda Can Drink", "Cold sparkling drink") == 0.13
+    assert estimate_prop_height_m("Snack Bag", "Crunchy potato chips") == 0.20
+    assert estimate_prop_height_m("Silver Laptop", "Slim aluminum laptop") == 0.28
+
     # Verify R-18 explicit fallback flag under DEMO_MODE=True
     prev_demo = config.DEMO_MODE
     config.DEMO_MODE = True
@@ -69,6 +79,40 @@ def test_30s_throw_peak_window_and_degraded_flag() -> None:
     finally:
         config.DEMO_MODE = prev_demo
         (config.PROPS_DIR / f"{tmp_prop_id}.png").unlink(missing_ok=True)
+
+
+def test_catch_from_camera_conditional_prompting() -> None:
+    """Verify catch_from_camera / throw_arc triggers forward camera grab ONLY when explicit; defaults rest cleanly."""
+    placed_scene = Scene(
+        scene_id=6,
+        title="Tabletop Snack Break",
+        narration="A chilled drink can and a crisp snack bag rest on the table while Lia smiles.",
+        lighting="warm_gold_snow",
+        end_freeze_mode="sculpture",
+        actors=[ActorState(id="lia", name="Lia", asset_url="/assets/actors/lia.png", grid=[0.6, 1.1], action="stand")],
+        stage_props=[StagePropState(id="soda_drink_can", grid=[1.0, 1.0], state="intact", on_floor=False, entry_motion="place")],
+    )
+    p_place = _build_shot_prompt(placed_scene, "cam_a", has_first_frame=False, has_preview_video=False)
+    assert "lean" not in p_place.lower() or "default prop placement" in p_place.lower()
+    assert "catch the flying item out of mid-air" not in p_place
+    assert "resting squarely on the center round table" in p_place
+
+    catch_scene = Scene(
+        scene_id=6,
+        title="Catch the Drink",
+        narration="Here, catch this cold soda can before setting it beside the vase!",
+        lighting="warm_gold_snow",
+        end_freeze_mode="sculpture",
+        actors=[
+            ActorState(id="lia", name="Lia", asset_url="/assets/actors/lia.png", grid=[0.6, 1.1], action="catch_from_camera"),
+        ],
+        stage_props=[
+            StagePropState(id="soda_drink_can", grid=[1.0, 1.0], state="intact", on_floor=False, entry_motion="throw_arc"),
+        ],
+    )
+    p_catch = _build_shot_prompt(catch_scene, "cam_a", has_first_frame=False, has_preview_video=False)
+    assert "Lia leans toward the camera to catch the flying item out of mid-air" in p_catch
+    assert "incoming throw arc from the front camera" in p_catch
 
 
 def test_fast_live_mode_sculpture_prompt_and_border_trim() -> None:
@@ -128,9 +172,10 @@ def test_fast_live_mode_sculpture_prompt_and_border_trim() -> None:
 def test_unbounded_extend_scene_5_plus() -> None:
     """Verify POST /api/director/extend appends Scene 5 cleanly beyond old 4-scene cap."""
     client = TestClient(app)
+    b1_path = config.BRANCHES_DIR / "branch_v1.json"
+    orig_raw = b1_path.read_bytes()
     b1 = get_branch("branch_v1")
     assert b1 is not None
-    snapshot_json = b1.model_dump_json()
     prev_demo = config.DEMO_MODE
     config.DEMO_MODE = True
     try:
@@ -154,11 +199,12 @@ def test_unbounded_extend_scene_5_plus() -> None:
             (config.BRANCHES_DIR / f"{new_id}.json").unlink(missing_ok=True)
     finally:
         config.DEMO_MODE = prev_demo
-        (config.BRANCHES_DIR / "branch_v1.json").write_text(snapshot_json, encoding="utf-8")
+        b1_path.write_bytes(orig_raw)
 
 
 if __name__ == "__main__":
     test_30s_throw_peak_window_and_degraded_flag()
+    test_catch_from_camera_conditional_prompting()
     test_fast_live_mode_sculpture_prompt_and_border_trim()
     test_unbounded_extend_scene_5_plus()
     print("ALL W1-V2-07 INFINITE SCULPTURE & 30S THROW-PEAK TESTS PASSED!")
