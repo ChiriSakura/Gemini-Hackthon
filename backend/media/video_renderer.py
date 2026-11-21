@@ -54,8 +54,9 @@ ARTIFACT_FREE_QA_QUESTION = (
 CROSS_CAM_THRESHOLD = 0.65
 EVAL_STATS_PATH = config.ASSETS_DIR / "eval_media_stats.jsonl"
 
-# In-memory cache mapping resolved local asset path -> (file_uri, mime_type).
-_UPLOAD_CACHE: dict[str, tuple[str, str]] = {}
+# In-memory cache mapping (resolved_path, mtime_ns, size) -> (file_uri, mime_type, uploaded_at).
+_UPLOAD_CACHE_TTL_SEC = 12 * 3600.0
+_UPLOAD_CACHE: dict[tuple[str, int, int], tuple[str, str, float]] = {}
 _UPLOAD_LOCK = asyncio.Lock()
 
 # In-memory render progress tracker for parallel render progress polling (W1-T3B).
@@ -190,17 +191,38 @@ def _upload_file_sync(path: Path) -> tuple[str, str]:
     return uploaded.uri, mime
 
 
+def _upload_cache_key(path: Path) -> tuple[str, int, int]:
+    """Build an mtime + size aware cache key so updated assets never reuse stale Files API URIs."""
+    resolved = path.resolve()
+    st = resolved.stat()
+    return (str(resolved), int(st.st_mtime_ns), int(st.st_size))
+
+
+def _evict_upload_cache(paths: list[Path]) -> None:
+    """Evict cached Files API URIs for given local paths (e.g. after 403/404 URI expiry)."""
+    resolved_set = {str(p.resolve()) for p in paths if p.exists()}
+    stale_keys = [k for k in _UPLOAD_CACHE if k[0] in resolved_set]
+    for k in stale_keys:
+        _UPLOAD_CACHE.pop(k, None)
+
+
 async def _get_or_upload_uri(path: Path, use_cache: bool = True) -> tuple[str, str]:
-    """Upload a local asset once and reuse its Files API URI across concurrent takes."""
-    key = str(path.resolve())
+    """Upload a local asset once and reuse its Files API URI across concurrent takes (mtime & TTL safe)."""
+    key = _upload_cache_key(path)
+    now = time.time()
     if use_cache and key in _UPLOAD_CACHE:
-        return _UPLOAD_CACHE[key]
+        uri, mime, ts = _UPLOAD_CACHE[key]
+        if (now - ts) < _UPLOAD_CACHE_TTL_SEC:
+            return uri, mime
     async with _UPLOAD_LOCK:
+        now = time.time()
         if use_cache and key in _UPLOAD_CACHE:
-            return _UPLOAD_CACHE[key]
+            uri, mime, ts = _UPLOAD_CACHE[key]
+            if (now - ts) < _UPLOAD_CACHE_TTL_SEC:
+                return uri, mime
         uri, mime = await asyncio.to_thread(_upload_file_sync, path)
         if use_cache:
-            _UPLOAD_CACHE[key] = (uri, mime)
+            _UPLOAD_CACHE[key] = (uri, mime, time.time())
         return uri, mime
 
 
@@ -273,8 +295,10 @@ def _prepare_preview_media_sync(
             if not ok or frame is None:
                 break
             if float(np.mean(frame)) > 4.0 or start_img_path is None:
-                candidate = config.PREVIEWS_DIR / f"{preview_video.stem}_extracted_start.png"
+                candidate = config.PREVIEWS_DIR / f"{preview_video.stem}_{uuid.uuid4().hex[:6]}_extracted_start.png"
                 if _write_png_safe(candidate, frame):
+                    if start_img_path is not None and start_img_path != candidate:
+                        start_img_path.unlink(missing_ok=True)
                     start_img_path = candidate
                 if float(np.mean(frame)) > 4.0 and start_img_path is not None:
                     break
@@ -312,24 +336,34 @@ def _grid_to_blocking(grid: list[float]) -> str:
 
 
 def _describe_prop_with_scale(prop_id: str, state: str = "intact", on_floor: bool = False) -> str:
-    """Return a concise, physically anchored natural description for a single prop."""
+    """Return a concise, physically anchored natural description with relative SI scale ratios."""
     if prop_id == "red_umbrella":
         return (
-            "ONE single closed crimson red long-handle umbrella (~0.86m) lying flat on the floor"
+            "ONE single closed crimson red long-handle umbrella (~0.86m, roughly half Lia's height) lying flat on the floor"
             if on_floor
-            else "ONE single open crimson red long-handle umbrella (~0.86m)"
+            else "ONE single open crimson red long-handle umbrella (~0.86m canopy)"
         )
     if prop_id == "crystal_vase":
         return (
             "shattered clear crystal vase shards and scattered blue rose petals lying flat on the wet floor"
             if state == "broken" or on_floor
-            else "ONE single intact clear crystal vase (~0.32m) holding ONE glowing blue rose resting squarely on the center round table"
+            else "ONE single intact clear crystal vase (~0.32m tall, ~42% of table height) holding ONE glowing blue rose resting squarely on the center round table"
         )
     if prop_id == "star_token":
-        return "ONE single small palm-sized (~0.10m) glowing golden star keepsake"
+        return "ONE single small palm-sized (~0.10m, fits inside one hand) glowing golden star keepsake"
     h_m = estimate_prop_height_m(prop_id)
-    loc = "resting flat on the floor" if on_floor else "resting on the center round table"
-    return f"ONE single {prop_id.replace('_', ' ')} (~{h_m:.2f}m tall, {loc}, state={state})"
+    table_pct = max(8, min(140, int(round((h_m / 0.75) * 100))))
+    size_cue = (
+        "small palm-sized object"
+        if h_m <= 0.12
+        else ("compact tabletop object" if h_m <= 0.25 else "medium stage prop")
+    )
+    loc = (
+        "held naturally in hand"
+        if state == "held"
+        else ("resting flat on the floor with contact shadow" if on_floor else "resting squarely on the center round table with contact shadow")
+    )
+    return f"ONE single {prop_id.replace('_', ' ')} ({size_cue}, ~{h_m:.2f}m tall / ~{table_pct}% of table height, {loc}, state={state})"
 
 
 def _resolve_clean_actor_ref(path: Path, scene: Optional[Scene] = None) -> Path:
@@ -351,6 +385,65 @@ def _resolve_clean_actor_ref(path: Path, scene: Optional[Scene] = None) -> Path:
             if broken_ref.is_file():
                 return broken_ref
     return path
+
+
+def _select_scene_ref_images(
+    scene: Scene,
+    reference_images: list[str],
+    max_refs: int,
+) -> list[Path]:
+    """
+    Prioritize and prune reference images to ONLY actors and props active in `scene`.
+
+    Prevents irrelevant registry props (e.g. an umbrella or star token from another branch)
+    from wasting Omni Flash's 5-image reference budget or triggering hallucinated duplicate props,
+    while guaranteeing live custom props referenced by `scene` ALWAYS get a reference slot.
+    """
+    active_actor_ids = {a.id.lower() for a in scene.actors}
+    active_prop_ids = {p.id.lower() for p in scene.stage_props}
+    for a in scene.actors:
+        if a.holding_prop:
+            active_prop_ids.add(a.holding_prop.lower())
+
+    prioritized_actors: list[Path] = []
+    prioritized_props: list[Path] = []
+    companion_refs: list[Path] = []
+    seen_paths: set[str] = set()
+
+    for ref in reference_images:
+        raw_p = _resolve_asset_to_local_path(ref)
+        if not raw_p:
+            continue
+        p = _resolve_clean_actor_ref(raw_p, scene=scene)
+        resolved_key = str(p.resolve())
+        if resolved_key in seen_paths:
+            continue
+
+        stem = raw_p.stem.lower()
+        parent_name = raw_p.parent.name.lower()
+
+        if stem in active_actor_ids or stem in {"lia_clean_ref"}:
+            if stem == "lia_clean_ref" and "lia" not in active_actor_ids:
+                continue
+            seen_paths.add(resolved_key)
+            prioritized_actors.append(p)
+        elif stem in active_prop_ids or (stem == "crystal_vase_broken" and "crystal_vase" in active_prop_ids):
+            seen_paths.add(resolved_key)
+            prioritized_props.append(p)
+        elif parent_name in {"tails", "previews"}:
+            # Companion camera tail frames or scene anchor frames pass through cleanly.
+            seen_paths.add(resolved_key)
+            companion_refs.append(p)
+        elif parent_name in {"props", "actors"}:
+            # Skip props/actors not present in this scene so Omni Flash never hallucinates them.
+            continue
+        else:
+            seen_paths.add(resolved_key)
+            companion_refs.append(p)
+
+    # Active actors first, then active scene props (live custom props prioritized), then companion frames.
+    selected = prioritized_actors + prioritized_props + companion_refs
+    return selected[:max_refs]
 
 
 def _build_shot_prompt(
@@ -493,10 +586,12 @@ async def _run_candidate_take(
     uploaded_prev_tail: Optional[tuple[str, str]],
     uploaded_preview: Optional[tuple[str, str]],
     extra_constraint: str,
+    job_uid: str = "",
 ) -> tuple[Optional[Path], Optional[Path], JudgeResult, float]:
     """Generate one candidate take (60s timeout guard), extract tail frame, and score via Decisions API."""
-    out_video = config.FINALS_DIR / f"scene_{scene.scene_id}_{cam_id}_r{attempt}_take{take_idx}.mp4"
-    out_tail = config.TAILS_DIR / f"scene_{scene.scene_id}_{cam_id}_r{attempt}_take{take_idx}_tail.png"
+    uid_part = f"_{job_uid}" if job_uid else f"_{uuid.uuid4().hex[:6]}"
+    out_video = config.FINALS_DIR / f"scene_{scene.scene_id}_{cam_id}{uid_part}_r{attempt}_take{take_idx}.mp4"
+    out_tail = config.TAILS_DIR / f"scene_{scene.scene_id}_{cam_id}{uid_part}_r{attempt}_take{take_idx}_tail.png"
     prompt = _build_shot_prompt(
         scene=scene,
         cam_id=cam_id,
@@ -648,28 +743,19 @@ async def render_single_camera_shot(
 
     start_frame_path = local_preview_img or local_prev_tail
     max_refs = 5 if start_frame_path else 6
-    seen_paths: set[str] = set()
-    local_refs: list[Path] = []
-    for ref in reference_images:
-        p = _resolve_asset_to_local_path(ref)
-        if p:
-            p = _resolve_clean_actor_ref(p, scene=scene)
-        if p and str(p.resolve()) not in seen_paths:
-            seen_paths.add(str(p.resolve()))
-            local_refs.append(p)
-        if len(local_refs) >= max_refs:
-            break
+    local_refs = _select_scene_ref_images(scene, reference_images, max_refs=max_refs)
 
     uploaded_prev_tail = await _get_or_upload_uri(start_frame_path, use_cache=False) if start_frame_path else None
     uploaded_refs = list(await asyncio.gather(*(_get_or_upload_uri(p, use_cache=True) for p in local_refs)))
     uploaded_preview = await _get_or_upload_uri(local_preview, use_cache=False) if local_preview else None
 
+    job_uid = uuid.uuid4().hex[:8]
     current_constraint = extra_constraint
     retries = 0
     best_video: Optional[Path] = None
     best_tail: Optional[Path] = None
     best_qa: Optional[JudgeResult] = None
-    best_combined = 0.0
+    best_combined = -1.0
     best_idx = 0
     first_take0_score: Optional[float] = None
     first_take1_score: Optional[float] = None
@@ -678,86 +764,102 @@ async def render_single_camera_shot(
     if extracted_preview_img is not None:
         temp_artifacts.append(extracted_preview_img)
 
-    for attempt in range(config.MAX_QA_RETRIES + 1):
-        takes = await asyncio.gather(
-            *(
-                _run_candidate_take(
-                    scene=scene,
-                    cam_id=cam_id,
-                    take_idx=idx,
-                    attempt=attempt,
-                    model_id=model_id,
-                    uploaded_refs=uploaded_refs,
-                    uploaded_prev_tail=uploaded_prev_tail,
-                    uploaded_preview=uploaded_preview,
-                    extra_constraint=current_constraint,
-                )
-                for idx in range(config.DUAL_TAKE_COUNT)
-            )
-        )
-        for v_path, t_path, _, _ in takes:
-            if v_path:
-                temp_artifacts.append(v_path)
-            if t_path:
-                temp_artifacts.append(t_path)
-
-        if attempt == 0:
-            first_take0_score = takes[0][2].overall_score if len(takes) > 0 else None
-            first_take1_score = takes[1][2].overall_score if len(takes) > 1 else None
-
-        # Pick candidate maximizing combined QA + Decisions alignment score (among valid videos).
-        winner_idx, winner = max(
-            enumerate(takes),
-            key=lambda pair: (pair[1][0] is not None, pair[1][3]),
-        )
-        best_video, best_tail, best_qa, best_combined = winner
-        best_idx = winner_idx
-
-        if best_qa.overall_score >= config.QA_PASS_THRESHOLD or attempt >= config.MAX_QA_RETRIES:
-            break
-
-        retries += 1
-        repair_note = await write_repair_constraint(scene, best_qa)
-        last_repair_note = repair_note
-        current_constraint = f"{current_constraint} {repair_note}".strip()
-
-    assert best_qa is not None
-    if retries > 0 and best_qa.overall_score >= config.QA_PASS_THRESHOLD and last_repair_note:
-        add_rule(f"Scene {scene.scene_id} ({cam_id}) continuity fix: {last_repair_note}")
-
-    _append_eval_media_stat(
-        {
-            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
-            "scene_id": scene.scene_id,
-            "cam_id": cam_id,
-            "take_0_score": first_take0_score,
-            "take_1_score": first_take1_score,
-            "selected_idx": best_idx,
-            "selected_qa_score": best_qa.overall_score,
-            "selected_combined_score": best_combined,
-            "repaired_score": best_qa.overall_score if retries > 0 else None,
-            "retries": retries,
-            "passed": best_qa.overall_score >= config.QA_PASS_THRESHOLD,
-        }
-    )
-
     canonical_video = config.FINALS_DIR / f"scene_{scene.scene_id}_{cam_id}{run_tag}.mp4"
     canonical_tail = config.TAILS_DIR / f"scene_{scene.scene_id}_{cam_id}{run_tag}_tail.png"
 
-    final_url: Optional[str] = None
-    tail_url: Optional[str] = None
-    if best_video and best_video.is_file():
-        shutil.copy2(best_video, canonical_video)
-        final_url = f"/assets/finals/{canonical_video.name}"
-    if best_tail and best_tail.is_file():
-        shutil.copy2(best_tail, canonical_tail)
-        tail_url = f"/assets/tails/{canonical_tail.name}"
+    try:
+        for attempt in range(config.MAX_QA_RETRIES + 1):
+            takes = await asyncio.gather(
+                *(
+                    _run_candidate_take(
+                        scene=scene,
+                        cam_id=cam_id,
+                        take_idx=idx,
+                        attempt=attempt,
+                        model_id=model_id,
+                        uploaded_refs=uploaded_refs,
+                        uploaded_prev_tail=uploaded_prev_tail,
+                        uploaded_preview=uploaded_preview,
+                        extra_constraint=current_constraint,
+                        job_uid=job_uid,
+                    )
+                    for idx in range(config.DUAL_TAKE_COUNT)
+                )
+            )
+            for v_path, t_path, _, _ in takes:
+                if v_path:
+                    temp_artifacts.append(v_path)
+                if t_path:
+                    temp_artifacts.append(t_path)
 
-    for artifact in temp_artifacts:
-        if artifact not in {canonical_video, canonical_tail}:
-            artifact.unlink(missing_ok=True)
+            if attempt == 0:
+                first_take0_score = takes[0][2].overall_score if len(takes) > 0 else None
+                first_take1_score = takes[1][2].overall_score if len(takes) > 1 else None
 
-    return final_url or "", tail_url, best_qa, best_idx, retries
+            # If every take failed due to an expired/403/404 Files API URI, evict & re-upload once before retry.
+            if all(t[0] is None for t in takes) and any(
+                "403" in (it.reason or "") or "404" in (it.reason or "") or "not found" in (it.reason or "").lower()
+                for t in takes
+                for it in t[2].items
+            ):
+                _evict_upload_cache(local_refs)
+                uploaded_refs = list(await asyncio.gather(*(_get_or_upload_uri(p, use_cache=True) for p in local_refs)))
+
+            # Pick candidate maximizing combined QA + Decisions alignment score (among valid videos).
+            winner_idx, winner = max(
+                enumerate(takes),
+                key=lambda pair: (pair[1][0] is not None, pair[1][3]),
+            )
+            cand_video, cand_tail, cand_qa, cand_combined = winner
+
+            # Regression guard: only replace overall best across attempts when candidate is strictly better
+            # (or when no valid video has been captured yet).
+            if best_qa is None or (cand_video is not None and (best_video is None or cand_combined > best_combined)):
+                best_video, best_tail, best_qa, best_combined = cand_video, cand_tail, cand_qa, cand_combined
+                best_idx = winner_idx
+
+            if best_qa.overall_score >= config.QA_PASS_THRESHOLD or attempt >= config.MAX_QA_RETRIES:
+                break
+
+            retries += 1
+            repair_note = await write_repair_constraint(scene, cand_qa)
+            last_repair_note = repair_note
+            current_constraint = f"{current_constraint} {repair_note}".strip()
+
+        assert best_qa is not None
+        if retries > 0 and best_qa.overall_score >= config.QA_PASS_THRESHOLD and last_repair_note:
+            add_rule(f"Scene {scene.scene_id} ({cam_id}) continuity fix: {last_repair_note}")
+
+        _append_eval_media_stat(
+            {
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                "scene_id": scene.scene_id,
+                "cam_id": cam_id,
+                "take_0_score": first_take0_score,
+                "take_1_score": first_take1_score,
+                "selected_idx": best_idx,
+                "selected_qa_score": best_qa.overall_score,
+                "selected_combined_score": round(max(0.0, best_combined), 3),
+                "repaired_score": best_qa.overall_score if retries > 0 else None,
+                "retries": retries,
+                "passed": best_qa.overall_score >= config.QA_PASS_THRESHOLD,
+            }
+        )
+
+        final_url: Optional[str] = None
+        tail_url: Optional[str] = None
+        if best_video and best_video.is_file():
+            shutil.copy2(best_video, canonical_video)
+            final_url = f"/assets/finals/{canonical_video.name}"
+        if best_tail and best_tail.is_file():
+            shutil.copy2(best_tail, canonical_tail)
+            tail_url = f"/assets/tails/{canonical_tail.name}"
+
+        return final_url or "", tail_url, best_qa, best_idx, retries
+    finally:
+        for artifact in temp_artifacts:
+            if artifact not in {canonical_video, canonical_tail}:
+                artifact.unlink(missing_ok=True)
 
 
 async def _check_cross_camera_consistency(
@@ -871,35 +973,47 @@ async def render_scene_media(
     )
 
     cross_item = await _check_cross_camera_consistency(scene, res_a[1], res_b[1])
-    # If cameras contradict each other, retry ONLY the weaker camera once with alignment constraint.
+    # If cameras contradict each other, retry ONLY the weaker camera once conditioned on the
+    # stronger camera's tail frame as a visual lighting/prop consistency reference (with regression guard).
     if cross_item is not None and not cross_item.passed and cross_item.confidence >= CROSS_CAM_THRESHOLD:
         if res_b[2].overall_score <= res_a[2].overall_score:
-            res_b = await render_single_camera_shot(
+            conditioned_refs = list(reference_images) + ([res_a[1]] if res_a[1] else [])
+            cand_b = await render_single_camera_shot(
                 scene,
                 "cam_b",
                 prev_tail_b,
-                reference_images,
+                conditioned_refs,
                 preview_path=preview_b,
                 extra_constraint=(
-                    "Match Camera A's exact nighttime conservatory lighting, character placement around the central round table, "
-                    "and crystal vase intact/broken state from a true 45-degree diagonal side close-up angle."
+                    "Match Camera A's exact nighttime conservatory lighting, character wardrobe, placement around the central "
+                    "round table, and crystal vase intact/broken state from a true 45-degree diagonal side close-up angle."
                 ),
                 overwrite_canonical=overwrite_canonical,
             )
+            if cand_b[0]:
+                cand_cross = await _check_cross_camera_consistency(scene, res_a[1], cand_b[1])
+                if (cand_cross is not None and cand_cross.passed) or cand_b[2].overall_score >= res_b[2].overall_score:
+                    res_b = cand_b
+                    cross_item = cand_cross
         else:
-            res_a = await render_single_camera_shot(
+            conditioned_refs = list(reference_images) + ([res_b[1]] if res_b[1] else [])
+            cand_a = await render_single_camera_shot(
                 scene,
                 "cam_a",
                 prev_tail_a,
-                reference_images,
+                conditioned_refs,
                 preview_path=preview_a,
                 extra_constraint=(
-                    "Match Camera B's exact nighttime conservatory lighting, character placement around the central round table, "
-                    "and crystal vase intact/broken state from a wide front-center establishing full-stage angle."
+                    "Match Camera B's exact nighttime conservatory lighting, character wardrobe, placement around the central "
+                    "round table, and crystal vase intact/broken state from a wide front-center establishing full-stage angle."
                 ),
                 overwrite_canonical=overwrite_canonical,
             )
-        cross_item = await _check_cross_camera_consistency(scene, res_a[1], res_b[1])
+            if cand_a[0]:
+                cand_cross = await _check_cross_camera_consistency(scene, cand_a[1], res_b[1])
+                if (cand_cross is not None and cand_cross.passed) or cand_a[2].overall_score >= res_a[2].overall_score:
+                    res_a = cand_a
+                    cross_item = cand_cross
 
     merged_qa = _merge_dual_cam_qa(res_a[2], res_b[2], cross_item)
     avg_score = round((res_a[2].overall_score + res_b[2].overall_score) / 2, 3)

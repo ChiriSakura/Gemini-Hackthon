@@ -31,7 +31,7 @@ def run_smoke_tests() -> None:
     branches = r_branches.json()
     assert any(b["branch_id"] == "branch_v1" for b in branches), "branch_v1 missing"
 
-    # 2. Verify shared actor & prop URLs referenced by mock_branch_1/2.json serve 200 OK
+    # 2. Verify shared actor, showcase/desk props, storyboard & showcase MP4s serve 200 OK
     for asset_url in (
         "/assets/actors/lia.png",
         "/assets/actors/nyx.png",
@@ -42,7 +42,12 @@ def run_smoke_tests() -> None:
         "/assets/props/showcase_crystal_shield.png",
         "/assets/props/showcase_glowing_quill.png",
         "/assets/props/showcase_star_lantern.png",
+        "/assets/props/showcase_desk_coffee_mug.png",
+        "/assets/props/showcase_desk_paper_heart.png",
+        "/assets/props/showcase_desk_brass_key.png",
+        "/assets/showcase_storyboard_strip.png",
         "/assets/finals/demo_comparison_be_vs_he.mp4",
+        "/assets/finals/pitch_demo_reel_1min.mp4",
     ):
         resp = client.get(asset_url)
         assert resp.status_code == 200, f"Static asset missing: {asset_url} -> {resp.status_code}"
@@ -164,19 +169,35 @@ def run_smoke_tests() -> None:
         assert estimate_prop_height_m("star_token") == 0.10
         assert estimate_prop_height_m("crystal_vase") == 0.32
 
-        # 8. Verify W1-T4C zero green-spill audit & W1-T5A audio/H.264 audit artifacts
+        # 8. Verify W1-T4C/T5A/T6 audit artifacts (0 green halo, H.264 + audio, burst stress)
         import json as _json
         ep_path = config.ASSETS_DIR / "eval_prop_persistence.json"
         if ep_path.is_file():
             ep = _json.loads(ep_path.read_text(encoding="utf-8"))
             assert ep.get("all_props_zero_green_spill") is True, f"Green spill remaining: {ep}"
             assert ep.get("all_props_bottom_flush") is True
+        pa_path = config.ASSETS_DIR / "eval_props_audit.json"
+        if pa_path.is_file():
+            pa = _json.loads(pa_path.read_text(encoding="utf-8"))
+            assert pa.get("all_passed") is True, f"audit_props failed: {pa}"
+            assert pa.get("total_green_halo_pixels") == 0, f"Non-zero green halo: {pa}"
         ac_path = config.ASSETS_DIR / "eval_audio_codec.json"
         if ac_path.is_file():
             ac = _json.loads(ac_path.read_text(encoding="utf-8"))
             assert ac.get("all_h264") is True
             assert ac.get("all_have_audio_stream") is True
             assert (ac.get("demo_reel") or {}).get("has_audio_stream") is True
+            if ac.get("pitch_reel"):
+                assert ac["pitch_reel"].get("is_browser_h264") is True
+                assert ac["pitch_reel"].get("has_audio_stream") is True
+        bs_path = config.ASSETS_DIR / "eval_burst_stress.json"
+        if bs_path.is_file():
+            bs = _json.loads(bs_path.read_text(encoding="utf-8"))
+            assert bs.get("all_passed") is True, f"Burst concurrency suite failed: {bs}"
+        am_path = config.ASSETS_DIR / "eval_audio_mood.json"
+        if am_path.is_file():
+            am = _json.loads(am_path.read_text(encoding="utf-8"))
+            assert am.get("accuracy", 0.0) >= 0.8, f"Audio mood accuracy too low: {am}"
     finally:
         config.DEMO_MODE = prev_demo
         (config.PROPS_DIR / "smoke_prop.png").unlink(missing_ok=True)

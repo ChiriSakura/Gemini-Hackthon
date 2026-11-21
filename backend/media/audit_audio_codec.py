@@ -137,6 +137,8 @@ def run_audio_codec_audit() -> dict:
 
     demo_reel_path = config.FINALS_DIR / "demo_comparison_be_vs_he.mp4"
     demo_reel_audit = inspect_mp4_clip(demo_reel_path, ffmpeg_exe) if demo_reel_path.is_file() else None
+    pitch_reel_path = config.FINALS_DIR / "pitch_demo_reel_1min.mp4"
+    pitch_reel_audit = inspect_mp4_clip(pitch_reel_path, ffmpeg_exe) if pitch_reel_path.is_file() else None
 
     report = {
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -151,6 +153,7 @@ def run_audio_codec_audit() -> dict:
         "all_scene_specs_passed": all(c["scene_spec_passed"] for c in clips),
         "clips": clips,
         "demo_reel": demo_reel_audit,
+        "pitch_reel": pitch_reel_audit,
     }
     out_path = config.ASSETS_DIR / "eval_audio_codec.json"
     out_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")

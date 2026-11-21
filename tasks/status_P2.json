@@ -1,9 +1,9 @@
 {
   "agent": "P2_media",
   "contributor": "ChiriSakura",
-  "branch": "feat/w1-media",
-  "current_milestone": "T5",
-  "status": "all_10_cr_t4_t5_tasks_completed_and_verified",
+  "branch": "feat/w1-physics-opt",
+  "current_milestone": "T6",
+  "status": "engine_hardening_and_t6_polish_verified",
   "omni_flash_latency_sec": 18.64,
   "omni_flash_total_with_io_sec": 22.65,
   "omni_flash_dual_take_parallel_sec": 25.47,
@@ -51,11 +51,63 @@
     "all_have_audio_stream": true,
     "all_640x360_24fps": true,
     "demo_reel": "backend/assets/finals/demo_comparison_be_vs_he.mp4",
-    "demo_reel_has_audio": true
+    "demo_reel_has_audio": true,
+    "pitch_reel": "backend/assets/finals/pitch_demo_reel_1min.mp4",
+    "pitch_reel_duration_sec": 49.0,
+    "pitch_reel_resolution": "1280x720",
+    "pitch_reel_h264_and_audio": true
+  },
+  "w1_t6_zero_halo_and_desk_props": {
+    "audit_report": "backend/assets/eval_props_audit.json",
+    "desk_benchmark_report": "backend/assets/eval_live_props_sim.json",
+    "total_props_audited": 11,
+    "all_passed": true,
+    "all_rgba": true,
+    "all_bottom_flush_ok": true,
+    "all_zero_green_halo": true,
+    "total_green_halo_pixels": 0,
+    "max_bottom_opaque_gap_px": 0,
+    "desk_props_tested": [
+      "showcase_desk_coffee_mug",
+      "showcase_desk_paper_heart",
+      "showcase_desk_brass_key"
+    ],
+    "avg_desk_create_prop_latency_sec": 16.68
+  },
+  "w1_t6_audio_mood_eval": {
+    "report_file": "backend/assets/eval_audio_mood.json",
+    "model": "models/gemini-decision-1",
+    "input_modality": "native_mp4_video_plus_audio",
+    "total_cases": 6,
+    "correct_count": 6,
+    "accuracy": 1.0,
+    "positive_match_rate": 1.0,
+    "negative_rejection_rate": 1.0,
+    "avg_latency_sec": 3.22
+  },
+  "w1_t6_cache_savings": {
+    "report_file": "backend/assets/eval_cache_savings.json",
+    "cached_branches_count": 3,
+    "unique_mp4_files_stored": 20,
+    "prefix_reuse_savings_pct": 16.7,
+    "fork_s2_to_s4_compute_savings_range_pct": "25.0%..75.0%",
+    "combined_360p_plus_reuse_savings_vs_naive_720p_pct": 76.2,
+    "parallel_wall_clock_speedup_x": 5.85
+  },
+  "w1_t6_burst_and_engine_hardening": {
+    "report_file": "backend/assets/eval_burst_stress.json",
+    "all_passed": true,
+    "scene_ref_pruning_verified": true,
+    "retry_regression_guard_verified": true,
+    "concurrent_jobs_verified": 6,
+    "upload_cache_mtime_invalidation_ok": true,
+    "zero_deadlocks_or_collisions": true,
+    "webm_unicode_sharpness_regression_passed": true,
+    "storyboard_strip": "backend/assets/showcase_storyboard_strip.png"
   },
   "w1_t4c_prop_persistence_and_halo": {
     "report_file": "backend/assets/eval_prop_persistence.json",
-    "total_props_audited": 8,
+    "total_props_audited": 11,
     "all_props_rgba": true,
     "all_props_bottom_flush": true,
     "all_props_zero_green_spill": true,
@@ -104,17 +156,19 @@
     "decision": "models/gemini-decision-1"
   },
   "completed_items": [
-    "W1-CR1: Model aliases + sha1 collision-safe _slugify() + CAP_PROP_POS_MSEC .webm extraction + border-connected floodfill chroma-key with 2px rim despill",
-    "W1-CR2: Uppercase [CAM A]/[CAM B]/[Dual-Cam] QA merge + Unicode-safe _open_video_capture_safe() in is_browser_h264() + clean preview-anchored cache scripts",
-    "W1-CR3: Verified 0 CJK characters across branch_v1.json, branch_v2_cached.json, and branch_v3_starlight_cached.json with real Decision-1 P(true) scores",
-    "W1-T3F: 5 diverse showcase props (origami crane, brass pocket watch, crystal shield, glowing quill, star lantern) generated and verified 0 chroma-green spill",
-    "W1-T3G: Cached 3rd 100% English branch_v3_starlight_cached.json (6 H.264 MP4s + 6 tail PNGs + 100% star_token & crystal_vase persistence)",
-    "W1-T3H: Benchmarked 720p (33.17s, 3044.6KB, $0.28) vs 360p (18.64s, 1606.0KB, $0.08) — 360p is 1.78x faster & 3.5x cheaper",
-    "W1-T4B: Upgraded build_demo_reel.py to mux native Omni Flash AAC audio into side-by-side H.264 demo_comparison_be_vs_he.mp4",
-    "W1-T4C: Audited all 8 prop PNGs (100% RGBA, bottom-flush, 0 chroma-green spill) & branch_v3 multi-scene persistence (100%) -> eval_prop_persistence.json",
-    "W1-T5A: Audited all 20 cached branch MP4s + demo reel (100% H.264, 100% native audio stream, 640x360 24fps) -> eval_audio_codec.json",
-    "W1-T5B: Extended test_media_smoke.py (ALL branches HTTP 200 + H.264, 0 CJK, progress check, 0 green spill, audio stream check) — ALL PASSED"
+    "Engine-Opt-1: Per-job UUID temp file isolation + try/finally cleanup in video_renderer.py (zero concurrent file collisions)",
+    "Engine-Opt-2: Scene-aware _select_scene_ref_images() prioritizing active actors & live custom props while pruning unused registry props (prevents 5-ref overflow & prop hallucinations)",
+    "Engine-Opt-3: Best-across-attempts retry regression guard + companion-camera tail conditioning during cross-camera consistency retry",
+    "Engine-Opt-4: Upload cache mtime+size+12h TTL keying + automatic 403/404 stale-URI eviction",
+    "Engine-Opt-5: Relative SI scale ratios in _describe_prop_with_scale(), Laplacian sharpness-aware .webm frame extraction, filigree chroma-cutout keying & post-thumbnail 0px bottom-flush sanitization",
+    "W1-T6A: Built 49.0s 1280x720 16:9 H.264 + muxed AAC audio full-pitch showcase reel (pitch_demo_reel_1min.mp4)",
+    "W1-T6B + Zero-Halo: Regenerated antique ivory-dial brass pocket watch, benchmarked 3 live judge-desk props (coffee mug, red paper heart, brass key; avg 16.68s) -> 11/11 props pass audit_props with 0 green halo & 0px bottom gap",
+    "W1-T6E: Verified native MP4 video+audio mood alignment via models/gemini-decision-1 (v1beta) — 6/6 (100% accuracy, 100% negative rejection, 3.22s avg)",
+    "W1-T6F: Added automated 3s .webm physical-prop frame extraction regression test (test_webm_prop.py) under Windows Unicode paths (测试_Gemini路) — PASSED",
+    "W1-T6G: Built high-res 2x4 BE vs HE dual-camera contact sheet (showcase_storyboard_strip.png) with Cam B PiP & QA badges",
+    "W1-T6H: Quantified localized prefix reuse + 360p cost/latency savings (eval_cache_savings.json: up to 76.2% cost reduction vs naive 720p, 5.85x parallel speedup)",
+    "W1-T6I + T6J: Verified 6-way concurrent burst stress, scene-ref pruning, retry regression guard, audit_props (11/11), audit_audio_codec (20 clips + 2 reels), and extended test_media_smoke — ALL PASSED"
   ],
   "blockers": [],
-  "last_updated": "2026-11-21T13:27:30-05:00"
+  "last_updated": "2026-11-21T13:45:30-05:00"
 }

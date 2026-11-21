@@ -1,0 +1,80 @@
+{
+  "generated_at": "2026-11-21T13:41:54",
+  "model": "models/gemini-decision-1",
+  "api_version": "v1beta",
+  "input_modality": "native_mp4_video_plus_audio",
+  "total_cases": 6,
+  "correct_count": 6,
+  "accuracy": 1.0,
+  "positive_match_rate": 1.0,
+  "negative_rejection_rate": 1.0,
+  "avg_latency_sec": 3.22,
+  "cases": [
+    {
+      "case_id": "be_s2_storm_positive",
+      "clip_url": "/assets/finals/scene_2_cam_a.mp4",
+      "branch": "branch_v1",
+      "scene_id": 2,
+      "expected": true,
+      "predicted": true,
+      "p_true": 0.8091,
+      "correct": true,
+      "latency_sec": 3.96
+    },
+    {
+      "case_id": "be_s2_warm_negative",
+      "clip_url": "/assets/finals/scene_2_cam_a.mp4",
+      "branch": "branch_v1",
+      "scene_id": 2,
+      "expected": false,
+      "predicted": false,
+      "p_true": 0.1586,
+      "correct": true,
+      "latency_sec": 3.22
+    },
+    {
+      "case_id": "he_s4_warm_positive",
+      "clip_url": "/assets/finals/branch_v2_scene_4_cam_a.mp4",
+      "branch": "branch_v2_cached",
+      "scene_id": 4,
+      "expected": true,
+      "predicted": true,
+      "p_true": 0.7361,
+      "correct": true,
+      "latency_sec": 3.07
+    },
+    {
+      "case_id": "he_s4_storm_negative",
+      "clip_url": "/assets/finals/branch_v2_scene_4_cam_a.mp4",
+      "branch": "branch_v2_cached",
+      "scene_id": 4,
+      "expected": false,
+      "predicted": false,
+      "p_true": 0.1566,
+      "correct": true,
+      "latency_sec": 3.05
+    },
+    {
+      "case_id": "be_s4_cold_regret_positive",
+      "clip_url": "/assets/finals/scene_4_cam_a.mp4",
+      "branch": "branch_v1",
+      "scene_id": 4,
+      "expected": true,
+      "predicted": true,
+      "p_true": 0.788,
+      "correct": true,
+      "latency_sec": 3.21
+    },
+    {
+      "case_id": "v3_s4_starlight_positive",
+      "clip_url": "/assets/finals/branch_v3_scene_4_cam_a.mp4",
+      "branch": "branch_v3_starlight_cached",
+      "scene_id": 4,
+      "expected": true,
+      "predicted": true,
+      "p_true": 0.7074,
+      "correct": true,
+      "latency_sec": 2.78
+    }
+  ]
+}

@@ -75,11 +75,28 @@ def sanitize_prop_png(png_path: Path, max_size: int = 512) -> dict:
     g = np.where(despill, np.maximum(r, b), g)
 
     # Also suppress any isolated residual bright chroma-green edge specks directly adjacent to transparency
+    # AND clear tiny trapped chroma-green cutouts inside chain links / key filigree (area <= 250px).
     if np.any(green_mask & (a >= 180)):
         transparent = (a == 0).astype(np.uint8)
-        near_bg = cv2.dilate(transparent, np.ones((5, 5), np.uint8), iterations=1) > 0
+        near_bg = cv2.dilate(transparent, np.ones((7, 7), np.uint8), iterations=1) > 0
         edge_green = green_mask & near_bg
         g = np.where(edge_green, np.maximum(r, b), g)
+
+        # Tiny trapped chroma-green holes (e.g., chain links, scrollwork) not touching outer transparent border
+        rem_green = ((g - np.maximum(r, b)) > 18) & (a > 0)
+        rem_u8 = (rem_green & green_mask).astype(np.uint8)
+        n_lbl, lbls, st, _ = cv2.connectedComponentsWithStats(rem_u8, connectivity=8)
+        for lbl in range(1, n_lbl):
+            area = int(st[lbl, cv2.CC_STAT_AREA])
+            if area <= 250:
+                reg = lbls == lbl
+                med_ex = float(np.median((g - np.maximum(r, b))[reg]))
+                if med_ex >= 50.0:
+                    # True trapped bright-green chroma hole -> punch transparent cleanly
+                    a = np.where(reg, 0, a).astype(np.uint8)
+                else:
+                    # Minor metallic green bounce reflection -> neutral despill
+                    g = np.where(reg, np.maximum(r, b), g)
 
     # Zero out invisible sub-threshold alpha dust (< 16) so bounding box is crisp
     a = np.where(a < 16, 0, a).astype(np.uint8)

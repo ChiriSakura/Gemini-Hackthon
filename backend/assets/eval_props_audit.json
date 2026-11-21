@@ -1,13 +1,13 @@
 {
-  "props_dir": "C:\\Users\\18206\\OneDrive\\Desktop\\Gemini·\\backend\\assets\\props",
-  "total_props": 8,
+  "props_dir": "C:\\Users\\11345\\.gemini\\antigravity\\scratch\\StageState-w1-opt\\backend\\assets\\props",
+  "total_props": 11,
   "all_rgba": true,
   "all_bottom_flush_ok": true,
-  "all_zero_opaque_green_spill": false,
-  "all_zero_green_halo": false,
-  "all_passed": false,
+  "all_zero_opaque_green_spill": true,
+  "all_zero_green_halo": true,
+  "all_passed": true,
   "max_bottom_opaque_gap_px": 0,
-  "total_green_halo_pixels": 2151,
+  "total_green_halo_pixels": 0,
   "props": [
     {
       "file": "crystal_vase.png",
@@ -29,7 +29,7 @@
       "opaque_green_spill_px": 0,
       "halo_green_pixels": 0,
       "halo_free_ok": true,
-      "file_size_bytes": 165278,
+      "file_size_bytes": 165491,
       "passed": true
     },
     {
@@ -52,7 +52,7 @@
       "opaque_green_spill_px": 0,
       "halo_green_pixels": 0,
       "halo_free_ok": true,
-      "file_size_bytes": 211482,
+      "file_size_bytes": 210314,
       "passed": true
     },
     {
@@ -60,23 +60,23 @@
       "asset_url": "/assets/props/showcase_brass_pocket_watch.png",
       "mode": "RGBA",
       "has_transparency": true,
-      "width": 373,
+      "width": 426,
       "height": 512,
-      "aspect_ratio": 0.7285,
+      "aspect_ratio": 0.832,
       "alpha_bbox": [
-        6,
-        6,
-        367,
+        3,
+        3,
+        423,
         512
       ],
       "bottom_opaque_gap_px": 0,
       "bottom_any_gap_px": 0,
       "bottom_flush_ok": true,
-      "opaque_green_spill_px": 2141,
-      "halo_green_pixels": 2141,
-      "halo_free_ok": false,
-      "file_size_bytes": 330701,
-      "passed": false
+      "opaque_green_spill_px": 0,
+      "halo_green_pixels": 0,
+      "halo_free_ok": true,
+      "file_size_bytes": 370828,
+      "passed": true
     },
     {
       "file": "showcase_crystal_shield.png",
@@ -98,7 +98,76 @@
       "opaque_green_spill_px": 0,
       "halo_green_pixels": 0,
       "halo_free_ok": true,
-      "file_size_bytes": 407163,
+      "file_size_bytes": 416343,
+      "passed": true
+    },
+    {
+      "file": "showcase_desk_brass_key.png",
+      "asset_url": "/assets/props/showcase_desk_brass_key.png",
+      "mode": "RGBA",
+      "has_transparency": true,
+      "width": 196,
+      "height": 512,
+      "aspect_ratio": 0.3828,
+      "alpha_bbox": [
+        4,
+        4,
+        192,
+        512
+      ],
+      "bottom_opaque_gap_px": 0,
+      "bottom_any_gap_px": 0,
+      "bottom_flush_ok": true,
+      "opaque_green_spill_px": 0,
+      "halo_green_pixels": 0,
+      "halo_free_ok": true,
+      "file_size_bytes": 119077,
+      "passed": true
+    },
+    {
+      "file": "showcase_desk_coffee_mug.png",
+      "asset_url": "/assets/props/showcase_desk_coffee_mug.png",
+      "mode": "RGBA",
+      "has_transparency": true,
+      "width": 512,
+      "height": 461,
+      "aspect_ratio": 1.1106,
+      "alpha_bbox": [
+        4,
+        4,
+        508,
+        461
+      ],
+      "bottom_opaque_gap_px": 0,
+      "bottom_any_gap_px": 0,
+      "bottom_flush_ok": true,
+      "opaque_green_spill_px": 0,
+      "halo_green_pixels": 0,
+      "halo_free_ok": true,
+      "file_size_bytes": 265100,
+      "passed": true
+    },
+    {
+      "file": "showcase_desk_paper_heart.png",
+      "asset_url": "/assets/props/showcase_desk_paper_heart.png",
+      "mode": "RGBA",
+      "has_transparency": true,
+      "width": 508,
+      "height": 512,
+      "aspect_ratio": 0.9922,
+      "alpha_bbox": [
+        5,
+        5,
+        504,
+        512
+      ],
+      "bottom_opaque_gap_px": 0,
+      "bottom_any_gap_px": 0,
+      "bottom_flush_ok": true,
+      "opaque_green_spill_px": 0,
+      "halo_green_pixels": 0,
+      "halo_free_ok": true,
+      "file_size_bytes": 304235,
       "passed": true
     },
     {
@@ -118,11 +187,11 @@
       "bottom_opaque_gap_px": 0,
       "bottom_any_gap_px": 0,
       "bottom_flush_ok": true,
-      "opaque_green_spill_px": 2,
-      "halo_green_pixels": 2,
-      "halo_free_ok": false,
-      "file_size_bytes": 181211,
-      "passed": false
+      "opaque_green_spill_px": 0,
+      "halo_green_pixels": 0,
+      "halo_free_ok": true,
+      "file_size_bytes": 183462,
+      "passed": true
     },
     {
       "file": "showcase_origami_crane.png",
@@ -144,7 +213,7 @@
       "opaque_green_spill_px": 0,
       "halo_green_pixels": 0,
       "halo_free_ok": true,
-      "file_size_bytes": 188686,
+      "file_size_bytes": 185569,
       "passed": true
     },
     {
@@ -152,23 +221,23 @@
       "asset_url": "/assets/props/showcase_star_lantern.png",
       "mode": "RGBA",
       "has_transparency": true,
-      "width": 406,
-      "height": 510,
-      "aspect_ratio": 0.7961,
+      "width": 407,
+      "height": 512,
+      "aspect_ratio": 0.7949,
       "alpha_bbox": [
         6,
         6,
-        400,
-        510
+        401,
+        512
       ],
       "bottom_opaque_gap_px": 0,
       "bottom_any_gap_px": 0,
       "bottom_flush_ok": true,
-      "opaque_green_spill_px": 8,
-      "halo_green_pixels": 8,
-      "halo_free_ok": false,
-      "file_size_bytes": 220099,
-      "passed": false
+      "opaque_green_spill_px": 0,
+      "halo_green_pixels": 0,
+      "halo_free_ok": true,
+      "file_size_bytes": 219070,
+      "passed": true
     },
     {
       "file": "star_token.png",
@@ -190,7 +259,7 @@
       "opaque_green_spill_px": 0,
       "halo_green_pixels": 0,
       "halo_free_ok": true,
-      "file_size_bytes": 221528,
+      "file_size_bytes": 215540,
       "passed": true
     }
   ]

@@ -1,0 +1,144 @@
+{
+  "generated_at": "2026-11-21T13:39:25",
+  "model": "gemini-nano-banana-2.1",
+  "parallel_batch_elapsed_sec": 20.27,
+  "desk_props_count": 3,
+  "avg_create_prop_latency_sec": 16.68,
+  "all_desk_props_passed": true,
+  "all_desk_props_zero_green_halo": true,
+  "pocket_watch_regenerated": {
+    "prop_id": "showcase_brass_pocket_watch",
+    "name": "antique brass pocket watch",
+    "description": "an antique gold-and-brass mechanical pocket watch with a warm cream ivory clock face, dark bronze Roman numerals, and gold hands, NO green or teal colors",
+    "image_url": "/assets/props/showcase_brass_pocket_watch.png",
+    "elapsed_sec": 20.02,
+    "estimated_height_m": 0.09,
+    "audit": {
+      "file": "showcase_brass_pocket_watch.png",
+      "asset_url": "/assets/props/showcase_brass_pocket_watch.png",
+      "mode": "RGBA",
+      "has_transparency": true,
+      "width": 426,
+      "height": 512,
+      "aspect_ratio": 0.832,
+      "alpha_bbox": [
+        3,
+        3,
+        423,
+        512
+      ],
+      "bottom_opaque_gap_px": 0,
+      "bottom_any_gap_px": 0,
+      "bottom_flush_ok": true,
+      "opaque_green_spill_px": 0,
+      "halo_green_pixels": 0,
+      "halo_free_ok": true,
+      "file_size_bytes": 370828,
+      "passed": true
+    }
+  },
+  "desk_props": [
+    {
+      "prop_id": "showcase_desk_coffee_mug",
+      "name": "ceramic coffee mug",
+      "description": "a warm cream ceramic coffee mug with a golden rim and cozy minimalist café pattern, empty matte ceramic surface",
+      "image_url": "/assets/props/showcase_desk_coffee_mug.png",
+      "elapsed_sec": 16.48,
+      "estimated_height_m": 0.13,
+      "audit": {
+        "file": "showcase_desk_coffee_mug.png",
+        "asset_url": "/assets/props/showcase_desk_coffee_mug.png",
+        "mode": "RGBA",
+        "has_transparency": true,
+        "width": 512,
+        "height": 461,
+        "aspect_ratio": 1.1106,
+        "alpha_bbox": [
+          4,
+          4,
+          508,
+          461
+        ],
+        "bottom_opaque_gap_px": 0,
+        "bottom_any_gap_px": 0,
+        "bottom_flush_ok": true,
+        "opaque_green_spill_px": 0,
+        "halo_green_pixels": 0,
+        "halo_free_ok": true,
+        "file_size_bytes": 265100,
+        "passed": true
+      }
+    },
+    {
+      "prop_id": "showcase_desk_paper_heart",
+      "name": "folded red paper heart",
+      "description": "a crisp hand-folded crimson red origami paper heart with subtle paper creases and warm highlights",
+      "image_url": "/assets/props/showcase_desk_paper_heart.png",
+      "elapsed_sec": 15.36,
+      "estimated_height_m": 0.09,
+      "audit": {
+        "file": "showcase_desk_paper_heart.png",
+        "asset_url": "/assets/props/showcase_desk_paper_heart.png",
+        "mode": "RGBA",
+        "has_transparency": true,
+        "width": 508,
+        "height": 512,
+        "aspect_ratio": 0.9922,
+        "alpha_bbox": [
+          5,
+          5,
+          504,
+          512
+        ],
+        "bottom_opaque_gap_px": 0,
+        "bottom_any_gap_px": 0,
+        "bottom_flush_ok": true,
+        "opaque_green_spill_px": 0,
+        "halo_green_pixels": 0,
+        "halo_free_ok": true,
+        "file_size_bytes": 304235,
+        "passed": true
+      }
+    },
+    {
+      "prop_id": "showcase_desk_brass_key",
+      "name": "brass apartment key",
+      "description": "an ornate vintage warm brass apartment key with a star-engraved bow and polished golden-bronze teeth",
+      "image_url": "/assets/props/showcase_desk_brass_key.png",
+      "elapsed_sec": 18.2,
+      "estimated_height_m": 0.08,
+      "audit": {
+        "file": "showcase_desk_brass_key.png",
+        "asset_url": "/assets/props/showcase_desk_brass_key.png",
+        "mode": "RGBA",
+        "has_transparency": true,
+        "width": 196,
+        "height": 512,
+        "aspect_ratio": 0.3828,
+        "alpha_bbox": [
+          4,
+          4,
+          192,
+          512
+        ],
+        "bottom_opaque_gap_px": 0,
+        "bottom_any_gap_px": 0,
+        "bottom_flush_ok": true,
+        "opaque_green_spill_px": 0,
+        "halo_green_pixels": 0,
+        "halo_free_ok": true,
+        "file_size_bytes": 119077,
+        "passed": true
+      }
+    }
+  ],
+  "full_props_audit_summary": {
+    "total_props": 11,
+    "all_passed": true,
+    "all_rgba": true,
+    "all_bottom_flush_ok": true,
+    "all_zero_green_halo": true,
+    "total_green_halo_pixels": 0,
+    "max_bottom_opaque_gap_px": 0
+  }
+}
