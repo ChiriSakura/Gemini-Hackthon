@@ -3,10 +3,10 @@
   "total_clips": 20,
   "positive_count": 14,
   "negative_count": 6,
-  "accuracy": 1.0,
-  "true_positive_rate": 1.0,
+  "accuracy": 0.95,
+  "true_positive_rate": 0.929,
   "true_negative_rate": 1.0,
-  "avg_latency_sec": 2.62,
+  "avg_latency_sec": 1.37,
   "items": [
     {
       "id": 1,
@@ -16,12 +16,12 @@
       "clip_url": "/assets/finals/scene_1_cam_a.mp4",
       "check_type": "positive",
       "question": "Is the silver-haired girl standing on the left holding a red umbrella in a glass conservatory?",
-      "p_true": 0.886,
-      "confidence": 0.886,
+      "p_true": 0.872,
+      "confidence": 0.872,
       "predicted_label": true,
       "human_label": true,
       "correct": true,
-      "elapsed_sec": 4.38
+      "elapsed_sec": 3.71
     },
     {
       "id": 2,
@@ -31,12 +31,12 @@
       "clip_url": "/assets/finals/scene_1_cam_b.mp4",
       "check_type": "positive",
       "question": "Is a crystal vase with a blue rose standing intact on the round table?",
-      "p_true": 0.891,
-      "confidence": 0.891,
+      "p_true": 0.852,
+      "confidence": 0.852,
       "predicted_label": true,
       "human_label": true,
       "correct": true,
-      "elapsed_sec": 5.09
+      "elapsed_sec": 3.56
     },
     {
       "id": 3,
@@ -46,12 +46,12 @@
       "clip_url": "/assets/finals/scene_2_cam_a.mp4",
       "check_type": "positive",
       "question": "Is the crystal vase broken on the floor under cold rainy blue night lighting?",
-      "p_true": 0.887,
-      "confidence": 0.887,
+      "p_true": 0.864,
+      "confidence": 0.864,
       "predicted_label": true,
       "human_label": true,
       "correct": true,
-      "elapsed_sec": 8.06
+      "elapsed_sec": 3.76
     },
     {
       "id": 4,
@@ -61,12 +61,12 @@
       "clip_url": "/assets/finals/scene_2_cam_b.mp4",
       "check_type": "positive",
       "question": "Is the silver-haired girl holding her red umbrella while the black cat reacts near the table?",
-      "p_true": 0.782,
-      "confidence": 0.782,
+      "p_true": 0.78,
+      "confidence": 0.78,
       "predicted_label": true,
       "human_label": true,
       "correct": true,
-      "elapsed_sec": 4.06
+      "elapsed_sec": 3.59
     },
     {
       "id": 5,
@@ -76,12 +76,12 @@
       "clip_url": "/assets/finals/scene_3_cam_a.mp4",
       "check_type": "positive",
       "question": "Are shattered crystal glass shards or blue petals visible on the rainy conservatory floor?",
-      "p_true": 0.852,
-      "confidence": 0.852,
+      "p_true": 0.817,
+      "confidence": 0.817,
       "predicted_label": true,
       "human_label": true,
       "correct": true,
-      "elapsed_sec": 5.19
+      "elapsed_sec": 3.28
     },
     {
       "id": 6,
@@ -91,12 +91,12 @@
       "clip_url": "/assets/finals/scene_3_cam_b.mp4",
       "check_type": "positive",
       "question": "Is the lighting cold stormy blue rain at night?",
-      "p_true": 0.851,
-      "confidence": 0.851,
+      "p_true": 0.884,
+      "confidence": 0.884,
       "predicted_label": true,
       "human_label": true,
       "correct": true,
-      "elapsed_sec": 1.43
+      "elapsed_sec": 0.55
     },
     {
       "id": 7,
@@ -106,12 +106,12 @@
       "clip_url": "/assets/finals/scene_4_cam_a.mp4",
       "check_type": "positive",
       "question": "Is the silver-haired girl standing under a red umbrella with broken vase remains on the floor?",
-      "p_true": 0.873,
-      "confidence": 0.873,
+      "p_true": 0.831,
+      "confidence": 0.831,
       "predicted_label": true,
       "human_label": true,
       "correct": true,
-      "elapsed_sec": 1.64
+      "elapsed_sec": 0.59
     },
     {
       "id": 8,
@@ -121,12 +121,12 @@
       "clip_url": "/assets/finals/scene_4_cam_b.mp4",
       "check_type": "positive",
       "question": "Is the mood melancholic cold blue rain rather than warm sunny daylight?",
-      "p_true": 0.917,
-      "confidence": 0.917,
+      "p_true": 0.867,
+      "confidence": 0.867,
       "predicted_label": true,
       "human_label": true,
       "correct": true,
-      "elapsed_sec": 2.28
+      "elapsed_sec": 0.69
     },
     {
       "id": 9,
@@ -136,12 +136,12 @@
       "clip_url": "/assets/finals/branch_v2_scene_2_cam_a.mp4",
       "check_type": "positive",
       "question": "Is the crystal vase with blue rose intact on the round table (not broken)?",
-      "p_true": 0.898,
-      "confidence": 0.898,
+      "p_true": 0.875,
+      "confidence": 0.875,
       "predicted_label": true,
       "human_label": true,
       "correct": true,
-      "elapsed_sec": 2.76
+      "elapsed_sec": 0.75
     },
     {
       "id": 10,
@@ -151,12 +151,12 @@
       "clip_url": "/assets/finals/branch_v2_scene_2_cam_b.mp4",
       "check_type": "positive",
       "question": "Is the silver-haired girl interacting gently with the black cat near a glowing golden star?",
-      "p_true": 0.557,
-      "confidence": 0.557,
+      "p_true": 0.891,
+      "confidence": 0.891,
       "predicted_label": true,
       "human_label": true,
       "correct": true,
-      "elapsed_sec": 2.23
+      "elapsed_sec": 0.55
     },
     {
       "id": 11,
@@ -166,12 +166,12 @@
       "clip_url": "/assets/finals/branch_v2_scene_3_cam_a.mp4",
       "check_type": "positive",
       "question": "Is the conservatory floor clean without shattered crystal vase shards?",
-      "p_true": 0.802,
-      "confidence": 0.802,
+      "p_true": 0.635,
+      "confidence": 0.635,
       "predicted_label": true,
       "human_label": true,
       "correct": true,
-      "elapsed_sec": 1.97
+      "elapsed_sec": 0.71
     },
     {
       "id": 12,
@@ -186,7 +186,7 @@
       "predicted_label": true,
       "human_label": true,
       "correct": true,
-      "elapsed_sec": 1.24
+      "elapsed_sec": 0.52
     },
     {
       "id": 13,
@@ -196,12 +196,12 @@
       "clip_url": "/assets/finals/branch_v2_scene_4_cam_a.mp4",
       "check_type": "positive",
       "question": "Is the atmosphere warm golden starlight with gentle falling snow?",
-      "p_true": 0.732,
-      "confidence": 0.732,
-      "predicted_label": true,
+      "p_true": 0.134,
+      "confidence": 0.866,
+      "predicted_label": false,
       "human_label": true,
-      "correct": true,
-      "elapsed_sec": 1.86
+      "correct": false,
+      "elapsed_sec": 0.5
     },
     {
       "id": 14,
@@ -211,12 +211,12 @@
       "clip_url": "/assets/finals/branch_v2_scene_4_cam_b.mp4",
       "check_type": "positive",
       "question": "Are the silver-haired girl and small black cat warmly together under the open red umbrella with an intact blue-rose vase on the table?",
-      "p_true": 0.814,
-      "confidence": 0.814,
+      "p_true": 0.821,
+      "confidence": 0.821,
       "predicted_label": true,
       "human_label": true,
       "correct": true,
-      "elapsed_sec": 2.37
+      "elapsed_sec": 0.59
     },
     {
       "id": 15,
@@ -226,12 +226,12 @@
       "clip_url": "/assets/finals/scene_4_cam_a.mp4",
       "check_type": "negative_mismatch",
       "question": "Is the atmosphere warm golden starlight with gently falling snow and a joyful smile?",
-      "p_true": 0.126,
-      "confidence": 0.874,
+      "p_true": 0.144,
+      "confidence": 0.856,
       "predicted_label": false,
       "human_label": false,
       "correct": true,
-      "elapsed_sec": 1.93
+      "elapsed_sec": 1.25
     },
     {
       "id": 16,
@@ -241,12 +241,12 @@
       "clip_url": "/assets/finals/scene_3_cam_a.mp4",
       "check_type": "negative_mismatch",
       "question": "Is the crystal vase standing completely intact and unbroken on top of the round table?",
-      "p_true": 0.144,
-      "confidence": 0.856,
+      "p_true": 0.157,
+      "confidence": 0.843,
       "predicted_label": false,
       "human_label": false,
       "correct": true,
-      "elapsed_sec": 1.22
+      "elapsed_sec": 0.57
     },
     {
       "id": 17,
@@ -256,12 +256,12 @@
       "clip_url": "/assets/finals/branch_v2_scene_4_cam_b.mp4",
       "check_type": "negative_mismatch",
       "question": "Is the crystal vase shattered into broken shards across a cold stormy blue rainy floor?",
-      "p_true": 0.139,
-      "confidence": 0.861,
+      "p_true": 0.157,
+      "confidence": 0.843,
       "predicted_label": false,
       "human_label": false,
       "correct": true,
-      "elapsed_sec": 1.42
+      "elapsed_sec": 0.57
     },
     {
       "id": 18,
@@ -271,12 +271,12 @@
       "clip_url": "/assets/finals/scene_1_cam_a.mp4",
       "check_type": "negative_mismatch",
       "question": "Are there three or more human characters standing together on a sunny sandy beach?",
-      "p_true": 0.129,
-      "confidence": 0.871,
+      "p_true": 0.139,
+      "confidence": 0.861,
       "predicted_label": false,
       "human_label": false,
       "correct": true,
-      "elapsed_sec": 1.0
+      "elapsed_sec": 0.48
     },
     {
       "id": 19,
@@ -286,12 +286,12 @@
       "clip_url": "/assets/finals/branch_v2_scene_2_cam_a.mp4",
       "check_type": "negative_mismatch",
       "question": "Is a large red fire truck driving across a busy city highway?",
-      "p_true": 0.126,
-      "confidence": 0.874,
+      "p_true": 0.127,
+      "confidence": 0.873,
       "predicted_label": false,
       "human_label": false,
       "correct": true,
-      "elapsed_sec": 1.3
+      "elapsed_sec": 0.67
     },
     {
       "id": 20,
@@ -301,12 +301,12 @@
       "clip_url": "/assets/finals/scene_2_cam_b.mp4",
       "check_type": "negative_mismatch",
       "question": "Is the silver-haired girl holding a glowing yellow surfboard in bright noon sunlight?",
-      "p_true": 0.124,
-      "confidence": 0.876,
+      "p_true": 0.127,
+      "confidence": 0.873,
       "predicted_label": false,
       "human_label": false,
       "correct": true,
-      "elapsed_sec": 0.98
+      "elapsed_sec": 0.54
     }
   ]
 }

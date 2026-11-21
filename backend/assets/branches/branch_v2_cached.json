@@ -1,25 +1,25 @@
 {
   "branch_id": "branch_v2_cached",
-  "branch_label": "HE · 星雪下的信任与共伞（改写第 2 幕）",
+  "branch_label": "HE · Trust & Shared Umbrella Under Starlight Snow (Fork S2)",
   "parent_branch_id": "branch_v1",
   "forked_from_scene": 2,
-  "rewrite_summary": "评委温柔招手+举起桌面实物：「第2幕她把红伞放下，轻轻递出这个星光礼物安抚黑猫，黑猫没有撞翻花瓶！」",
+  "rewrite_summary": "Director gently beckons while holding a physical keepsake: 'In Scene 2, Lia sets her umbrella down and offers this glowing starlight charm to soothe Nyx, so the vase stays intact!'",
   "contradiction_warning": null,
   "props_registry": {
     "red_umbrella": {
-      "name": "亮红复古长柄伞",
+      "name": "Crimson Vintage Umbrella",
       "image_url": "/assets/actors/lia.png",
       "state": "held",
       "origin": "preset"
     },
     "crystal_vase": {
-      "name": "蓝玫瑰水晶花瓶",
+      "name": "Blue Rose Crystal Vase",
       "image_url": "/assets/props/crystal_vase.png",
       "state": "intact",
       "origin": "preset"
     },
     "star_token": {
-      "name": "现场星光信物",
+      "name": "Starlight Keepsake",
       "image_url": "/assets/props/star_token.png",
       "state": "glowing",
       "origin": "camera_physical"
@@ -28,22 +28,22 @@
   "scenes": [
     {
       "scene_id": 1,
-      "title": "雨夜初遇（复用缓存）",
+      "title": "Rainy Night Encounter (Reused)",
       "duration_sec": 4.0,
-      "narration": "暖微光下，莉亚撑着红伞站在玻璃花房左侧，星月黑猫诺克斯蹲在右侧好奇望着中央圆桌上的蓝玫瑰水晶花瓶。",
+      "narration": "Under warm dim lantern light, Lia stands on the left side of the glass conservatory holding a crimson umbrella while black cat Nyx sits on the right gazing at the blue-rose crystal vase on the center table.",
       "vocal_emotion": "neutral",
       "gesture_intent": "none",
       "direction_hint": "none",
       "lighting": "warm_dim",
       "camera_shake": false,
       "audio_mood": "soft_rain_and_quiet_glasshouse_ambience",
-      "environment_notes": "glass_conservatory_night_clean_floor",
+      "environment_notes": "rain_outside_glass_windows glowing_blue_rose_in_crystal_vase warm_wall_lanterns_lit herringbone_wooden_floor potted_corner_plants open_red_umbrella_indoors dark_nighttime_conservatory",
       "needs_rerender": false,
       "reused_from_branch": "branch_v1",
       "actors": [
         {
           "id": "lia",
-          "name": "莉亚",
+          "name": "Lia",
           "asset_url": "/assets/actors/lia.png",
           "grid": [
             0.0,
@@ -55,7 +55,7 @@
         },
         {
           "id": "nyx",
-          "name": "诺克斯",
+          "name": "Nyx",
           "asset_url": "/assets/actors/nyx.png",
           "grid": [
             2.0,
@@ -87,31 +87,84 @@
         "cam_b_final_url": "/assets/finals/scene_1_cam_b.mp4",
         "cam_a_tail_frame_url": "/assets/tails/scene_1_cam_a_tail.png",
         "cam_b_tail_frame_url": "/assets/tails/scene_1_cam_b_tail.png",
-        "qa_result": null,
-        "qa_score": 1.0,
-        "qa_retries": 0,
-        "selected_candidate_index": 0,
+        "qa_result": {
+          "overall_score": 0.861,
+          "all_passed": true,
+          "items": [
+            {
+              "question": "Is the silver-haired girl standing on the left holding a red umbrella?",
+              "passed": true,
+              "confidence": 0.939,
+              "reason": "Decision-1 P(true)=0.94"
+            },
+            {
+              "question": "Is the black cat with a golden moon collar sitting on the right?",
+              "passed": true,
+              "confidence": 0.943,
+              "reason": "Decision-1 P(true)=0.94"
+            },
+            {
+              "question": "Is the crystal vase with a blue rose standing intact on the center round table?",
+              "passed": true,
+              "confidence": 0.93,
+              "reason": "Decision-1 P(true)=0.93"
+            },
+            {
+              "question": "[Cam B] Do Camera A (front wide) and Camera B (45-degree close-up) match actor positions?",
+              "passed": true,
+              "confidence": 0.62,
+              "reason": "Decision-1 P(true)=0.62 [LOW_CONFIDENCE: escalate]"
+            },
+            {
+              "question": "Are there no extra unintended human characters in the scene?",
+              "passed": true,
+              "confidence": 0.902,
+              "reason": "Decision-1 P(true)=0.90"
+            },
+            {
+              "question": "[Cam B] Is the black cat realistically small (below the girl's knee height) with all characters and props resting naturally on surfaces without floating?",
+              "passed": true,
+              "confidence": 0.752,
+              "reason": "Decision-1 P(true)=0.75"
+            },
+            {
+              "question": "Is this a clean full-bleed nighttime anime frame with NO black borders, NO coordinate axes or numbers, NO duplicate umbrellas or duplicate star tokens, and consistent nighttime atmosphere?",
+              "passed": true,
+              "confidence": 0.909,
+              "reason": "Decision-1 P(true)=0.91"
+            },
+            {
+              "question": "[Dual-Cam] Camera A & Camera B spatial, prop, and nighttime lighting consistency",
+              "passed": true,
+              "confidence": 0.891,
+              "reason": "Cross-Cam Decision-1 P(true)=0.89"
+            }
+          ]
+        },
+        "qa_score": 0.879,
+        "qa_retries": 1,
+        "selected_candidate_index": 1,
         "fallback_to_preview": false
       }
     },
     {
       "scene_id": 2,
-      "title": "抛伞递星光礼",
+      "title": "Umbrella Set Down & Starlight Gift",
       "duration_sec": 4.0,
-      "narration": "莉亚温柔地把红伞轻放地面，半蹲下递出评委实物转绘的星光信物，黑猫好奇凑近嗅闻，圆桌上的水晶花瓶完好无损！",
+      "narration": "Lia gently sets her red umbrella down, kneels halfway, and offers the glowing Starlight Keepsake transformed from the live prop; Nyx steps closer to sniff it curiously while the crystal vase stays completely intact!",
       "vocal_emotion": "gentle_whisper",
       "gesture_intent": "beckon_soothe",
       "direction_hint": "center",
       "lighting": "warm_transition",
       "camera_shake": false,
       "audio_mood": "gentle_windchime_soft_purring_rain_easing",
-      "environment_notes": "glass_conservatory_interior reflective_tiled_floor warm_sunlight_streaming round_wooden_table blue_rose_glass_vase closed_red_umbrella_on_floor glowing_yellow_star lush_trees_outside",
+      "environment_notes": "glass_conservatory_night_sky warm_glowing_wall_lanterns glowing_blue_rose_in_vase wooden_round_center_table closed_red_umbrella_on_floor glowing_yellow_star_light black_cat_gold_bell_collar potted_white_flower_bushes",
       "needs_rerender": false,
       "reused_from_branch": null,
       "actors": [
         {
           "id": "lia",
-          "name": "莉亚",
+          "name": "Lia",
           "asset_url": "/assets/actors/lia.png",
           "grid": [
             0.75,
@@ -123,7 +176,7 @@
         },
         {
           "id": "nyx",
-          "name": "诺克斯",
+          "name": "Nyx",
           "asset_url": "/assets/actors/nyx.png",
           "grid": [
             1.35,
@@ -177,42 +230,54 @@
         "cam_a_tail_frame_url": "/assets/tails/branch_v2_scene_2_cam_a_tail.png",
         "cam_b_tail_frame_url": "/assets/tails/branch_v2_scene_2_cam_b_tail.png",
         "qa_result": {
-          "overall_score": 0.902,
+          "overall_score": 0.92,
           "all_passed": true,
           "items": [
             {
               "question": "Is the red umbrella placed on the floor to the left?",
               "passed": true,
-              "confidence": 0.914,
-              "reason": "Decision-1 P(true)=0.91"
+              "confidence": 0.928,
+              "reason": "Decision-1 P(true)=0.93"
             },
             {
               "question": "Is the silver-haired girl kneeling gently offering the glowing star keepsake?",
               "passed": true,
-              "confidence": 0.9,
-              "reason": "Decision-1 P(true)=0.90"
+              "confidence": 0.944,
+              "reason": "Decision-1 P(true)=0.94"
             },
             {
               "question": "Is the crystal vase with blue rose completely intact on the round table?",
               "passed": true,
-              "confidence": 0.949,
-              "reason": "Decision-1 P(true)=0.95"
+              "confidence": 0.958,
+              "reason": "Decision-1 P(true)=0.96"
             },
             {
               "question": "Is the black cat approaching calmly instead of fleeing?",
               "passed": true,
-              "confidence": 0.847,
-              "reason": "Decision-1 P(true)=0.85"
+              "confidence": 0.889,
+              "reason": "Decision-1 P(true)=0.89"
             },
             {
               "question": "Is the black cat realistically small (below the girl's knee height) with all characters and props resting naturally on surfaces without floating?",
               "passed": true,
-              "confidence": 0.899,
-              "reason": "Decision-1 P(true)=0.90"
+              "confidence": 0.92,
+              "reason": "Decision-1 P(true)=0.92"
+            },
+            {
+              "question": "Is this a clean full-bleed nighttime anime frame with NO black borders, NO coordinate axes or numbers, NO duplicate umbrellas or duplicate star tokens, and consistent nighttime atmosphere?",
+              "passed": true,
+              "confidence": 0.931,
+              "reason": "Decision-1 P(true)=0.93"
+            },
+            {
+              "question": "[Dual-Cam] Camera A & Camera B spatial, prop, and nighttime lighting consistency",
+              "passed": true,
+              "confidence": 0.869,
+              "reason": "Cross-Cam Decision-1 P(true)=0.87"
             }
           ]
         },
-        "qa_score": 0.87,
+        "qa_score": 0.908,
         "qa_retries": 0,
         "selected_candidate_index": 0,
         "fallback_to_preview": false
@@ -220,22 +285,22 @@
     },
     {
       "scene_id": 3,
-      "title": "因果反转 · 守护信物",
+      "title": "Causal Reversal · Guarding the Keepsake",
       "duration_sec": 4.0,
-      "narration": "地面干干净净毫无碎玻璃，黑猫亲昵地凑近并守护着星光信物，依偎在莉亚的星空斗篷旁。",
+      "narration": "The conservatory floor is spotless with zero broken glass; Nyx affectionately nuzzles closer beside Lia's starry cloak while guarding the glowing Starlight Keepsake.",
       "vocal_emotion": "joyful",
       "gesture_intent": "none",
       "direction_hint": "center",
       "lighting": "warm_transition",
       "camera_shake": false,
       "audio_mood": "warm_music_box_soft_cat_purr",
-      "environment_notes": "open_red_umbrella glass_conservatory_interior open_glass_doors glowing_star_on_table blue_rose_in_vase reflective_tiled_floor light_rain_outside misty_balcony_background",
+      "environment_notes": "open_red_umbrella_on_floor glowing_blue_rose_in_vase glowing_yellow_star_on_floor star_reflection_on_tiles warm_glowing_wall_lanterns starry_night_sky glass_conservatory_interior diamond_tiled_floor",
       "needs_rerender": false,
       "reused_from_branch": null,
       "actors": [
         {
           "id": "lia",
-          "name": "莉亚",
+          "name": "Lia",
           "asset_url": "/assets/actors/lia.png",
           "grid": [
             0.85,
@@ -247,7 +312,7 @@
         },
         {
           "id": "nyx",
-          "name": "诺克斯",
+          "name": "Nyx",
           "asset_url": "/assets/actors/nyx.png",
           "grid": [
             1.18,
@@ -300,59 +365,71 @@
         "cam_a_tail_frame_url": "/assets/tails/branch_v2_scene_3_cam_a_tail.png",
         "cam_b_tail_frame_url": "/assets/tails/branch_v2_scene_3_cam_b_tail.png",
         "qa_result": {
-          "overall_score": 0.909,
+          "overall_score": 0.878,
           "all_passed": true,
           "items": [
             {
               "question": "Is the conservatory floor clean with NO broken glass shards?",
               "passed": true,
-              "confidence": 0.948,
-              "reason": "Decision-1 P(true)=0.95"
+              "confidence": 0.942,
+              "reason": "Decision-1 P(true)=0.94"
             },
             {
               "question": "Is the generated star keepsake prop visibly present between Lia and the black cat?",
               "passed": true,
-              "confidence": 0.886,
-              "reason": "Decision-1 P(true)=0.89"
+              "confidence": 0.718,
+              "reason": "Decision-1 P(true)=0.72"
             },
             {
               "question": "Is the crystal vase still intact on the round table?",
               "passed": true,
-              "confidence": 0.947,
-              "reason": "Decision-1 P(true)=0.95"
+              "confidence": 0.942,
+              "reason": "Decision-1 P(true)=0.94"
             },
             {
               "question": "Is the black cat realistically small (below the girl's knee height) with all characters and props resting naturally on surfaces without floating?",
               "passed": true,
-              "confidence": 0.853,
-              "reason": "Decision-1 P(true)=0.85"
+              "confidence": 0.898,
+              "reason": "Decision-1 P(true)=0.90"
+            },
+            {
+              "question": "Is this a clean full-bleed nighttime anime frame with NO black borders, NO coordinate axes or numbers, NO duplicate umbrellas or duplicate star tokens, and consistent nighttime atmosphere?",
+              "passed": true,
+              "confidence": 0.895,
+              "reason": "Decision-1 P(true)=0.90"
+            },
+            {
+              "question": "[Dual-Cam] Camera A & Camera B spatial, prop, and nighttime lighting consistency",
+              "passed": true,
+              "confidence": 0.875,
+              "reason": "Cross-Cam Decision-1 P(true)=0.87"
             }
           ]
         },
-        "qa_score": 0.835,
-        "qa_retries": 0,
+        "qa_score": 0.891,
+        "qa_retries": 1,
         "selected_candidate_index": 0,
         "fallback_to_preview": false
       }
     },
     {
       "scene_id": 4,
-      "title": "HE · 星雪共伞",
+      "title": "HE · Shared Umbrella in Golden Snow",
       "duration_sec": 4.0,
-      "narration": "灯光转为暖金星光与漫天初雪！莉亚重新撑起红伞半蹲护住黑猫，B 机位 45° 特写少女含笑抚猫，星光信物在手间闪耀。",
+      "narration": "Lighting blooms into warm golden starlight and gentle falling snow! Lia opens the red umbrella again to shelter Nyx beside her, as Camera B captures her smiling softly with the glowing keepsake between them.",
       "vocal_emotion": "joyful",
       "gesture_intent": "none",
       "direction_hint": "center",
       "lighting": "warm_gold_snow",
       "camera_shake": false,
       "audio_mood": "magical_warm_chimes_gentle_winter_snow_romantic_strings",
-      "environment_notes": "open_red_umbrella glass_top_table blue_rose_in_vase two_glowing_table_stars swirling_golden_stardust hanging_snowflake_lights hanging_star_lights falling_snow_outside stone_balcony_railing floor_to_ceiling_windows",
+      "environment_notes": "glass_conservatory starry_night_sky glowing_blue_rose glowing_golden_star red_umbrella_open round_wooden_table window_floor_shadows tiled_floor",
       "needs_rerender": false,
       "reused_from_branch": null,
       "actors": [
         {
           "id": "lia",
-          "name": "莉亚",
+          "name": "Lia",
           "asset_url": "/assets/actors/lia.png",
           "grid": [
             0.95,
@@ -364,7 +441,7 @@
         },
         {
           "id": "nyx",
-          "name": "诺克斯",
+          "name": "Nyx",
           "asset_url": "/assets/actors/nyx.png",
           "grid": [
             1.22,
@@ -409,44 +486,56 @@
         "cam_a_tail_frame_url": "/assets/tails/branch_v2_scene_4_cam_a_tail.png",
         "cam_b_tail_frame_url": "/assets/tails/branch_v2_scene_4_cam_b_tail.png",
         "qa_result": {
-          "overall_score": 0.796,
+          "overall_score": 0.738,
           "all_passed": false,
           "items": [
             {
               "question": "Are the silver-haired girl and black cat warmly sheltered together under the open red umbrella?",
               "passed": true,
-              "confidence": 0.92,
-              "reason": "Decision-1 P(true)=0.92"
+              "confidence": 0.656,
+              "reason": "Decision-1 P(true)=0.66 [LOW_CONFIDENCE: escalate]"
             },
             {
               "question": "Is the crystal vase with blue rose intact on the round table?",
               "passed": true,
-              "confidence": 0.936,
-              "reason": "Decision-1 P(true)=0.94"
+              "confidence": 0.955,
+              "reason": "Decision-1 P(true)=0.96"
             },
             {
               "question": "Is the atmosphere warm golden starlight with gently falling snow?",
               "passed": true,
-              "confidence": 0.896,
-              "reason": "Decision-1 P(true)=0.90"
+              "confidence": 0.805,
+              "reason": "Decision-1 P(true)=0.80"
             },
             {
-              "question": "Do Camera A and Camera B match positions and lighting?",
+              "question": "[Cam B] Do Camera A and Camera B match positions and lighting?",
               "passed": false,
-              "confidence": 0.651,
-              "reason": "Decision-1 P(true)=0.35 [LOW_CONFIDENCE: escalate]"
+              "confidence": 0.895,
+              "reason": "Decision-1 P(true)=0.10"
             },
             {
               "question": "Is the black cat realistically small (below the girl's knee height) with all characters and props resting naturally on surfaces without floating?",
               "passed": true,
-              "confidence": 0.881,
+              "confidence": 0.885,
               "reason": "Decision-1 P(true)=0.88"
+            },
+            {
+              "question": "Is this a clean full-bleed nighttime anime frame with NO black borders, NO coordinate axes or numbers, NO duplicate umbrellas or duplicate star tokens, and consistent nighttime atmosphere?",
+              "passed": true,
+              "confidence": 0.898,
+              "reason": "Decision-1 P(true)=0.90"
+            },
+            {
+              "question": "[Dual-Cam] Camera A & Camera B spatial, prop, and nighttime lighting consistency",
+              "passed": true,
+              "confidence": 0.861,
+              "reason": "Cross-Cam Decision-1 P(true)=0.86"
             }
           ]
         },
-        "qa_score": 0.776,
+        "qa_score": 0.77,
         "qa_retries": 0,
-        "selected_candidate_index": 0,
+        "selected_candidate_index": 1,
         "fallback_to_preview": false
       }
     }

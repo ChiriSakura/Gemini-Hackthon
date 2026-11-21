@@ -13,6 +13,7 @@ Feature & Use Cases:
 
 import asyncio
 import base64
+import hashlib
 import io
 import re
 import tempfile
@@ -31,6 +32,7 @@ from backend.schemas import PropRegistryItem
 
 _IMAGE_MODEL_ALIASES = {
     "gemini-3.1-flash-image-preview": "gemini-nano-banana-2.1",
+    "gemini-3.1-flash-image": "gemini-nano-banana-2.1",
 }
 
 
@@ -40,17 +42,46 @@ def _resolve_image_model() -> str:
 
 
 def _slugify(name: str) -> str:
-    """Create a filesystem-safe prop identifier."""
+    """Create a collision-safe, filesystem-safe prop identifier with deterministic hash suffix."""
+    digest = hashlib.sha1(name.encode("utf-8")).hexdigest()
     slug = re.sub(r"[^a-zA-Z0-9]+", "_", name).strip("_").lower()
-    return slug or "custom_prop"
+    if not slug:
+        return f"prop_{digest[:6]}"
+    return f"{slug[:40]}_{digest[:4]}"
 
 
-def _extract_image_from_bytes(raw_bytes: bytes) -> Optional[tuple[bytes, str]]:
+_PROP_HEIGHT_KEYWORDS: list[tuple[tuple[str, ...], float]] = [
+    (("star", "token", "ring", "coin", "key", "charm", "badge", "brooch", "星", "信物", "胸牌", "钥匙"), 0.10),
+    (("cup", "mug", "can", "cola", "coffee", "apple", "teacup", "杯", "罐", "可乐", "咖啡"), 0.13),
+    (("book", "diary", "letter", "phone", "bottle", "jar", "书", "信", "瓶"), 0.22),
+    (("lantern", "lamp", "candle", "bouquet", "flower", "rose", "灯", "花束"), 0.28),
+    (("vase", "crystal_vase", "花瓶"), 0.32),
+    (("plush", "bear", "doll", "box", "gift", "bag", "礼盒", "玩偶"), 0.36),
+    (("shield", "guitar", "violin", "cello", "盾", "琴"), 0.65),
+    (("umbrella", "parasol", "伞"), 0.86),
+    (("sword", "staff", "cane", "剑", "法杖"), 0.95),
+]
+
+
+def estimate_prop_height_m(name: str, description: str = "") -> float:
+    """Estimate realistic SI metric height in meters (clamped to 0.08m..1.20m) for a prop."""
+    blob = f"{name} {description}".lower()
+    for keywords, height_m in _PROP_HEIGHT_KEYWORDS:
+        if any(k in blob for k in keywords):
+            return height_m
+    return 0.22
+
+
+def _extract_image_from_bytes(
+    raw_bytes: bytes,
+    timestamp_sec: Optional[float] = None,
+) -> Optional[tuple[bytes, str]]:
     """
     Normalize incoming camera bytes (image or `.webm`/`.mp4` video clip) to `(jpeg_bytes, mime_type)`.
 
-    When `/api/director/fork` forwards a 3s `.webm` clip as `camera_frame_bytes`, this
-    extracts the midpoint frame via OpenCV so the image model receives a clean RGB still.
+    When `/api/director/fork` forwards a 3s `.webm` clip as `camera_frame_bytes`, seeks to
+    `timestamp_sec` (when provided by Hydrogen `prop_frame_timestamp_sec`) or the midpoint
+    frame via OpenCV so the image model receives the sharpest RGB still.
     """
     if not raw_bytes:
         return None
@@ -65,7 +96,7 @@ def _extract_image_from_bytes(raw_bytes: bytes) -> Optional[tuple[bytes, str]]:
     except Exception:
         pass
 
-    # Fallback: treat bytes as a short video clip (e.g. webcam `.webm`) and grab midpoint frame.
+    # Fallback: treat bytes as a short video clip (e.g. webcam `.webm`) and grab target/midpoint frame.
     tmp_path = None
     try:
         with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as tmp:
@@ -73,11 +104,47 @@ def _extract_image_from_bytes(raw_bytes: bytes) -> Optional[tuple[bytes, str]]:
             tmp_path = tmp.name
         cap = cv2.VideoCapture(tmp_path)
         total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        if total > 1:
+        fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
+        frame = None
+
+        if timestamp_sec is not None and timestamp_sec >= 0.0:
+            cap.set(cv2.CAP_PROP_POS_MSEC, timestamp_sec * 1000.0)
+            ok, cand = cap.read()
+            if ok and cand is not None:
+                frame = cand
+            elif fps > 1.0:
+                target_idx = int(round(timestamp_sec * fps))
+                if total > 1:
+                    target_idx = max(0, min(total - 1, target_idx))
+                cap.set(cv2.CAP_PROP_POS_FRAMES, target_idx)
+                ok, cand = cap.read()
+                if ok and cand is not None:
+                    frame = cand
+        elif total > 1:
             cap.set(cv2.CAP_PROP_POS_FRAMES, total // 2)
-        ok, frame = cap.read()
+            ok, cand = cap.read()
+            if ok and cand is not None:
+                frame = cand
+
+        # Handle Chrome MediaRecorder .webm clips where CAP_PROP_FRAME_COUNT <= 0.
+        if frame is None:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            decoded_frames: list[np.ndarray] = []
+            while len(decoded_frames) < 150:
+                ok, cand = cap.read()
+                if not ok or cand is None:
+                    break
+                decoded_frames.append(cand)
+            if decoded_frames:
+                if timestamp_sec is not None and timestamp_sec >= 0.0:
+                    est_fps = fps if 1.0 <= fps <= 120.0 else 30.0
+                    idx = max(0, min(len(decoded_frames) - 1, int(round(timestamp_sec * est_fps))))
+                else:
+                    idx = len(decoded_frames) // 2
+                frame = decoded_frames[idx]
+
         cap.release()
-        if ok and frame is not None:
+        if frame is not None:
             ok_enc, encoded = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 92])
             if ok_enc:
                 return encoded.tobytes(), "image/jpeg"
@@ -91,10 +158,11 @@ def _extract_image_from_bytes(raw_bytes: bytes) -> Optional[tuple[bytes, str]]:
 
 def _chroma_key_green_to_rgba(raw_image_bytes: bytes, max_size: int = 512) -> Image.Image:
     """
-    Key out chroma-green background from generated prop image bytes and return an RGBA PIL Image.
+    Key out chroma-green background using border-connected floodfill + spill suppression.
 
-    Combines HSV green-hue detection with green-channel dominance (`G - max(R, B)`)
-    plus edge alpha feathering, green-spill removal, and tight transparent cropping.
+    Unlike global HSV thresholding (which punches holes through green objects like leaves
+    or green bottles), border-connected floodfill only removes chroma-green pixels connected
+    to the image edges (plus uniform pure-chroma interior loops like handle cutouts).
     """
     arr = np.frombuffer(raw_image_bytes, dtype=np.uint8)
     bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
@@ -106,7 +174,7 @@ def _chroma_key_green_to_rgba(raw_image_bytes: bytes, max_size: int = 512) -> Im
     b, g, r = cv2.split(bgr.astype(np.int16))
     green_excess = g - np.maximum(r, b)
 
-    # Identify chroma-green pixels (hue in [35, 95], saturated, bright enough, green-dominant).
+    # Identify candidate chroma-green pixels.
     h_chan = hsv[:, :, 0]
     s_chan = hsv[:, :, 1]
     v_chan = hsv[:, :, 2]
@@ -116,20 +184,51 @@ def _chroma_key_green_to_rgba(raw_image_bytes: bytes, max_size: int = 512) -> Im
         & (s_chan >= 45)
         & (v_chan >= 45)
         & (green_excess > 18)
+    ).astype(np.uint8)
+
+    # Keep only green components touching the outer border so solid green props stay intact.
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(is_green, connectivity=4)
+    border_labels = (
+        set(np.unique(labels[0, :]))
+        | set(np.unique(labels[-1, :]))
+        | set(np.unique(labels[:, 0]))
+        | set(np.unique(labels[:, -1]))
     )
+    border_labels.discard(0)
+    bg_mask = np.isin(labels, list(border_labels))
 
-    alpha = np.where(is_green, 0.0, 255.0).astype(np.float32)
+    # Also clear neon chroma-green interior loops (e.g. inside pocket-watch/lantern rings).
+    for lbl in range(1, num_labels):
+        if lbl in border_labels:
+            continue
+        area = int(stats[lbl, cv2.CC_STAT_AREA])
+        if area < 20:
+            continue
+        region = labels == lbl
+        med_excess = float(np.median(green_excess[region]))
+        med_sat = float(np.median(s_chan[region]))
+        med_val = float(np.median(v_chan[region]))
+        med_hue = float(np.median(h_chan[region]))
+        if med_excess > 140.0 and med_sat > 210.0 and med_val > 205.0 and 50.0 <= med_hue <= 70.0:
+            bg_mask |= region
 
-    # Smooth edges slightly to remove jagged stair-stepping.
-    alpha = cv2.GaussianBlur(alpha, (3, 3), 0)
+    alpha = np.where(bg_mask, 0.0, 255.0).astype(np.float32)
 
-    # Soft ramp on semi-green fringe pixels based on green excess.
-    fringe_mask = (green_excess > 10) & (green_excess <= 42) & (h_chan >= 30) & (h_chan <= 100)
+    # Smooth only along the border-adjacent boundary band to avoid eating interior green objects.
+    bg_u8 = bg_mask.astype(np.uint8)
+    dilated_bg = cv2.dilate(bg_u8, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)), iterations=1)
+    boundary_band = (dilated_bg > 0) & (~bg_mask)
+
+    alpha_blur = cv2.GaussianBlur(alpha, (3, 3), 0)
+    alpha = np.where(boundary_band | bg_mask, alpha_blur, 255.0)
+
+    # Soft ramp on semi-green fringe pixels strictly along the outer boundary band.
+    fringe_mask = boundary_band & (green_excess > 10) & (green_excess <= 42) & (h_chan >= 30) & (h_chan <= 100)
     ramp = np.clip(1.0 - (green_excess - 10.0) / 32.0, 0.0, 1.0) * 255.0
     alpha = np.where(fringe_mask, np.minimum(alpha, ramp), alpha)
 
-    # Despill green cast along translucent boundary pixels.
-    despill_mask = (alpha > 0) & (alpha < 250) & (green_excess > 0)
+    # Despill green cast strictly along the translucent boundary band.
+    despill_mask = boundary_band & (alpha > 0) & (alpha < 252) & (green_excess > 0)
     g_despilled = np.where(despill_mask, np.minimum(g, np.maximum(r, b) + 6), g)
 
     rgba_bgr = np.stack(
@@ -224,12 +323,15 @@ async def create_prop(
     description: str = "",
     camera_frame_bytes: Optional[bytes] = None,
     prop_id: Optional[str] = None,
+    frame_timestamp_sec: Optional[float] = None,
+    timestamp_sec: Optional[float] = None,
 ) -> tuple[str, PropRegistryItem]:
     """
     Generate a transparent PNG prop from text or webcam frame and save under `backend/assets/props/`.
 
     Returns `(prop_id, PropRegistryItem)` ready for `props_registry`.
     """
+    resolved_ts = frame_timestamp_sec if frame_timestamp_sec is not None else timestamp_sec
     resolved_id = prop_id or _slugify(name)
     out_path = config.PROPS_DIR / f"{resolved_id}.png"
     origin: Literal["preset", "text_generated", "camera_physical"] = (
@@ -248,7 +350,11 @@ async def create_prop(
             {"saved_path": str(out_path)},
         )
     else:
-        camera_still = _extract_image_from_bytes(camera_frame_bytes) if camera_frame_bytes else None
+        camera_still = (
+            _extract_image_from_bytes(camera_frame_bytes, timestamp_sec=resolved_ts)
+            if camera_frame_bytes
+            else None
+        )
         try:
             raw_img_bytes, meta = await asyncio.to_thread(
                 _generate_prop_sync,
