@@ -1462,6 +1462,8 @@ export class ThreeStageManager {
         offsetY += Math.abs(Math.sin(elapsed * 9.0)) * 0.1;
       } else if ((ent.action === 'nuzzle' || ent.action === 'shared_umbrella') && !frozen) {
         offsetY += Math.sin(elapsed * 3.2) * 0.035;
+      } else if ((ent.action === 'drink' || ent.action === 'eat' || ent.action === 'hold_up') && !frozen) {
+        offsetY += Math.sin(elapsed * 4.2) * 0.04;
       }
 
       if (grabSurge > 0) {

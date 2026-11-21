@@ -14,7 +14,10 @@ Verifies:
 
 from __future__ import annotations
 
+import asyncio
 import json
+import tempfile
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
@@ -22,7 +25,16 @@ from backend import config
 from backend.director.state_tree import get_branch, save_branch
 from backend.main import app
 from backend.media.build_metrics_summary import build_metrics_summary
-from backend.media.video_renderer import publish_scene_progress
+from backend.media.video_renderer import (
+    CAM_B_SAME_VIEW_THRESHOLD,
+    _action_phrase,
+    _build_size_chart,
+    _cam_b_blocking,
+    _same_view_score,
+    publish_scene_progress,
+    render_scene_media,
+)
+from backend.schemas import ActorState, Scene
 
 
 def run_product_hardening_tests() -> None:
@@ -67,6 +79,21 @@ def run_product_hardening_tests() -> None:
     finally:
         (config.BRANCHES_DIR / "branch_v999.json").unlink(missing_ok=True)
 
+    # 3b. Interactive 3D drag move-actor + table clearance guard
+    tmp_move = base.model_copy(deep=True)
+    tmp_move.branch_id = "branch_v998"
+    save_branch(tmp_move)
+    try:
+        r_move = client.post(
+            "/api/director/move-actor",
+            data={"branch_id": "branch_v998", "scene_id": "1", "actor_id": "lia", "grid_x": "1.0", "grid_y": "1.0"},
+        )
+        assert r_move.status_code == 200, r_move.text
+        moved_grid = r_move.json()["grid"]
+        assert moved_grid != [1.0, 1.0], f"Table clearance failed: {moved_grid}"
+    finally:
+        (config.BRANCHES_DIR / "branch_v998.json").unlink(missing_ok=True)
+
     # 4. Real-time SSE progress stream (`text/event-stream`)
     publish_scene_progress("branch_v1", 2, "rendering", branch_status="running")
     r_sse = client.get("/api/media/progress/branch_v1/stream?once=true")
@@ -101,12 +128,63 @@ def run_product_hardening_tests() -> None:
     assert mm["fixed_room_5_criteria_rate_0_80"] == 1.0, mm
     assert mm["fast_live_scene5_qa_score"] is not None, mm
 
+    # 7. Round-3 Cam-B-from-A geometry, Unicode-safe same-view detector, drink/eat/hold_up actions & granular SSE phases
+    drink_scene = Scene(
+        scene_id=7,
+        title="Tea Sip",
+        narration="Lia lifts the yellow soda can and takes a sip while Nyx watches.",
+        lighting="warm_dim",
+        actors=[
+            ActorState(id="lia", name="Lia", asset_url="/assets/actors/lia.png", grid=(0.0, 1.0), facing="right", action="drink", holding_prop="yellow_soda_can"),
+            ActorState(id="nyx", name="Nyx", asset_url="/assets/actors/nyx.png", grid=(2.0, 1.0), facing="left", action="sit"),
+        ],
+    )
+    assert "drinking" in _action_phrase("drink")
+    assert "eating" in _action_phrase("eat")
+    assert "holding" in _action_phrase("hold_up")
+    chart = _build_size_chart(drink_scene)
+    assert "Lia is 1.62 m tall" in chart and "yellow soda can" in chart, chart
+    blocking = _cam_b_blocking(drink_scene)
+    assert "Lia" in blocking and "Nyx" in blocking, blocking
+
+    with tempfile.TemporaryDirectory(prefix="StageState_视图测试_") as tmpdir:
+        p_a = Path(tmpdir) / "cam_a_画面.png"
+        p_same = Path(tmpdir) / "cam_b_same.png"
+        p_diff = Path(tmpdir) / "cam_b_orbit.png"
+        real_a = config.TAILS_DIR / "scene_1_cam_a_f0a5fb_tail.png"
+        real_b = config.TAILS_DIR / "scene_1_cam_b_270cea_tail.png"
+        p_a.write_bytes(real_a.read_bytes())
+        p_same.write_bytes(real_a.read_bytes())
+        p_diff.write_bytes(real_b.read_bytes())
+
+        same_score = _same_view_score(p_a, p_same)
+        diff_score = _same_view_score(p_a, p_diff)
+        assert same_score >= CAM_B_SAME_VIEW_THRESHOLD, f"Expected same>=0.6, got {same_score}"
+        assert diff_score < CAM_B_SAME_VIEW_THRESHOLD, f"Expected orbit<0.6, got {diff_score}"
+
+    phases: list[str] = []
+    prev_demo = config.DEMO_MODE
+    config.DEMO_MODE = True
+    try:
+        asyncio.run(
+            render_scene_media(
+                drink_scene,
+                [str(config.SHARED_ASSETS_DIR / "lia.png")],
+                fast_live_mode=True,
+                progress_cb=phases.append,
+            )
+        )
+        assert "rendering_cam_a" in phases and "rendering_cam_b" in phases, phases
+    finally:
+        config.DEMO_MODE = prev_demo
+
     print("ALL PRODUCT HARDENING TESTS PASSED!", {
         "world_id": world["world_id"],
         "templates": len(world["fast_prop_templates"]),
         "export_bytes": exp["bytes"],
         "burst_stress_wall_sec": mm["burst_stress_wall_sec"],
         "fixed_room_rate": mm["fixed_room_5_criteria_rate_0_80"],
+        "sse_phases": phases,
     })
 
 

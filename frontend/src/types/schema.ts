@@ -57,7 +57,10 @@ export type ActorAction =
   | 'flee'
   | 'nuzzle'
   | 'shared_umbrella'
-  | 'catch_from_camera';
+  | 'catch_from_camera'
+  | 'drink'
+  | 'eat'
+  | 'hold_up';
 
 export interface ActorState {
   id: 'lia' | 'nyx';

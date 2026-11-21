@@ -71,6 +71,16 @@ type ApiStatus = 'checking' | 'live' | 'saved';
  * Honest wait indicator: shows how long the current backend call has been
  * running instead of pretending to know which internal step it is on.
  */
+const LIVE_STAGE_LABELS: Record<string, string> = {
+  queued: 'queued',
+  rendering: 'rendering',
+  rendering_cam_a: 'Cam A',
+  deriving_cam_b_keyframes: 'Cam B keyframes (+45°)',
+  rendering_cam_b: 'Cam B',
+  cross_cam_qa: 'Cross-Cam QA',
+  content_blocked_retrying: 'safety filter retry',
+};
+
 function WaitingBanner({
   label,
   typical,
@@ -90,11 +100,12 @@ function WaitingBanner({
     }, 500);
     return () => window.clearInterval(timer);
   }, [since]);
+  const niceStage = liveStage ? (LIVE_STAGE_LABELS[liveStage] ?? liveStage) : null;
   return (
     <div className="notice wait" role="status">
       <span>
         {label}
-        {liveStage ? ` [${liveStage}]` : ''} — waiting for backend… {elapsedSec}s ({typical})
+        {niceStage ? ` · ${niceStage}` : ''} — waiting for backend… {elapsedSec}s ({typical})
       </span>
     </div>
   );

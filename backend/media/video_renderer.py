@@ -158,7 +158,17 @@ def _update_render_progress(
     )
     if branch_status is not None:
         entry["status"] = branch_status
-    elif status in ("queued", "rendering", "uploading_refs", "qa_judging", "content_blocked_retrying"):
+    elif status in (
+        "queued",
+        "rendering",
+        "rendering_cam_a",
+        "deriving_cam_b_keyframes",
+        "rendering_cam_b",
+        "cross_cam_qa",
+        "uploading_refs",
+        "qa_judging",
+        "content_blocked_retrying",
+    ):
         entry["status"] = "running"
     scene_entry = entry["scenes"].setdefault(str(scene_id), {"scene_id": scene_id, "status": status})
     scene_entry["status"] = status
@@ -689,7 +699,7 @@ def _size_word(height_m: float) -> str:
 def _build_size_chart(scene: Scene) -> str:
     """One sentence fixing every on-stage height relative to Lia, shared by both cameras."""
     parts = [
-        "Lia is 1.55 m tall",
+        "Lia is 1.62 m tall",
         "Nyx the cat is 0.30 m tall at the head, clearly below Lia's knee",
         "the round table top is 0.75 m high, about Lia's hip",
     ]
@@ -1428,9 +1438,11 @@ def _synthesize_cam_b_45deg_keyframe_sync(
 
 
 def _extract_frame_at_sync(video_path: Path, t_sec: float, out_path: Path) -> Optional[Path]:
-    """Save the frame at `t_sec` of `video_path` as PNG."""
-    cap = cv2.VideoCapture(str(video_path))
+    """Save the frame at `t_sec` of `video_path` as PNG (Windows Unicode-path safe)."""
+    cap, tmp_path = _open_video_capture_safe(video_path)
     try:
+        if not cap.isOpened():
+            return None
         fps = cap.get(cv2.CAP_PROP_FPS) or 24.0
         cap.set(cv2.CAP_PROP_POS_FRAMES, max(0, int(round(t_sec * fps))))
         ok, frame = cap.read()
@@ -1440,6 +1452,8 @@ def _extract_frame_at_sync(video_path: Path, t_sec: float, out_path: Path) -> Op
         return out_path if _write_png_safe(out_path, frame) else None
     finally:
         cap.release()
+        if tmp_path is not None:
+            tmp_path.unlink(missing_ok=True)
 
 
 _CAM_B_POS = (3.25, 3.55)  # world x, z of Camera B in the stage blueprint (about 45 degrees right of Camera A)
@@ -1538,14 +1552,22 @@ def _derive_cam_b_keyframe_sync(
 CAM_B_SAME_VIEW_THRESHOLD = 0.6
 
 
+def _read_grayscale_safe(image_path: Path) -> Optional[np.ndarray]:
+    """Read an image in grayscale safely even when Windows paths contain Unicode characters."""
+    if not image_path.is_file():
+        return None
+    buf = np.frombuffer(image_path.read_bytes(), dtype=np.uint8)
+    return cv2.imdecode(buf, cv2.IMREAD_GRAYSCALE)
+
+
 def _same_view_score(cam_a_frame: Path, cam_b_frame: Path) -> float:
     """
     How much Camera B's frame is just a crop or zoom of Camera A's frame (0 = different view, 1 = same view).
 
     A real 45 degree orbit changes the whole layout, so no scaled copy of B matches anywhere inside A.
     """
-    img_a = cv2.imread(str(cam_a_frame), cv2.IMREAD_GRAYSCALE)
-    img_b = cv2.imread(str(cam_b_frame), cv2.IMREAD_GRAYSCALE)
+    img_a = _read_grayscale_safe(cam_a_frame)
+    img_b = _read_grayscale_safe(cam_b_frame)
     if img_a is None or img_b is None:
         return 0.0
     img_a = cv2.resize(img_a, (320, 180))
@@ -1724,12 +1746,21 @@ async def render_scene_media(
     overwrite_canonical: bool = False,
     fast_live_mode: bool = False,
     prop_descriptions: Optional[dict[str, str]] = None,
+    progress_cb: Optional[Callable[[str], None]] = None,
 ) -> SceneMedia:
-    """Render Camera A first, then geometrically derive Camera B (+45deg right-side orbit) anchored on Camera A."""
+    """Render Camera A then derive Camera B (+45 deg orbit), emitting granular SSE progress phases."""
+    def _emit(phase: str) -> None:
+        if progress_cb is not None:
+            try:
+                progress_cb(phase)
+            except Exception:
+                pass
+
     preview_a = cam_a_preview_path or scene.media.cam_a_preview_url
     preview_b = cam_b_preview_path or scene.media.cam_b_preview_url
 
     # Step 1: Render Camera A (front establishing shot)
+    _emit("rendering_cam_a")
     res_a = await render_single_camera_shot(
         scene,
         "cam_a",
@@ -1753,6 +1784,7 @@ async def render_scene_media(
         and bool(config.GEMINI_API_KEY)
         and res_a[0]
     ):
+        _emit("deriving_cam_b_keyframes")
         try:
             res_b_keyframed = await _render_cam_b_from_keyframes(scene, res_a[0], res_a[1])
         except Exception as exc:  # any failure falls back to the single-keyframe/reference path below
@@ -1767,6 +1799,7 @@ async def render_scene_media(
     if res_b_keyframed is not None:
         res_b = res_b_keyframed
     else:
+        _emit("rendering_cam_b")
         cam_b_refs = list(reference_images)
         cam_b_start_frame = prev_tail_b
         cam_b_extra = ""
@@ -1810,6 +1843,8 @@ async def render_scene_media(
             if derived_keyframe is not None:
                 derived_keyframe.unlink(missing_ok=True)
 
+    if not fast_live_mode:
+        _emit("cross_cam_qa")
     cross_item = None if fast_live_mode else await _check_cross_camera_consistency(scene, res_a[1], res_b[1])
     # If cameras contradict each other (< CROSS_CAM_THRESHOLD=0.80 on any check in standard quality mode),
     # retry ONLY the weaker camera once conditioned on the stronger camera's tail frame (with regression guard).

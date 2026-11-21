@@ -321,8 +321,9 @@ async def _invoke_render_scene_media(
     prev_tail_b: Optional[str] = None,
     fast_live_mode: bool = False,
     prop_descriptions: Optional[dict[str, str]] = None,
+    progress_cb=None,
 ):
-    """Call `render_scene_media` while safely forwarding `prev_tail_a/b`, `fast_live_mode`, and `prop_descriptions`."""
+    """Call `render_scene_media` while safely forwarding `prev_tail_a/b`, `fast_live_mode`, `prop_descriptions`, and `progress_cb`."""
     sig = inspect.signature(render_scene_media)
     kwargs: dict = {
         "cam_a_preview_path": cam_a_preview_path,
@@ -337,6 +338,8 @@ async def _invoke_render_scene_media(
         kwargs["fast_live_mode"] = fast_live_mode
     if "prop_descriptions" in sig.parameters and prop_descriptions:
         kwargs["prop_descriptions"] = prop_descriptions
+    if "progress_cb" in sig.parameters and progress_cb is not None:
+        kwargs["progress_cb"] = progress_cb
     return await render_scene_media(scene, refs, **kwargs)
 
 
@@ -847,6 +850,9 @@ async def api_media_render_scene(
                     prev_tail_b=prev_tail_cam_b_url,
                     fast_live_mode=fast_live_mode,
                     prop_descriptions=prop_descriptions,
+                    progress_cb=lambda phase: publish_scene_progress(
+                        branch_id, target.scene_id, phase, branch_status="running"
+                    ),
                 ),
                 # Camera B waits for Camera A when it is derived from A's frames, so allow the extra pass.
                 timeout=200.0 if (config.CAM_B_KEYFRAMES_FROM_A and not fast_live_mode) else config.RENDER_SCENE_TIMEOUT_SEC,

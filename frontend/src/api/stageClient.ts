@@ -190,6 +190,7 @@ export async function fetchHealth(): Promise<BackendHealth> {
 const PERCEIVE_TIMEOUT_MS = 18000;
 const FORK_TIMEOUT_MS = 45000;
 const RENDER_TIMEOUT_MS = 105000;
+const STANDARD_RENDER_TIMEOUT_MS = 210000;
 const PROP_TIMEOUT_MS = 90000;
 
 /**
@@ -409,11 +410,12 @@ export async function requestSceneRender(
     formData.append('fast_live_mode', 'true');
   }
 
+  const timeoutMs = payload.fastLiveMode ? RENDER_TIMEOUT_MS : STANDARD_RENDER_TIMEOUT_MS;
   try {
     const res = await fetch('/api/media/render-scene', {
       method: 'POST',
       body: formData,
-      signal: AbortSignal.timeout(RENDER_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     if (!res.ok) {
       return { result: null, error: await readErrorDetail(res) };
@@ -431,7 +433,7 @@ export async function requestSceneRender(
       error: null,
     };
   } catch (err) {
-    return { result: null, error: describeRequestError(err, RENDER_TIMEOUT_MS) };
+    return { result: null, error: describeRequestError(err, timeoutMs) };
   }
 }
 
