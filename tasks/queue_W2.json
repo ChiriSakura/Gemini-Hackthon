@@ -3,33 +3,21 @@
   "branch": "feat/w2-frontend",
   "pull_main_first": true,
   "feature_freeze": false,
-  "status": "ISSUES_MD_P0_P1_HOTFIX_QUEUE",
+  "status": "ISSUES_MD_P1_POLISH_QUEUE",
   "owned_paths": ["frontend/**", "tasks/status_P3.json"],
-  "note": "Master merged shared ISSUES.md (3eebfc1) and fixed all Master backend P0/P1 issues (R-01 /api/health `live`, R-03 clear stale SceneMedia on fork, R-14 rule_memory reset, R-15 95s render timeout, R-16 target_scene_id lock, R-17 45s timeouts + backfill, R-28 upload/branch_id validation, R-35 health decision model, plus `/api/eval/summary` and `placement` persistence). Temporarily unfreezing P3 strictly to knock out the P0/P1 frontend issues in ISSUES.md — pull main first!",
+  "note": "Master merged 6bb0954 (ALL 5 frontend P0 bugs R-01..R-05 + R-23 fixed cleanly!). Pull main first, then knock out the remaining high-value P1 UX fixes below from ISSUES.md before final feature freeze.",
   "parallel_tasks": [
     {
-      "task_id": "W2-FIX-R01-R02",
-      "priority": "P0",
-      "title": "ISSUES.md R-01 & R-02: Show Persistent `MOCK MODE` Badge When `!/api/health.live` & Stop Silent Fork Fallback",
-      "details": "1) Fetch `/api/health` on load; if `live === false`, display an unmistakable persistent `MOCK MODE` badge in the top bar (visible even in Clean Mode per R-33). 2) In `stageClient.ts` `submitDirectorFork()`, do NOT silently substitute `MOCK_BRANCH_2` on fetch/server errors — return `{ error }` and display an explicit `Rewrite failed: ...` error banner in `App.tsx` without appending a fake branch."
-    },
-    {
-      "task_id": "W2-FIX-R03-R04",
-      "priority": "P0",
-      "title": "ISSUES.md R-03 & R-04: Switch Forked Unrendered Scenes to 2.5D Preview & Show Neutral 'Not Judged' QA State",
-      "details": "1) Backend now clears `media` on `needs_rerender` scenes during fork; ensure `App.tsx` switches `viewMode` to `'preview'` after fork until final MP4s exist. 2) In `ClapperboardQA.tsx`, when `qa_result?.items` is missing/empty, render a neutral gray `Not judged yet` pill instead of green checkmarks."
-    },
-    {
-      "task_id": "W2-FIX-R05",
-      "priority": "P0",
-      "title": "ISSUES.md R-05: Hydrate `EvalModal.tsx` Dynamically From `GET /api/eval/summary` & Label 'Offline Eval'",
-      "details": "Replace hardcoded mismatched metrics in `EvalModal.tsx` (e.g. `20/20`, `0.815`) with real data fetched from `GET /api/eval/summary` (falling back to exact audited JSON values offline), and change modal heading from `Live Verified` to `Offline Eval Benchmarks`."
-    },
-    {
-      "task_id": "W2-FIX-R15-R20-R21-R22-R23-R25",
+      "task_id": "W2-FIX-R20-R21-R22",
       "priority": "P1",
-      "title": "ISSUES.md P1 UX Fixes (Timeouts, Hold-to-Record Race, Heard/Saw Card, Honest Progress, Branch Badges & Layout)",
-      "details": "1) Add `AbortSignal.timeout(45000)` on fork and `105000` on render in `stageClient.ts` + forward `placement` in `createStageProp()` (R-15). 2) Fix hold-to-record mouse-leave/short-clip race and omit stale text input when sending a `.webm` clip (`DirectControlBar.tsx`, R-20). 3) Show a compact 'Heard / Saw' confirmation strip displaying `rewrite_summary` after fork (`App.tsx`, R-21). 4) Replace fake timer stepper with honest elapsed time / `/api/media/progress` (`App.tsx`, R-22) and fix `R` shortcut stale closure. 5) In `StoryBranchTree.tsx`, badge `Reused` strictly by `reused_from_branch` and `Cached` for pre-rendered scenes (R-23). 6) Use `object-fit: contain` on camera video frames, default Compare OFF (R-25), and rename Compare headers to `Before` / `After` (R-32). Re-run `npm run verify` and update `tasks/status_P3.json`."
+      "title": "ISSUES.md R-20/R-21/R-22: Hold-to-Record Guard, 'Heard / Saw' Card & Honest Pipeline Elapsed Timer",
+      "details": "1) `DirectControlBar.tsx` (R-20): use a sync ref guard so mouse-leave does not abort a 3s recording prematurely, discard clips <1s, omit stale input-box text when submitting a `.webm` clip, and raise webcam capture resolution to 1280x720. 2) `App.tsx` (R-21): render a compact 'Heard / Saw' banner displaying `rewrite_summary` & detected props immediately after fork. 3) `App.tsx` (R-22): replace the fake timer stepper with honest 'Waiting for backend... Ns' or live `/api/media/progress`, forward `placement` in `createStageProp()`, and fix the `R` shortcut closure."
+    },
+    {
+      "task_id": "W2-FIX-R12-R24-R25-R32",
+      "priority": "P1",
+      "title": "ISSUES.md R-12/R-24/R-25/R-32: 2.5D Pose/Height Anchor, Non-Cropped Video (`contain`), Compare Off by Default",
+      "details": "1) `ThreeStageManager.ts` (R-12/R-24): support optional `height_m` with bottom-flush foot anchoring, visually express `kneel` via height/offset adjustment, and render standalone closed/open red umbrella sprite once P2 lands it. 2) `index.css` & `App.tsx` (R-25/R-32): switch camera video frames to `object-fit: contain` (no 13-inch cropping), default Compare OFF, and rename Compare labels from ambiguous `Baseline` to `Before` / `After`. Re-run `npm run verify` and update `tasks/status_P3.json`."
     }
   ]
 }
