@@ -148,6 +148,8 @@ export default function App(): React.ReactElement {
         setViewMode((m) => (m === 'preview' ? 'final' : 'preview'));
       } else if (e.key.toLowerCase() === 'c' && !e.metaKey && !e.ctrlKey) {
         setCleanCaptureMode((v) => !v);
+      } else if (e.key.toLowerCase() === 'e' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        setEvalModalOpen((v) => !v);
       } else if (e.key === 'Escape') {
         setEvalModalOpen(false);
       }
@@ -225,6 +227,7 @@ export default function App(): React.ReactElement {
     scene: Scene,
     preview: PreviewExportResult,
   ) => {
+    if (renderingScene) return;
     setRenderingScene(true);
     setPipelineStage(3);
     setStatusNote(`Step 3/4: Uploading Scene ${scene.scene_id} 2.5D preview…`);
