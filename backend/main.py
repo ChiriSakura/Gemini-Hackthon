@@ -39,7 +39,9 @@ from backend.director.state_tree import get_branch, list_branches, save_branch
 from backend.logger import log_function_call
 from backend.media.prop_maker import create_prop
 from backend.media.video_renderer import get_render_progress, render_branch_scenes, render_scene_media
-from backend.schemas import BranchState, Scene, StagePropState
+from backend.schemas import BranchState, Scene, SceneMedia, StagePropState
+
+_ALLOWED_PREVIEW_EXTS: set[str] = {".webm", ".mp4", ".png", ".jpg", ".jpeg"}
 
 app = FastAPI(title="StageState Director API", version="0.2.0")
 
@@ -59,13 +61,18 @@ if config.SHARED_ASSETS_DIR.exists():
 @app.get("/api/health")
 @log_function_call
 def health_check() -> dict:
-    """Return service health and centralized Gemini 4 model registry."""
+    """Return service health, explicit live-vs-mock status (R-01), and centralized Gemini 4 model registry (R-35)."""
+    has_key = bool(config.GEMINI_API_KEY)
+    live = has_key and not config.DEMO_MODE
     return {
         "status": "ok",
+        "live": live,
+        "has_api_key": has_key,
         "demo_mode": config.DEMO_MODE,
         "models": {
             "director": config.MODEL_DIRECTOR,
             "judge": config.MODEL_JUDGE,
+            "decision": config.MODEL_DECISION,
             "video": config.MODEL_VIDEO,
             "image": config.MODEL_IMAGE,
         },
@@ -186,6 +193,8 @@ async def api_director_fork(
         text_fallback=text,
         target_scene_id=target_scene_id,
     )
+    # R-16: Always honor the scene explicitly selected by the director/judge
+    parsed.target_scene_id = target_scene_id
 
     updated_registry = dict(parent.props_registry)
     if parsed.has_physical_prop and parsed.prop_name:
@@ -244,6 +253,8 @@ async def api_director_fork(
         if scene.scene_id in affected_ids or state_changed:
             scene.needs_rerender = True
             scene.reused_from_branch = None
+            # R-03: Clear stale parent media & QA so unrendered scenes never show parent videos
+            scene.media = SceneMedia()
             final_scenes.append(scene)
         else:
             reused = old_s.model_copy(deep=True)
@@ -328,7 +339,8 @@ async def _save_preview_file(
         end_path = config.PREVIEWS_DIR / f"{branch_id}_s{scene_id}_{cam_id}_end.png"
         end_path.write_bytes(base64.b64decode(end_png_b64.split(",")[-1]))
     if upload is not None:
-        ext = Path(upload.filename or "").suffix.lower() or ".webm"
+        raw_ext = Path(upload.filename or "").suffix.lower()
+        ext = raw_ext if raw_ext in _ALLOWED_PREVIEW_EXTS else ".webm"
         out_path = config.PREVIEWS_DIR / f"{branch_id}_s{scene_id}_{cam_id}{ext}"
         out_path.write_bytes(await upload.read())
         return f"/assets/previews/{out_path.name}"
@@ -384,17 +396,24 @@ async def api_media_render_scene(
         refs = [str(config.SHARED_ASSETS_DIR / "lia.png"), str(config.SHARED_ASSETS_DIR / "nyx.png")] + [
             p.image_url for p in branch.props_registry.values()
         ]
-        target.media = await render_scene_media(
-            target,
-            refs,
-            cam_a_preview_path=target.media.cam_a_preview_url,
-            cam_b_preview_path=target.media.cam_b_preview_url,
-            tail_inspector=inspect_tail_frame,
-        )
-        if target.media.qa_retries > 0 and target.media.qa_result:
-            for item in target.media.qa_result.items:
-                if not item.passed:
-                    add_rule(f"Scene {target.scene_id} check reminder: {item.question}")
+        # R-15: Enforce hard 95s per-scene timeout with graceful 2.5D preview fallback
+        try:
+            target.media = await asyncio.wait_for(
+                render_scene_media(
+                    target,
+                    refs,
+                    cam_a_preview_path=target.media.cam_a_preview_url,
+                    cam_b_preview_path=target.media.cam_b_preview_url,
+                    tail_inspector=inspect_tail_frame,
+                ),
+                timeout=95.0,
+            )
+        except asyncio.TimeoutError:
+            target.media = SceneMedia(
+                cam_a_preview_url=target.media.cam_a_preview_url,
+                cam_b_preview_url=target.media.cam_b_preview_url,
+                fallback_to_preview=True,
+            )
         save_branch(branch)
         return {"scene_id": target.scene_id, "media": target.media, "environment_notes": target.environment_notes}
 

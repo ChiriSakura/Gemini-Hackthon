@@ -19,9 +19,10 @@ from backend.logger import log_function_call
 RULES_PATH: Path = config.ASSETS_DIR / "rule_memory.json"
 
 _DEFAULT_RULES: list[str] = [
-    "Once crystal_vase is broken in scene k, it MUST remain broken on the floor in all scenes > k unless explicitly repaired.",
+    "Once crystal_vase is broken in scene k, it MUST remain broken on the floor in all scenes > k unless explicitly prevented before breaking.",
     "Every registered prop in props_registry has at most ONE holder (or rests on stage_props) per scene; never duplicate held props.",
     "Never introduce extra unintended human characters beyond Lia and Nyx unless explicitly instructed.",
+    "Keep the red umbrella closed indoors unless a scene explicitly specifies opening or sharing it.",
 ]
 
 
@@ -42,10 +43,14 @@ def load_rules() -> list[str]:
 
 @log_function_call
 def add_rule(rule_text: str) -> list[str]:
-    """Append a newly distilled continuity rule if not already present and save to disk."""
+    """Append a universal continuity rule (ignores scene/branch-specific pollution per R-14)."""
     clean = rule_text.strip()
     rules = load_rules()
-    if clean and clean not in rules:
+    # R-14 guard: reject branch-specific single-scene reminders that conflict with future rewrites
+    lowered = clean.lower()
+    if not clean or lowered.startswith("scene ") or "continuity fix:" in lowered or "check reminder:" in lowered:
+        return rules
+    if clean not in rules:
         rules.append(clean)
         RULES_PATH.write_text(json.dumps(rules, ensure_ascii=False, indent=2), encoding="utf-8")
     return rules

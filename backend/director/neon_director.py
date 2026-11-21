@@ -17,7 +17,7 @@ from backend import config
 from backend.director import prompts
 from backend.director.genai_client import generate_structured
 from backend.logger import log_function_call, log_genai_call
-from backend.schemas import DirectorInputParsed, PropRegistryItem, Scene
+from backend.schemas import DirectorInputParsed, PropRegistryItem, Scene, SceneMedia
 
 
 class _NeonScenesResponse(BaseModel):
@@ -147,6 +147,7 @@ async def plan_scenes(
                 copy_s = s.model_copy(deep=True)
                 copy_s.needs_rerender = True
                 copy_s.reused_from_branch = None
+                copy_s.media = SceneMedia()
                 copy_s.vocal_emotion = parsed_input.vocal_emotion
                 copy_s.gesture_intent = parsed_input.gesture_intent
                 copy_s.direction_hint = parsed_input.direction_hint
@@ -193,13 +194,20 @@ async def plan_scenes(
             response_schema=_NeonScenesResponse,
             temperature=0.25 if attempt == 0 else 0.1,
         )
-        rewritten = [s for s in resp.scenes if s.scene_id >= k]
-        for s in rewritten:
-            s.needs_rerender = True
-            s.reused_from_branch = None
-            for actor in s.actors:
+        rewritten_by_id = {s.scene_id: s for s in resp.scenes if s.scene_id >= k}
+        # R-17 backfill: ensure Neon cannot silently drop scenes k..N
+        rewritten: list[Scene] = []
+        for base_s in base_scenes:
+            if base_s.scene_id < k:
+                continue
+            sc = rewritten_by_id.get(base_s.scene_id) or base_s.model_copy(deep=True)
+            sc.needs_rerender = True
+            sc.reused_from_branch = None
+            sc.media = SceneMedia()
+            for actor in sc.actors:
                 if not actor.asset_url:
                     actor.asset_url = f"/assets/actors/{actor.id}.png"
+            rewritten.append(sc)
         last_combined = [p.model_copy(deep=True) for p in preserved] + rewritten
         invariant_errors = validate_scene_invariants(last_combined)
         if not invariant_errors:

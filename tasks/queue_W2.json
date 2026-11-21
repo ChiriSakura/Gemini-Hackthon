@@ -2,9 +2,34 @@
   "worker": "worker-2 (P3)",
   "branch": "feat/w2-frontend",
   "pull_main_first": true,
-  "feature_freeze": true,
-  "status": "ALL_COMPLETE_FEATURE_FROZEN_READY_FOR_PITCH",
+  "feature_freeze": false,
+  "status": "ISSUES_MD_P0_P1_HOTFIX_QUEUE",
   "owned_paths": ["frontend/**", "tasks/status_P3.json"],
-  "note": "Master merged 10fd4a3 and verified all 6 `npm run verify` gates pass 100% on Windows Node v24 (tsc, build 882ms, 0-CJK locale, 13 actor/prop assets, 9 submission assets, test_stage_helpers, and 10/10 HTTP 200 smoke_preview!). Frontend is now FEATURE FROZEN and ready for live booth rehearsal. No further tasks queued unless rehearsal reveals a UI bug.",
-  "parallel_tasks": []
+  "note": "Master merged shared ISSUES.md (3eebfc1) and fixed all Master backend P0/P1 issues (R-01 /api/health `live`, R-03 clear stale SceneMedia on fork, R-14 rule_memory reset, R-15 95s render timeout, R-16 target_scene_id lock, R-17 45s timeouts + backfill, R-28 upload/branch_id validation, R-35 health decision model, plus `/api/eval/summary` and `placement` persistence). Temporarily unfreezing P3 strictly to knock out the P0/P1 frontend issues in ISSUES.md — pull main first!",
+  "parallel_tasks": [
+    {
+      "task_id": "W2-FIX-R01-R02",
+      "priority": "P0",
+      "title": "ISSUES.md R-01 & R-02: Show Persistent `MOCK MODE` Badge When `!/api/health.live` & Stop Silent Fork Fallback",
+      "details": "1) Fetch `/api/health` on load; if `live === false`, display an unmistakable persistent `MOCK MODE` badge in the top bar (visible even in Clean Mode per R-33). 2) In `stageClient.ts` `submitDirectorFork()`, do NOT silently substitute `MOCK_BRANCH_2` on fetch/server errors — return `{ error }` and display an explicit `Rewrite failed: ...` error banner in `App.tsx` without appending a fake branch."
+    },
+    {
+      "task_id": "W2-FIX-R03-R04",
+      "priority": "P0",
+      "title": "ISSUES.md R-03 & R-04: Switch Forked Unrendered Scenes to 2.5D Preview & Show Neutral 'Not Judged' QA State",
+      "details": "1) Backend now clears `media` on `needs_rerender` scenes during fork; ensure `App.tsx` switches `viewMode` to `'preview'` after fork until final MP4s exist. 2) In `ClapperboardQA.tsx`, when `qa_result?.items` is missing/empty, render a neutral gray `Not judged yet` pill instead of green checkmarks."
+    },
+    {
+      "task_id": "W2-FIX-R05",
+      "priority": "P0",
+      "title": "ISSUES.md R-05: Hydrate `EvalModal.tsx` Dynamically From `GET /api/eval/summary` & Label 'Offline Eval'",
+      "details": "Replace hardcoded mismatched metrics in `EvalModal.tsx` (e.g. `20/20`, `0.815`) with real data fetched from `GET /api/eval/summary` (falling back to exact audited JSON values offline), and change modal heading from `Live Verified` to `Offline Eval Benchmarks`."
+    },
+    {
+      "task_id": "W2-FIX-R15-R20-R21-R22-R23-R25",
+      "priority": "P1",
+      "title": "ISSUES.md P1 UX Fixes (Timeouts, Hold-to-Record Race, Heard/Saw Card, Honest Progress, Branch Badges & Layout)",
+      "details": "1) Add `AbortSignal.timeout(45000)` on fork and `105000` on render in `stageClient.ts` + forward `placement` in `createStageProp()` (R-15). 2) Fix hold-to-record mouse-leave/short-clip race and omit stale text input when sending a `.webm` clip (`DirectControlBar.tsx`, R-20). 3) Show a compact 'Heard / Saw' confirmation strip displaying `rewrite_summary` after fork (`App.tsx`, R-21). 4) Replace fake timer stepper with honest elapsed time / `/api/media/progress` (`App.tsx`, R-22) and fix `R` shortcut stale closure. 5) In `StoryBranchTree.tsx`, badge `Reused` strictly by `reused_from_branch` and `Cached` for pre-rendered scenes (R-23). 6) Use `object-fit: contain` on camera video frames, default Compare OFF (R-25), and rename Compare headers to `Before` / `After` (R-32). Re-run `npm run verify` and update `tasks/status_P3.json`."
+    }
+  ]
 }

@@ -2,9 +2,34 @@
   "worker": "worker-1 (P2)",
   "branch": "feat/w1-media",
   "pull_main_first": true,
-  "feature_freeze": true,
-  "status": "ALL_COMPLETE_FEATURE_FROZEN_READY_FOR_PITCH",
+  "feature_freeze": false,
+  "status": "ISSUES_MD_P0_P1_HOTFIX_QUEUE",
   "owned_paths": ["backend/media/**", "backend/assets/**", "tasks/status_P2.json"],
-  "note": "Master merged 8e1c808 (W1-T7A..T7F + W1-T6J ALL passed!) and verified ALL 7 backend suites + ALL 6 frontend gates green (28/28 H.264+AAC MP4s, 26/26 blueprints, 11/11 zero-halo RGBA props, 4/4 cached branches HTTP 200 & 0 CJK, 4/4 failover rehearsal). P2 is now FEATURE FROZEN and ready for live booth rehearsal!",
-  "parallel_tasks": []
+  "note": "Master merged shared ISSUES.md (3eebfc1) from live E2E testing + Christina feedback and fixed Master P0/P1 items (R-01, R-03, R-07, R-14, R-15, R-16, R-17, R-18 P1, R-28, R-35). Temporarily unfreezing P2 strictly for these 4 surgical P0/P1 fixes from ISSUES.md — pull main first!",
+  "parallel_tasks": [
+    {
+      "task_id": "W1-FIX-R06",
+      "priority": "P0",
+      "title": "ISSUES.md R-06: Compute `build_submission_assets.py` & `build_press_kit.py` Numbers Dynamically From Real JSONs",
+      "details": "Remove all hardcoded mismatched strings ('81%->100%', 'noul 100%', '14/14 audio', 'hits one hundred percent QA') in `backend/media/build_submission_assets.py` AND `backend/media/build_press_kit.py`. Compute exact take-1 / dual-take / post-retry rates dynamically from `eval_media_stats.jsonl` (80.9% -> 87.2% -> 97.9% across 47 shots, 1 failed), `calibration_20_clips.json` (0.95 acc), `eval_audio_mood.json`, and `eval_dual_cam_stats.json`, label plan-level benchmarks as 'offline eval', then regenerate `eval_charts_board.png`, `eval_dashboard_12s.mp4`, and `pitch_submission_1min_narrated.mp4`."
+    },
+    {
+      "task_id": "W1-FIX-R14-R18",
+      "priority": "P1",
+      "title": "ISSUES.md R-14 & R-18 + Physics-Opt Cleanup (`video_renderer.py`, `prop_maker.py`, `preflight_check.py`)",
+      "details": "1) Stop calling `add_rule()` with branch-specific scene fixes inside `backend/media/video_renderer.py` (R-14). 2) In `prop_maker.py`, keep `unicodedata` accent folding AND adopt longest-keyword-first `estimate_prop_height_m()` from `feat/w1-physics-opt`; on live API error, do NOT silently return a yellow placeholder square as success (set degraded/raise clearly per R-18). 3) Apply Unicode-safe `ffmpeg -i` probe with `encoding='utf-8', errors='ignore'` in `preflight_check.py`."
+    },
+    {
+      "task_id": "W1-FIX-R07",
+      "priority": "P1",
+      "title": "ISSUES.md R-07: Label `eval_cache_savings.json` Explicitly as Analytical Estimate",
+      "details": "In `backend/media/eval_cache_savings.py`, tag `eval_cache_savings.json` with `\"estimate_method\": \"analytical_cost_model\"` so judges clearly distinguish estimated API cost savings from live-measured latencies."
+    },
+    {
+      "task_id": "W1-FIX-R09-R13-R36",
+      "priority": "P1",
+      "title": "ISSUES.md R-09/R-10/R-13/R-36: Fixed Conservatory Backdrop Refs + Closed Umbrella Rule + Single-Fact Cross-Cam QA",
+      "details": "1) Generate paired empty conservatory backdrop reference PNGs (Cam A front wide + Cam B 45-deg conditioned on Cam A) under `backend/assets/previews/` and attach as room anchor reference so Cam A & B share identical windows/chairs/walls (R-09/R-10). 2) Update cross-cam QA in `video_renderer.py` to single-fact questions with 0.80 threshold (R-13). 3) Generate a standalone closed red umbrella prop sprite (`red_umbrella_closed.png`) for R-12/R-36 and re-run smoke + preflight."
+    }
+  ]
 }

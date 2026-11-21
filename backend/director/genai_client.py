@@ -99,8 +99,9 @@ def build_decision_input(text: str, media_paths: list[Path] | None = None) -> li
 async def create_decision(
     input_contents: str | list[dict[str, Any]],
     questions: Mapping[str, dict[str, Any]],
+    timeout_sec: float = 20.0,
 ) -> Any:
-    """Call `v1beta` `decisions.create` asynchronously via thread executor and log sanitized trace."""
+    """Call `v1beta` `decisions.create` asynchronously with timeout and log sanitized trace."""
     beta = get_beta_client()
 
     def _call() -> Any:
@@ -110,11 +111,11 @@ async def create_decision(
             questions=dict(questions),
         )
 
-    res = await asyncio.to_thread(_call)
+    res = await asyncio.wait_for(asyncio.to_thread(_call), timeout=timeout_sec)
     log_genai_call(
         model=config.MODEL_DECISION,
         prompt={"input": input_contents, "questions": dict(questions)},
-        config={"api_version": "v1beta"},
+        config={"api_version": "v1beta", "timeout_sec": timeout_sec},
         output=res,
     )
     return res
@@ -127,8 +128,9 @@ async def generate_structured(
     response_schema: Type[T],
     temperature: float = 0.2,
     thinking_level: str | None = "LOW",
+    timeout_sec: float = 45.0,
 ) -> T:
-    """Call Gemini asynchronously with strict Pydantic JSON schema output and log the call."""
+    """Call Gemini asynchronously with strict Pydantic JSON schema output, timeout, and logging."""
     client = get_genai_client()
     thinking_cfg = types.ThinkingConfig(thinking_level=thinking_level) if thinking_level else None
     gen_config = types.GenerateContentConfig(
@@ -138,17 +140,22 @@ async def generate_structured(
         temperature=temperature,
         thinking_config=thinking_cfg,
     )
-    response = await client.aio.models.generate_content(
-        model=model,
-        contents=contents,
-        config=gen_config,
+    response = await asyncio.wait_for(
+        client.aio.models.generate_content(
+            model=model,
+            contents=contents,
+            config=gen_config,
+        ),
+        timeout=timeout_sec,
     )
-    raw_text = response.text or "{}"
+    raw_text = (response.text or "").strip()
+    if not raw_text:
+        raise ValueError(f"Empty structured response from model={model}")
     parsed = response_schema.model_validate_json(raw_text)
     log_genai_call(
         model=model,
         prompt={"system": system_instruction, "contents": contents},
-        config={"response_schema": response_schema.__name__, "temperature": temperature},
+        config={"response_schema": response_schema.__name__, "temperature": temperature, "timeout_sec": timeout_sec},
         output=parsed,
     )
     return parsed
@@ -159,23 +166,27 @@ async def generate_text(
     system_instruction: str,
     contents: list[Any],
     temperature: float = 0.3,
+    timeout_sec: float = 45.0,
 ) -> str:
-    """Call Gemini asynchronously for concise plain-text output and log the call."""
+    """Call Gemini asynchronously for concise plain-text output with timeout and logging."""
     client = get_genai_client()
     gen_config = types.GenerateContentConfig(
         system_instruction=system_instruction,
         temperature=temperature,
     )
-    response = await client.aio.models.generate_content(
-        model=model,
-        contents=contents,
-        config=gen_config,
+    response = await asyncio.wait_for(
+        client.aio.models.generate_content(
+            model=model,
+            contents=contents,
+            config=gen_config,
+        ),
+        timeout=timeout_sec,
     )
     text = (response.text or "").strip()
     log_genai_call(
         model=model,
         prompt={"system": system_instruction, "contents": contents},
-        config={"temperature": temperature},
+        config={"temperature": temperature, "timeout_sec": timeout_sec},
         output=text,
     )
     return text

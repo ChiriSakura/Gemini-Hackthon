@@ -9,11 +9,21 @@ Feature & Use Cases:
   `shared/assets/*` to `/assets/` paths if needed) on first boot.
 """
 
+import re
 from typing import Optional
 
 from backend import config
 from backend.logger import log_function_call
 from backend.schemas import BranchState
+
+_BRANCH_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
+
+
+def _validate_branch_id(branch_id: str) -> str:
+    """Validate `branch_id` against strict alphanumeric/underscore/dash pattern (R-28 path-traversal guard)."""
+    if not branch_id or not _BRANCH_ID_RE.match(branch_id):
+        raise ValueError(f"Invalid branch_id: {branch_id!r}")
+    return branch_id
 
 
 def _seed_default_branch() -> BranchState:
@@ -34,13 +44,16 @@ def _seed_default_branch() -> BranchState:
 @log_function_call
 def save_branch(branch: BranchState) -> None:
     """Persist a BranchState JSON snapshot to disk."""
-    path = config.BRANCHES_DIR / f"{branch.branch_id}.json"
+    safe_id = _validate_branch_id(branch.branch_id)
+    path = config.BRANCHES_DIR / f"{safe_id}.json"
     path.write_text(branch.model_dump_json(indent=2), encoding="utf-8")
 
 
 @log_function_call
 def get_branch(branch_id: str) -> Optional[BranchState]:
     """Load a BranchState from disk, seeding `branch_v1` if no branches exist."""
+    if not _BRANCH_ID_RE.match(branch_id or ""):
+        return None
     if not any(config.BRANCHES_DIR.glob("*.json")):
         _seed_default_branch()
     path = config.BRANCHES_DIR / f"{branch_id}.json"

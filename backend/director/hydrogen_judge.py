@@ -65,7 +65,7 @@ async def judge(
 
     if config.DEMO_MODE or not config.GEMINI_API_KEY:
         items = [
-            JudgeItem(question=q, passed=True, confidence=0.93, reason="Mock verified.")
+            JudgeItem(question=q, passed=True, confidence=0.93, reason="MOCK_MODE (unverified)")
             for q in questions
         ]
         res = JudgeResult(overall_score=0.93, all_passed=True, items=items)
@@ -189,8 +189,8 @@ async def score_clip_alignment(
         raw_score = float(getattr(ans, "score", 3.0))
         return round(min(max(raw_score / 4.0, 0.0), 1.0), 3)
     except Exception as exc:
-        log_genai_call(config.MODEL_DECISION, {"target": target_description}, {"score_fallback": str(exc)}, {})
-        return 0.85
+        log_genai_call(config.MODEL_DECISION, {"target": target_description}, {"score_degraded": str(exc)}, {})
+        return 0.0
 
 
 @log_function_call
