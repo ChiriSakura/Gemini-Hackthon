@@ -141,6 +141,7 @@ class PropRegistryItem(BaseModel):
     state: str = "intact"
     origin: Literal["preset", "text_generated", "camera_physical"] = "preset"
     height_m: Optional[float] = Field(default=None, ge=0.05, le=3.0)
+    appearance_summary: str = ""
 
 
 class BranchState(BaseModel):
