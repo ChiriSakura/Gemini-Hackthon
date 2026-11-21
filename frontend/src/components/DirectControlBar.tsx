@@ -10,6 +10,8 @@
  */
 import React, { useRef, useState } from 'react';
 
+export type PropPlacement = 'table' | 'held' | 'floor';
+
 interface DirectControlBarProps {
   targetSceneId: number;
   onTargetSceneChange: (sceneId: number) => void;
@@ -19,7 +21,11 @@ interface DirectControlBarProps {
   cleanCaptureMode?: boolean;
   onDismissContradiction?: () => void;
   onForceRewrite?: () => void;
-  onCreateProp?: (opts: { name: string; imageBlob?: Blob | null }) => void;
+  onCreateProp?: (opts: {
+    name: string;
+    imageBlob?: Blob | null;
+    placement: PropPlacement;
+  }) => void;
   onSubmitFork: (opts: {
     clip?: Blob | null;
     text?: string;
@@ -69,6 +75,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
   const [camError, setCamError] = useState<string | null>(null);
   const [propPanelOpen, setPropPanelOpen] = useState(false);
   const [propName, setPropName] = useState('Starlight Shield');
+  const [propPlacement, setPropPlacement] = useState<PropPlacement>('table');
   const [capturedPropBlob, setCapturedPropBlob] = useState<Blob | null>(null);
   const [capturedPropPreviewUrl, setCapturedPropPreviewUrl] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -149,7 +156,11 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
   const handleSubmitProp = () => {
     if (!onCreateProp || !propName.trim() || creatingProp) return;
     if (capturedPropBlob) {
-      onCreateProp({ name: propName.trim(), imageBlob: capturedPropBlob });
+      onCreateProp({
+        name: propName.trim(),
+        imageBlob: capturedPropBlob,
+        placement: propPlacement,
+      });
       stopPropCam();
       clearCapturedProp();
       setPropPanelOpen(false);
@@ -163,13 +174,21 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
       const ctx = canvas.getContext('2d');
       ctx?.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
       canvas.toBlob((blob) => {
-        onCreateProp({ name: propName.trim(), imageBlob: blob });
+        onCreateProp({
+          name: propName.trim(),
+          imageBlob: blob,
+          placement: propPlacement,
+        });
         stopPropCam();
         clearCapturedProp();
         setPropPanelOpen(false);
       }, 'image/png');
     } else {
-      onCreateProp({ name: propName.trim(), imageBlob: null });
+      onCreateProp({
+        name: propName.trim(),
+        imageBlob: null,
+        placement: propPlacement,
+      });
       stopPropCam();
       clearCapturedProp();
       setPropPanelOpen(false);
@@ -465,11 +484,29 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
           <input
             type="text"
             className="text-input"
-            style={{ maxWidth: 220 }}
+            style={{ maxWidth: 200 }}
             value={propName}
             onChange={(e) => setPropName(e.target.value)}
             placeholder="Prop name (e.g. Starlight Shield)"
           />
+          <div className="placement-chips" role="group" aria-label="Prop stage placement">
+            {(
+              [
+                { id: 'table', label: 'Table' },
+                { id: 'held', label: 'Held' },
+                { id: 'floor', label: 'Floor' },
+              ] as Array<{ id: PropPlacement; label: string }>
+            ).map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                className={`pill-btn subtle ${propPlacement === opt.id ? 'active' : ''}`}
+                onClick={() => setPropPlacement(opt.id)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
           {!capturedPropPreviewUrl ? (
             <button
               type="button"

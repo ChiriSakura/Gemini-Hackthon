@@ -21,7 +21,10 @@ import {
   type RenderProgressSnapshot,
 } from './api/stageClient';
 import { ClapperboardQA } from './components/ClapperboardQA';
-import { DirectControlBar } from './components/DirectControlBar';
+import {
+  DirectControlBar,
+  type PropPlacement,
+} from './components/DirectControlBar';
 import { DualCameraStage } from './components/DualCameraStage';
 import { EvalModal } from './components/EvalModal';
 import { StoryBranchTree } from './components/StoryBranchTree';
@@ -49,6 +52,7 @@ export default function App(): React.ReactElement {
   const [pixelArtMode, setPixelArtMode] = useState<boolean>(false);
   const [cleanCaptureMode, setCleanCaptureMode] = useState<boolean>(false);
   const [evalModalOpen, setEvalModalOpen] = useState<boolean>(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState<boolean>(false);
   const [isPlayingStory, setIsPlayingStory] = useState<boolean>(false);
   const [targetSceneId, setTargetSceneId] = useState<number>(2);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -179,8 +183,13 @@ export default function App(): React.ReactElement {
         setCleanCaptureMode((v) => !v);
       } else if (e.key.toLowerCase() === 'e' && !e.metaKey && !e.ctrlKey && !e.altKey) {
         setEvalModalOpen((v) => !v);
+      } else if (e.key.toLowerCase() === 'r' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        handleResetDemo();
+      } else if (e.key === '?' && !e.metaKey && !e.ctrlKey) {
+        setShortcutsOpen((v) => !v);
       } else if (e.key === 'Escape') {
         setEvalModalOpen(false);
+        setShortcutsOpen(false);
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -364,13 +373,30 @@ export default function App(): React.ReactElement {
     setStatusNote(`All affected scenes rendered for ${getBranchLabelEn(updated)}!`);
   };
 
+  // W2-T7C: Non-blocking demo safety escape to cached Starlight branch if live render > 35s
+  const handleSwitchToCachedSafeBranch = () => {
+    const safeBranch =
+      branches.find((b) => b.branch_id === 'branch_v3_starlight_cached') ??
+      branches.find((b) => b.branch_id === 'branch_v2_cached') ??
+      branches.find((b) => b.branch_id !== 'branch_v1') ??
+      branches[0];
+    if (!safeBranch) return;
+    setActiveBranchId(safeBranch.branch_id);
+    setActiveSceneIndex(1);
+    setTargetSceneId(2);
+    setCompareEnabled(true);
+    setViewMode(safeBranch.scenes[1]?.media.cam_a_final_url ? 'final' : 'preview');
+    setStatusNote(`Switched seamlessly to pre-cached "${getBranchLabelEn(safeBranch)}".`);
+  };
+
   const handleCreateProp = async (opts: {
     name: string;
     imageBlob?: Blob | null;
+    placement: PropPlacement;
   }) => {
     const currentSceneId = activeScene.scene_id;
     setCreatingProp(true);
-    setStatusNote(`Generating transparent stage prop "${opts.name}"…`);
+    setStatusNote(`Generating transparent stage prop "${opts.name}" (${opts.placement})…`);
     const created = await createStageProp({
       name: opts.name,
       description: opts.name,
@@ -379,6 +405,16 @@ export default function App(): React.ReactElement {
       imageBlob: opts.imageBlob,
     });
     setCreatingProp(false);
+
+    const onFloor = opts.placement === 'floor';
+    const propState: 'held' | 'glowing' = opts.placement === 'held' ? 'held' : 'glowing';
+    const propGrid: [number, number] =
+      opts.placement === 'table'
+        ? [1.08, 1.08]
+        : opts.placement === 'floor'
+          ? [1.15, 1.48]
+          : [0.92, 1.15];
+
     setBranches((prev) =>
       prev.map((b) => {
         if (b.branch_id !== activeBranch.branch_id) return b;
@@ -386,23 +422,42 @@ export default function App(): React.ReactElement {
           ...b,
           props_registry: {
             ...b.props_registry,
-            [created.prop_id]: created.item,
+            [created.prop_id]: {
+              ...created.item,
+              state: propState,
+            },
           },
           scenes: b.scenes.map((s) => {
             if (s.scene_id < currentSceneId) return s;
+            const nextActors =
+              opts.placement === 'held'
+                ? s.actors.map((a) =>
+                    a.id === 'lia' ? { ...a, holding_prop: created.prop_id } : a,
+                  )
+                : s.actors;
             const exists = s.stage_props.some((p) => p.id === created.prop_id);
-            if (exists) return s;
+            const nextStageProps =
+              opts.placement === 'held'
+                ? s.stage_props.filter((p) => p.id !== created.prop_id)
+                : exists
+                  ? s.stage_props.map((p) =>
+                      p.id === created.prop_id
+                        ? { ...p, grid: propGrid, on_floor: onFloor, state: propState }
+                        : p,
+                    )
+                  : [
+                      ...s.stage_props,
+                      {
+                        id: created.prop_id,
+                        grid: propGrid,
+                        on_floor: onFloor,
+                        state: propState,
+                      },
+                    ];
             return {
               ...s,
-              stage_props: [
-                ...s.stage_props,
-                {
-                  id: created.prop_id,
-                  grid: [1.15, 1.35],
-                  on_floor: false,
-                  state: 'glowing',
-                },
-              ],
+              actors: nextActors,
+              stage_props: nextStageProps,
             };
           }),
         };
@@ -411,8 +466,8 @@ export default function App(): React.ReactElement {
 
     setStatusNote(
       created.simulated
-        ? `Placed simulated prop "${opts.name}" onto Scenes ${currentSceneId}–4.`
-        : `Prop "${opts.name}" generated & synced across Scenes ${currentSceneId}–4!`,
+        ? `Placed simulated prop "${opts.name}" (${opts.placement}) across Scenes ${currentSceneId}–4.`
+        : `Prop "${opts.name}" (${opts.placement}) generated & synced across Scenes ${currentSceneId}–4!`,
     );
   };
 
@@ -475,6 +530,30 @@ export default function App(): React.ReactElement {
           >
             📊 Eval
           </button>
+          {!cleanCaptureMode && (
+            <div style={{ position: 'relative' }}>
+              <button
+                type="button"
+                className={`pill-btn subtle ${shortcutsOpen ? 'active' : ''}`}
+                onClick={() => setShortcutsOpen((v) => !v)}
+                title="Keyboard shortcuts cheat-sheet (?)"
+                aria-label="Keyboard shortcuts"
+              >
+                ?
+              </button>
+              {shortcutsOpen && (
+                <div className="shortcut-popover" role="dialog" aria-label="Keyboard shortcuts">
+                  <div className="shortcut-title">Stage Presenter Shortcuts</div>
+                  <div className="shortcut-row"><kbd>Space</kbd><span>Play / Stop 1→4</span></div>
+                  <div className="shortcut-row"><kbd>1–4</kbd><span>Jump to Scene</span></div>
+                  <div className="shortcut-row"><kbd>Tab</kbd><span>Toggle 2.5D / AI</span></div>
+                  <div className="shortcut-row"><kbd>E</kbd><span>Toggle Eval Modal</span></div>
+                  <div className="shortcut-row"><kbd>C</kbd><span>Toggle Clean View</span></div>
+                  <div className="shortcut-row"><kbd>R</kbd><span>Reset Booth Demo</span></div>
+                </div>
+              )}
+            </div>
+          )}
           {!isMockMode && !cleanCaptureMode && (
             <button
               type="button"
@@ -550,6 +629,7 @@ export default function App(): React.ReactElement {
         isPlayingStory={isPlayingStory}
         cleanCaptureMode={cleanCaptureMode}
         onSelectCompareBranch={setCompareBranchId}
+        onSwitchToCachedSafeBranch={handleSwitchToCachedSafeBranch}
         onTogglePlayStory={handleTogglePlayStory}
         onExportComplete={handleExportComplete}
         onRenderScene={handleRenderScene}

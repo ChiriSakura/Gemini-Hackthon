@@ -752,3 +752,99 @@ button {
   text-align: center;
   line-height: 1.2;
 }
+
+.placement-chips {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.shortcut-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 218px;
+  background: #0f1629;
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.shortcut-title {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #fde68a;
+  margin-bottom: 2px;
+}
+
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: #cbd5e1;
+}
+
+.shortcut-row kbd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.68rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.16);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #f8fafc;
+}
+
+/* W2-T6I: Zero-scroll projector layout polish for 1280x800 and 1440x900 */
+@media (max-height: 920px) {
+  .app-shell {
+    padding: 8px 14px 10px;
+    gap: 6px;
+  }
+
+  .stage-theater {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  .scene-narration {
+    padding: 5px 10px;
+    font-size: 0.84rem;
+    line-height: 1.35;
+  }
+
+  .cam-frame {
+    max-height: 31vh;
+  }
+
+  .clapperboard-strip {
+    padding: 6px 10px;
+    gap: 8px;
+  }
+
+  .branch-tree-panel {
+    padding: 7px 10px;
+    gap: 5px;
+    max-height: 175px;
+  }
+
+  .director-bar {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+}
+
+@media (max-height: 800px) {
+  .cam-frame {
+    max-height: 28vh;
+  }
+
+  .branch-tree-panel {
+    max-height: 145px;
+  }
+}

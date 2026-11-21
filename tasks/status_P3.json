@@ -1,18 +1,22 @@
 {
   "agent": "P3_frontend",
   "branch": "feat/w2-frontend",
-  "current_milestone": "T6",
-  "status": "all_t6_pitch_ux_tasks_completed_ready_for_master_merge",
+  "current_milestone": "T7_FINAL_READY",
+  "status": "all_10_t6_t7_booth_polish_tasks_completed_ready_for_master_merge",
   "capture_stream_mode": "webm_with_png_fallback",
   "auto_poll_enabled": true,
   "completed_items": [
-    "T0-T5 + W2-CR1..CR3: Full 2.5D Three.js stage, r170 UV-mirrored facing flip, cache-hit prop rescaling, conflict override fix, scene_id prop sync, offline Vite /assets bypass, live /api/media/progress polling, [CAM A]/[CAM B] QA badges, 3s countdown meter, flexible branch comparison selector",
-    "W2-T6A: Updated EvalModal.tsx with Cross-Cam Consistency 0.929 (26/28), Prop Persistence 1.000, 360p vs 720p savings (71.4%, $0.48 vs $1.68), 5-prop checkerboard transparent cutout showcase (/assets/props/showcase_*.png), and collapsible BE vs HE comparison reel player (/assets/finals/demo_comparison_be_vs_he.mp4)",
-    "W2-T6B: Added one-click '↺ Reset Demo' top-bar button in App.tsx returning cleanly to branch_v1 Scene 1 without page reload",
-    "W2-T6C: Mirrored live webcam PiP previews (scaleX(-1)) and added Web Audio API AnalyserNode live RMS mic level meter in DirectControlBar.tsx",
-    "W2-T6D: Compacted multi-branch StoryBranchTree layout for 3+ branches (branch_v1, branch_v2_cached, branch_v3_starlight_cached) on 1280x800/1440x900 viewports and auto-reset transient failedVideoUrls on branch switch in DualCameraStage.tsx",
-    "W2-T6E: Fixed TS2322 cast in displayLocale.ts, passed `npx tsc --noEmit && npm run build` (0 errors, 579ms), verified 0 CJK UI strings across frontend/src + index.html, and verified 24/24 cached MP4 links + demo_comparison_be_vs_he.mp4 + 5/5 showcase PNGs on disk"
+    "W2-T6E: Added non-black tail-frame <video poster=...> transition frames and adjacent-scene MP4 metadata preloading during AI Render / Play 1->4 in DualCameraStage.tsx",
+    "W2-T6F: Added collapsible Storyboard Filmstrip (/assets/showcase_storyboard_strip.png) & 1-Min Pitch Reel (/assets/finals/pitch_demo_reel_1min.mp4) preview section with graceful onError handling in EvalModal.tsx",
+    "W2-T6G: Added compact '?' keyboard cheat-sheet popover next to Eval (hidden in Clean Mode) and bound 'R' shortcut to Reset Demo in App.tsx",
+    "W2-T6H: Added 3-chip Physical Prop Placement Picker (Table / Held / Floor) in DirectControlBar.tsx wired directly to StagePropState & actor holding_prop in App.tsx",
+    "W2-T6I: Tuned responsive zero-scroll projector layout breakpoints (max-height 920px & 800px) in index.css for 1280x800 and 1440x900 screens",
+    "W2-T6J: Verified 0 CJK UI strings across frontend/src + index.html and clean `npx tsc --noEmit && npm run build` (594ms, 0 errors)",
+    "W2-T7A: Added mutually exclusive Side-by-Side Comparison audio toggles (Audio: Baseline / Audio: Active / Muted) in DualCameraStage.tsx with zero audio overlap",
+    "W2-T7B: Added toggleable warm-gold floor diff halo ring under actors whose action or holding_prop changed in forked scenes (ThreeStageManager.ts + DualCameraStage.tsx)",
+    "W2-T7C: Added non-blocking '>35s' live demo safety pill ('Switch to Cached Starlight Branch') jumping cleanly to branch_v3_starlight_cached without losing poise on stage",
+    "W2-T7D: Completed final pre-freeze E2E verification (offline Vite /assets 200 OK, multi-branch v1..v3+ switcher, shortcuts, prop placement, audio toggles, clean build)"
   ],
   "blockers": [],
-  "last_updated": "2026-11-21T13:30:00-05:00"
+  "last_updated": "2026-11-21T13:38:10-05:00"
 }

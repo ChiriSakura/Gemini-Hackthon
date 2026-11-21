@@ -29,6 +29,8 @@ export interface PreviewExportResult {
 interface SpriteEntity {
   sprite: THREE.Sprite;
   shadow?: THREE.Mesh;
+  haloRing?: THREE.Mesh;
+  diffHighlighted?: boolean;
   baseScale: [number, number];
   targetPos: THREE.Vector3;
   action: string;
@@ -147,6 +149,7 @@ export class ThreeStageManager {
   private clock = new THREE.Clock();
   private disposed = false;
   private pixelArtMode = false;
+  private diffHaloEnabled = true;
 
   /**
    * Initialize the shared 3D world and attach two WebGLRenderers for Camera A & B.
@@ -467,14 +470,21 @@ export class ThreeStageManager {
 
   /**
    * Apply a `Scene` state and `props_registry` onto the 2.5D Three.js stage.
+   * When `baselineScene` is provided and `sceneData.needs_rerender` is true,
+   * actors whose `action` or `holding_prop` changed display a warm-gold floor diff halo.
    */
   public applyScene(
     sceneData: Scene,
     propsRegistry: Record<string, PropRegistryItem>,
+    baselineScene?: Scene | null,
   ): void {
     this.currentLighting = sceneData.lighting;
     this.cameraShake = Boolean(sceneData.camera_shake);
     this.applyLightingPreset(sceneData.lighting);
+
+    const baselineByActorId = new Map(
+      (baselineScene?.actors ?? []).map((a) => [a.id, a]),
+    );
 
     // Sync actors
     const activeActorIds = new Set<string>();
@@ -484,6 +494,13 @@ export class ThreeStageManager {
       activeActorIds.add(actor.id);
       const { x, z } = gridToWorld(actor.grid);
       const isNyx = actor.id === 'nyx';
+      const baseActor = baselineByActorId.get(actor.id);
+      const changedFromBaseline = Boolean(
+        sceneData.needs_rerender &&
+          (!baseActor ||
+            baseActor.action !== actor.action ||
+            baseActor.holding_prop !== actor.holding_prop),
+      );
       // Keep Nyx realistically cat-sized (~29% of Lia's 2.25 height)
       const maxW = isNyx ? 0.68 : 1.75;
       const maxH = isNyx ? 0.65 : 2.25;
@@ -530,9 +547,27 @@ export class ThreeStageManager {
         shadowMesh.position.set(x, 0.015, z);
         this.scene.add(shadowMesh);
 
+        // W2-T7B: Warm-gold floor diff halo ring when action/holding_prop changed
+        const haloRing = new THREE.Mesh(
+          new THREE.RingGeometry(shadowRadius + 0.04, shadowRadius + 0.14, 32),
+          new THREE.MeshBasicMaterial({
+            color: '#fbbf24',
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.78,
+            depthWrite: false,
+          }),
+        );
+        haloRing.rotation.x = -Math.PI / 2;
+        haloRing.position.set(x, 0.022, z);
+        haloRing.visible = this.diffHaloEnabled && changedFromBaseline;
+        this.scene.add(haloRing);
+
         entity = {
           sprite,
           shadow: shadowMesh,
+          haloRing,
+          diffHighlighted: changedFromBaseline,
           baseScale: [maxW, maxH],
           targetPos: new THREE.Vector3(x, y, z),
           action: actor.action,
@@ -547,6 +582,10 @@ export class ThreeStageManager {
         entity.action = actor.action;
         entity.facing = actor.facing;
         entity.assetUrl = actor.asset_url;
+        entity.diffHighlighted = changedFromBaseline;
+        if (entity.haloRing) {
+          entity.haloRing.visible = this.diffHaloEnabled && changedFromBaseline;
+        }
         this.syncActorFacingTexture(entity);
       }
       sumPos.add(entity.targetPos);
@@ -562,6 +601,10 @@ export class ThreeStageManager {
       const visible = activeActorIds.has(id);
       ent.sprite.visible = visible;
       if (ent.shadow) ent.shadow.visible = visible;
+      if (ent.haloRing) {
+        ent.haloRing.visible =
+          visible && this.diffHaloEnabled && Boolean(ent.diffHighlighted);
+      }
     }
 
     // Sync props (stage_props + any non-umbrella prop currently held by an actor)
@@ -838,6 +881,14 @@ export class ThreeStageManager {
         ent.shadow.position.x = ent.sprite.position.x;
         ent.shadow.position.z = ent.sprite.position.z;
       }
+      if (ent.haloRing && ent.haloRing.visible) {
+        ent.haloRing.position.x = ent.sprite.position.x;
+        ent.haloRing.position.z = ent.sprite.position.z;
+        const pulse = 1 + Math.sin(elapsed * 4.2) * 0.07;
+        ent.haloRing.scale.set(pulse, pulse, 1);
+        const haloMat = ent.haloRing.material as THREE.MeshBasicMaterial;
+        haloMat.opacity = 0.55 + Math.sin(elapsed * 4.2) * 0.25;
+      }
     }
 
     for (const ent of this.propEntities.values()) {
@@ -973,6 +1024,19 @@ export class ThreeStageManager {
         camBEndPng: this.canvasB.toDataURL('image/png'),
         elapsedMs: Math.round(performance.now() - startTime),
       };
+    }
+  }
+
+  /**
+   * Toggle the warm-gold actor diff halo ring for forked causal scenes (W2-T7B).
+   */
+  public setDiffHaloEnabled(enabled: boolean): void {
+    this.diffHaloEnabled = enabled;
+    for (const ent of this.actorEntities.values()) {
+      if (ent.haloRing) {
+        ent.haloRing.visible =
+          ent.sprite.visible && enabled && Boolean(ent.diffHighlighted);
+      }
     }
   }
 
