@@ -1141,7 +1141,8 @@ export class ThreeStageManager {
             ? this.fitScaleToBox(img.width, img.height, maxPropW, maxPropH)
             : [maxPropW, maxPropH];
         ent.baseScale = fitted;
-        ent.sprite.scale.set(fitted[0], fitted[1], 1);
+        // Keep Z scale equal to X scale so the orthogonal 90-deg crossCard keeps identical width.
+        ent.sprite.scale.set(fitted[0], fitted[1], fitted[0]);
       };
 
       const applyPropTexture = (ent: SpriteEntity, targetUrl: string, fallbackUrl: string) => {
@@ -1241,7 +1242,7 @@ export class ThreeStageManager {
         const sprite = new THREE.Mesh(this.standeeGeometry, mat);
         sprite.position.set(x, y, z);
         sprite.rotation.order = 'YXZ';
-        sprite.scale.set(maxPropW, maxPropH, 1);
+        sprite.scale.set(maxPropW, maxPropH, maxPropW);
         const crossCard = new THREE.Mesh(this.standeeGeometry, mat);
         crossCard.rotation.y = Math.PI / 2;
         sprite.add(crossCard);
@@ -1562,7 +1563,11 @@ export class ThreeStageManager {
         const arcY = 4 * flight.peakHeight * t * (1 - t);
         ent.sprite.position.set(px, baseY + arcY, pz);
         const airScale = 1 + (1 - t) * 0.42;
-        ent.sprite.scale.set(ent.baseScale[0] * airScale, ent.baseScale[1] * airScale, 1);
+        ent.sprite.scale.set(
+          ent.baseScale[0] * airScale,
+          ent.baseScale[1] * airScale,
+          ent.baseScale[0] * airScale,
+        );
         ent.sprite.rotation.z = (1 - t) * Math.PI * 2.0;
         if (rawT >= 1) {
           this.activePropFlights.delete(propId);
@@ -1576,12 +1581,12 @@ export class ThreeStageManager {
       }
       if (ent.action === 'glowing' && !frozen) {
         const pulse = 1 + Math.sin(elapsed * 4) * 0.08;
-        ent.sprite.scale.set(ent.baseScale[0] * pulse, ent.baseScale[1] * pulse, 1);
+        ent.sprite.scale.set(ent.baseScale[0] * pulse, ent.baseScale[1] * pulse, ent.baseScale[0] * pulse);
         ent.sprite.position.y = ent.targetPos.y + Math.sin(elapsed * 2.6) * 0.05;
       } else {
         const sx = ent.sprite.scale.x + (ent.baseScale[0] - ent.sprite.scale.x) * lerpFactor;
         const sy = ent.sprite.scale.y + (ent.baseScale[1] - ent.sprite.scale.y) * lerpFactor;
-        ent.sprite.scale.set(sx, sy, 1);
+        ent.sprite.scale.set(sx, sy, sx);
         ent.sprite.position.y = ent.targetPos.y;
       }
     }
