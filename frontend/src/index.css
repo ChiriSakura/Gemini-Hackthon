@@ -2533,6 +2533,9 @@ body::before {
 }
 
 .selfview-status {
+  font-variant-numeric: tabular-nums;
+  min-width: 3.6em;
+  white-space: nowrap;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -2752,6 +2755,14 @@ body::before {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+}
+
+.selfview-cam-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 8px;
 }
 
 .selfview-mini-btn {

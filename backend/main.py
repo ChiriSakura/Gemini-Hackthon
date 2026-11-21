@@ -556,13 +556,15 @@ async def api_director_extend(
         learned_rules=load_general_rules(),
         end_freeze_mode=end_freeze_mode,
     )
+    _keep_actors_clear_of_table(next_scene)
     if thrown_prop_id:
         eff_motion = injected_motion or ("throw_arc" if explicit_handoff else "place")
         on_floor = injected_placement == "floor"
         prop_grid = [1.05, 1.1] if not on_floor else [1.15, 1.48]
-        if injected_placement == "held":
+        held_by_actor = any(a.holding_prop == thrown_prop_id for a in next_scene.actors)
+        if injected_placement == "held" or held_by_actor:
             for actor in next_scene.actors:
-                if actor.id == "lia":
+                if actor.id == "lia" and not held_by_actor:
                     actor.holding_prop = thrown_prop_id
             next_scene.stage_props = [p for p in next_scene.stage_props if p.id != thrown_prop_id]
         else:
@@ -737,6 +739,51 @@ async def _save_preview_file(
     return None
 
 
+TABLE_CLEARANCE_M = {"nyx": 0.8}
+DEFAULT_TABLE_CLEARANCE_M = 1.05
+
+
+def _keep_actors_clear_of_table(scene: Scene) -> None:
+    """Push any actor standing inside the centre table out to its edge, so sprites and renders do not clip through it."""
+    import math
+
+    for actor in scene.actors:
+        if actor.action == "jump":  # on top of the table on purpose
+            continue
+        wx, wz = (actor.grid[0] - 1) * 2.1, (actor.grid[1] - 1) * 1.7
+        clearance = TABLE_CLEARANCE_M.get(actor.id, DEFAULT_TABLE_CLEARANCE_M)
+        dist = math.hypot(wx, wz)
+        if dist >= clearance:
+            continue
+        if dist < 1e-3:
+            wx, wz, dist = -1.0, 0.0, 1.0
+        wx, wz = wx / dist * clearance, wz / dist * clearance
+        actor.grid = [round(wx / 2.1 + 1, 2), round(wz / 1.7 + 1, 2)]
+
+
+@app.post("/api/director/move-actor")
+async def api_director_move_actor(
+    branch_id: str = Form(...),
+    scene_id: int = Form(...),
+    actor_id: str = Form(...),
+    grid_x: float = Form(...),
+    grid_y: float = Form(...),
+) -> dict:
+    """Store a character position the user set by dragging on the 3D stage; later scenes continue from it."""
+    async with _get_branch_lock(branch_id):
+        branch = get_branch(branch_id)
+        if not branch:
+            raise HTTPException(status_code=404, detail=f"Branch {branch_id} not found")
+        scene = next((s for s in branch.scenes if s.scene_id == scene_id), None)
+        actor = next((a for a in scene.actors if a.id == actor_id), None) if scene else None
+        if not actor:
+            raise HTTPException(status_code=404, detail=f"Actor {actor_id} not found in scene {scene_id}")
+        actor.grid = [max(0.0, min(2.0, grid_x)), max(0.0, min(2.0, grid_y))]
+        _keep_actors_clear_of_table(scene)
+        save_branch(branch)
+        return {"branch_id": branch_id, "scene_id": scene_id, "actor_id": actor_id, "grid": actor.grid}
+
+
 @app.post("/api/media/render-scene")
 @log_function_call
 async def api_media_render_scene(
@@ -801,7 +848,8 @@ async def api_media_render_scene(
                     fast_live_mode=fast_live_mode,
                     prop_descriptions=prop_descriptions,
                 ),
-                timeout=config.RENDER_SCENE_TIMEOUT_SEC,
+                # Camera B waits for Camera A when it is derived from A's frames, so allow the extra pass.
+                timeout=200.0 if (config.CAM_B_KEYFRAMES_FROM_A and not fast_live_mode) else config.RENDER_SCENE_TIMEOUT_SEC,
             )
             publish_scene_progress(
                 branch_id,

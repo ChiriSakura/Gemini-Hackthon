@@ -308,6 +308,112 @@ export class ThreeStageManager {
   private animFrameId: number | null = null;
   private clock = new THREE.Clock();
   private disposed = false;
+
+  // Drag-to-orbit: both cameras turn around the stage by the same angle, so B stays 45 degrees from A.
+  private cameraATarget = new THREE.Vector3(0, 0.9, 0);
+  private orbitYaw = 0;
+  private orbitPitch = 0;
+  private orbitZoom = 1;
+  private orbitDrag: { x: number; y: number } | null = null;
+  private orbitScratch = new THREE.Vector3();
+  private orbitSpherical = new THREE.Spherical();
+
+  /** Called when the user drops a character at a new spot: (actor id, new grid position). */
+  public onActorMoved: ((actorId: string, grid: [number, number]) => void) | null = null;
+  private actorDrag: { id: string; camera: THREE.PerspectiveCamera } | null = null;
+  private pickRay = new THREE.Raycaster();
+  private pickNdc = new THREE.Vector2();
+  private floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  private floorHit = new THREE.Vector3();
+
+  private aimPickRay(e: PointerEvent, camera: THREE.PerspectiveCamera): void {
+    const rect = (e.currentTarget as HTMLCanvasElement).getBoundingClientRect();
+    this.pickNdc.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+    this.pickRay.setFromCamera(this.pickNdc, camera);
+  }
+
+  /** Keep a dragged character on the stage floor and outside the round table, so nothing clips through it. */
+  private clampToFreeFloor(x: number, z: number, actorId: string): [number, number] {
+    const cx = Math.max(-2.1, Math.min(2.1, x));
+    const cz = Math.max(-1.7, Math.min(1.7, z));
+    const minDist = actorId === 'nyx' ? 0.8 : 1.05;
+    const dist = Math.hypot(cx, cz);
+    if (dist >= minDist) return [cx, cz];
+    if (dist < 0.001) return [-minDist, 0];
+    return [(cx / dist) * minDist, (cz / dist) * minDist];
+  }
+
+  private handleOrbitDown = (e: PointerEvent): void => {
+    const camera = e.currentTarget === this.canvasB ? this.cameraB : this.cameraA;
+    this.aimPickRay(e, camera);
+    const sprites = [...this.actorEntities.values()].map((entity) => entity.sprite);
+    const hit = this.pickRay.intersectObjects(sprites, false)[0];
+    const hitId = hit ? [...this.actorEntities.entries()].find(([, entity]) => entity.sprite === hit.object)?.[0] : null;
+    if (hitId) {
+      this.actorDrag = { id: hitId, camera };
+    } else {
+      this.orbitDrag = { x: e.clientX, y: e.clientY };
+    }
+    (e.currentTarget as HTMLCanvasElement).setPointerCapture?.(e.pointerId);
+  };
+
+  private handleOrbitMove = (e: PointerEvent): void => {
+    if (this.actorDrag) {
+      const entity = this.actorEntities.get(this.actorDrag.id);
+      this.aimPickRay(e, this.actorDrag.camera);
+      if (entity && this.pickRay.ray.intersectPlane(this.floorPlane, this.floorHit)) {
+        const [x, z] = this.clampToFreeFloor(this.floorHit.x, this.floorHit.z, this.actorDrag.id);
+        entity.targetPos.x = x;
+        entity.targetPos.z = z;
+      }
+      return;
+    }
+    if (!this.orbitDrag) return;
+    this.orbitYaw -= (e.clientX - this.orbitDrag.x) * 0.008;
+    this.orbitPitch = Math.max(-0.45, Math.min(0.6, this.orbitPitch + (e.clientY - this.orbitDrag.y) * 0.005));
+    this.orbitDrag = { x: e.clientX, y: e.clientY };
+  };
+
+  private handleOrbitUp = (): void => {
+    if (this.actorDrag) {
+      const entity = this.actorEntities.get(this.actorDrag.id);
+      if (entity) {
+        const grid: [number, number] = [
+          Math.round((entity.targetPos.x / 2.1 + 1) * 100) / 100,
+          Math.round((entity.targetPos.z / 1.7 + 1) * 100) / 100,
+        ];
+        this.onActorMoved?.(this.actorDrag.id, grid);
+      }
+      this.actorDrag = null;
+    }
+    this.orbitDrag = null;
+  };
+
+  private handleOrbitWheel = (e: WheelEvent): void => {
+    e.preventDefault();
+    this.orbitZoom = Math.max(0.55, Math.min(1.7, this.orbitZoom * (e.deltaY > 0 ? 1.06 : 0.94)));
+  };
+
+  /** Return both cameras to their fixed positions (double-click, or before a preview export). */
+  public resetOrbit = (): void => {
+    this.orbitYaw = 0;
+    this.orbitPitch = 0;
+    this.orbitZoom = 1;
+  };
+
+  private placeCamera(camera: THREE.PerspectiveCamera, x: number, y: number, z: number, target: THREE.Vector3): void {
+    if (this.orbitYaw === 0 && this.orbitPitch === 0 && this.orbitZoom === 1) {
+      camera.position.set(x, y, z);
+    } else {
+      this.orbitScratch.set(x, y, z).sub(target);
+      this.orbitSpherical.setFromVector3(this.orbitScratch);
+      this.orbitSpherical.theta += this.orbitYaw;
+      this.orbitSpherical.phi = Math.max(0.25, Math.min(1.5, this.orbitSpherical.phi - this.orbitPitch));
+      this.orbitSpherical.radius *= this.orbitZoom;
+      camera.position.setFromSpherical(this.orbitSpherical).add(target);
+    }
+    camera.lookAt(target);
+  }
   private contextLost = false;
   private pixelArtMode = false;
   private diffHaloEnabled = true;
@@ -360,6 +466,17 @@ export class ThreeStageManager {
     this.cameraB = new THREE.PerspectiveCamera(36, 16 / 9, 0.1, 50);
     this.cameraB.position.set(3.25, 1.95, 3.55);
     this.cameraB.lookAt(this.cameraBTarget);
+
+    for (const canvas of [canvasA, canvasB]) {
+      canvas.style.cursor = 'grab';
+      canvas.style.touchAction = 'none';
+      canvas.addEventListener('pointerdown', this.handleOrbitDown);
+      canvas.addEventListener('pointermove', this.handleOrbitMove);
+      canvas.addEventListener('pointerup', this.handleOrbitUp);
+      canvas.addEventListener('pointercancel', this.handleOrbitUp);
+      canvas.addEventListener('wheel', this.handleOrbitWheel, { passive: false });
+      canvas.addEventListener('dblclick', this.resetOrbit);
+    }
 
     this.rendererA = new THREE.WebGLRenderer({
       canvas: canvasA,
@@ -1458,12 +1575,10 @@ export class ThreeStageManager {
     const shakeX = this.cameraShake && !frozen ? Math.sin(elapsed * 38) * 0.08 : 0;
     const shakeY = this.cameraShake && !frozen ? Math.cos(elapsed * 43) * 0.06 : 0;
 
-    this.cameraA.position.set(shakeX, 2.75 + shakeY, 6.2);
-    this.cameraA.lookAt(0, 0.9, 0);
+    this.placeCamera(this.cameraA, shakeX, 2.75 + shakeY, 6.2, this.cameraATarget);
 
     this.currentCameraBTarget.lerp(this.cameraBTarget, Math.min(1, dt * 5.0));
-    this.cameraB.position.set(3.25 + shakeX * 0.8, 1.95 + shakeY * 0.8, 3.55);
-    this.cameraB.lookAt(this.currentCameraBTarget);
+    this.placeCamera(this.cameraB, 3.25 + shakeX * 0.8, 1.95 + shakeY * 0.8, 3.55, this.currentCameraBTarget);
   }
 
   /**
@@ -1473,6 +1588,11 @@ export class ThreeStageManager {
    */
   public async exportScenePreview(durationMs = 4000): Promise<PreviewExportResult> {
     const startTime = performance.now();
+    if (this.orbitYaw !== 0 || this.orbitPitch !== 0 || this.orbitZoom !== 1) {
+      // The renderer must receive the two fixed camera views, not a view the user dragged to.
+      this.resetOrbit();
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    }
     const camAStartPng = this.canvasA.toDataURL('image/png');
     const camBStartPng = this.canvasB.toDataURL('image/png');
 
@@ -1585,6 +1705,14 @@ export class ThreeStageManager {
 
   public dispose(): void {
     this.disposed = true;
+    for (const canvas of [this.canvasA, this.canvasB]) {
+      canvas.removeEventListener('pointerdown', this.handleOrbitDown);
+      canvas.removeEventListener('pointermove', this.handleOrbitMove);
+      canvas.removeEventListener('pointerup', this.handleOrbitUp);
+      canvas.removeEventListener('pointercancel', this.handleOrbitUp);
+      canvas.removeEventListener('wheel', this.handleOrbitWheel);
+      canvas.removeEventListener('dblclick', this.resetOrbit);
+    }
     this.canvasA.removeEventListener('webglcontextlost', this.handleContextLost);
     this.canvasB.removeEventListener('webglcontextlost', this.handleContextLost);
     this.canvasA.removeEventListener('webglcontextrestored', this.handleContextRestored);

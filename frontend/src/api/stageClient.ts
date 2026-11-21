@@ -681,3 +681,28 @@ export async function requestBranchRender(
     return { branch: null, error: describeRequestError(err, RENDER_TIMEOUT_MS) };
   }
 }
+
+
+/**
+ * Save a character's new stage position after the user dragged it on the 3D stage,
+ * so the next scene is planned and rendered from where it now stands.
+ */
+export async function moveStageActor(
+  branchId: string,
+  sceneId: number,
+  actorId: string,
+  grid: [number, number],
+): Promise<boolean> {
+  const formData = new FormData();
+  formData.append('branch_id', branchId);
+  formData.append('scene_id', String(sceneId));
+  formData.append('actor_id', actorId);
+  formData.append('grid_x', String(grid[0]));
+  formData.append('grid_y', String(grid[1]));
+  try {
+    const res = await fetch('/api/director/move-actor', { method: 'POST', body: formData });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
