@@ -2,44 +2,33 @@
   "worker": "worker-1 (P2)",
   "branch": "feat/w1-media",
   "pull_main_first": true,
-  "batch_deadline": "14:45",
+  "batch_deadline": "15:25",
   "owned_paths": ["backend/media/**", "backend/assets/**", "tasks/status_P2.json"],
+  "note": "ALL 6 prior tasks (W1-T2A..T3B + SI-metric physics) merged cleanly into main! Pull main and execute this T3.5/T4 eval & hardening batch.",
   "parallel_tasks": [
     {
-      "task_id": "W1-T2A",
+      "task_id": "W1-T3C",
       "priority": "P0",
-      "title": "Pre-cache Branch 1 (4 scenes BE) real Omni Flash dual-cam clips",
-      "details": "Run render_branch_scenes on shared/mock_branch_1.json (all 4 scenes, 360p 4s) and persist resulting MP4s, tail PNGs, and updated branch_v1.json under backend/assets/ so live demo opens instantly."
+      "title": "Measure Cross-Camera Consistency Rate (cam_a vs cam_b) via Decisions API",
+      "details": "Write a helper script in backend/media/ to feed each scene's cam_a + cam_b MP4 (or tail PNGs) from branch_v1 and branch_v2_cached into models/gemini-decision-1, verifying actor presence, left/right grid layout, umbrella/vase states across both angles. Save summary to backend/assets/eval_dual_cam_stats.json."
     },
     {
-      "task_id": "W1-T2B",
+      "task_id": "W1-T3D",
       "priority": "P0",
-      "title": "Wire Decisions API score_clip_alignment() + browser H.264 playback check",
-      "details": "In video_renderer.py, combine noul QA + score_clip_alignment() for Best-of-2 selection; verify generated .mp4 codec plays natively in Chrome <video> tags (remux/transcode with ffmpeg/cv2 only if needed)."
+      "title": "Multi-prop simultaneous stress test (star_token + red_umbrella + crystal_vase)",
+      "details": "Test one live Omni Flash 360p 4s scene with 3 simultaneous props (Lia holding star_token, red_umbrella on floor, crystal_vase intact on table) and record judge() pass score & latency in tasks/status_P2.json."
     },
     {
-      "task_id": "W1-T2C",
-      "priority": "P0",
-      "title": "Pre-cache Branch 2 (HE twist) fallback + crystal_vase_broken.png asset",
-      "details": "Render Scene 2..4 of shared/mock_branch_2.json into cached branch_v2_cached.json fallback, AND generate a dedicated transparent `backend/assets/props/crystal_vase_broken.png` (shattered blue-rose glass shards) via create_prop()."
-    },
-    {
-      "task_id": "W1-T2D",
+      "task_id": "W1-T3E",
       "priority": "P1",
-      "title": "Test photo-based create_prop() & multimodal Decisions API (.mp4 vs PNG)",
-      "details": "Verify create_prop() with a real camera JPEG/PNG photo input, and benchmark whether models/gemini-decision-1 accepts .mp4 directly or falls back to PNG/Hydrogen; log latencies in tasks/status_P2.json."
+      "title": "Prepare 20-clip Decisions API calibration dataset (14 real + 6 negative/edge checks)",
+      "details": "Export `backend/assets/calibration_20_clips.json` listing 20 clip+question pairs (including mismatched-prompt negative checks against existing MP4s so judge() sees both true positives and true negatives) with predicted P(true) + confidence and a `human_label` field for quick accuracy calculation."
     },
     {
-      "task_id": "W1-T3A",
+      "task_id": "W1-T4A",
       "priority": "P1",
-      "title": "Add 1-take vs 2-take pass-rate & retry-recovery logger for Eval",
-      "details": "In video_renderer.py, record per-shot candidate scores (`take_0_score`, `take_1_score`, `repaired_score`) into `backend/assets/eval_media_stats.jsonl` so P1 eval/run_eval.py can plot 1-take vs 2-take pass rates directly from real runs."
-    },
-    {
-      "task_id": "W1-T3B",
-      "priority": "P1",
-      "title": "Add parallel render progress endpoint helper & timeout safety guard",
-      "details": "Add per-take asyncio.wait_for timeout guard (e.g. 60s) in video_renderer.py so a stuck Omni Flash call cleanly triggers fallback_to_preview=True instead of hanging the live demo."
+      "title": "Post-merge full media smoke suite verification",
+      "details": "After merging origin/main, run `python -m backend.media.test_media_smoke` and verify `branch_v1` (8 MP4s) and `branch_v2_cached` (6 MP4s) all return 200 OK and pass judge()."
     }
   ]
 }

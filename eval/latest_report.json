@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-21 12:46:16",
+  "timestamp": "2026-11-21 13:01:18",
   "active_rule_memory_count": 3,
   "branch_evaluations": [
     {
@@ -7,21 +7,21 @@
       "scenes_evaluated": 4,
       "all_passed_scenes": 3,
       "avg_qa_score": 0.885,
-      "eval_latency_sec": 1.68
+      "eval_latency_sec": 1.76
     },
     {
       "branch_id": "branch_v2",
       "scenes_evaluated": 4,
       "all_passed_scenes": 3,
       "avg_qa_score": 0.917,
-      "eval_latency_sec": 1.19
+      "eval_latency_sec": 1.23
     }
   ],
   "localized_rewrite_skip_savings_pct": 66.7,
   "media_dual_take_stats": {
-    "samples": 0,
-    "single_take_pass_rate": null,
-    "dual_take_pass_rate": null
+    "samples": 14,
+    "single_take_pass_rate": 1.0,
+    "dual_take_pass_rate": 1.0
   },
   "metrics_tracked": [
     "coherence_rate",
