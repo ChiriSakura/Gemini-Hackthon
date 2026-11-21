@@ -37,7 +37,7 @@ import { EvalModal } from './components/EvalModal';
 import { StoryBranchTree } from './components/StoryBranchTree';
 import { INITIAL_MOCK_BRANCHES } from './data/mockBranches';
 import type { PreviewExportResult } from './stage/ThreeStageManager';
-import type { BranchState, Scene } from './types/schema';
+import type { BranchState, DirectorInputParsed, Scene } from './types/schema';
 import { getBranchLabelEn } from './utils/displayLocale';
 import {
   findParentScene,
@@ -386,17 +386,22 @@ export default function App(): React.ReactElement {
     fromSceneId: number;
     text?: string;
     clip?: Blob | null;
+    parsedDirective?: DirectorInputParsed | null;
   }): Promise<boolean> => {
     setBusy({
       label: `Continuing story into Scene ${opts.fromSceneId + 1}`,
       typical: 'usually 10–20s',
       since: Date.now(),
     });
+    // Skip re-uploading video clip when /perceive already confirmed there is no physical prop to cut out.
+    const clipToForward =
+      opts.parsedDirective && !opts.parsedDirective.has_physical_prop ? null : opts.clip;
     const { branch: extended, error: extendError } = await extendDirectorStory({
       branchId: opts.branchId,
       fromSceneId: opts.fromSceneId,
       text: opts.text,
-      clip: opts.clip,
+      clip: clipToForward,
+      parsedDirective: opts.parsedDirective,
       endFreezeMode: 'sculpture',
       detectThrowPeak: true,
     });
@@ -555,12 +560,13 @@ export default function App(): React.ReactElement {
       }
     }
 
-    // Stage 2: Unbounded continuation via `/api/director/extend`
+    // Stage 2: Unbounded continuation via `/api/director/extend` (reuse Stage-1 parsedDirective to save 1 LLM round-trip)
     const ok = await runStoryExtend({
       branchId: anchorBranchId,
       fromSceneId: anchorSceneId,
       text: parsed?.instruction || opts.text,
       clip: opts.clip,
+      parsedDirective: parsed ?? null,
     });
     submittingRef.current = false;
     setSubmitting(false);
@@ -597,6 +603,14 @@ export default function App(): React.ReactElement {
       since: Date.now(),
     });
 
+    const activeBranchObj = branches.find((b) => b.branch_id === branchId);
+    const prevAnchorScene =
+      scene.parent_scene_id != null
+        ? activeBranchObj?.scenes.find((s) => s.scene_id === scene.parent_scene_id)
+        : undefined;
+    const prevTailCamA = prevAnchorScene?.media.cam_a_tail_frame_url ?? null;
+    const prevTailCamB = prevAnchorScene?.media.cam_b_tail_frame_url ?? null;
+
     const invokeOnce = () =>
       requestSceneRender({
         branchId,
@@ -607,6 +621,8 @@ export default function App(): React.ReactElement {
         camAEndPng: preview?.camAEndPng ?? null,
         camBStartPng: preview?.camBStartPng ?? null,
         camBEndPng: preview?.camBEndPng ?? null,
+        prevTailFrameUrl: prevTailCamA,
+        prevTailCamBUrl: prevTailCamB,
         fastLiveMode,
       });
 

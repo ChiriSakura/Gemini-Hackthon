@@ -213,20 +213,36 @@ def _detect_throw_peak_frame_idx(frames: list[np.ndarray], est_fps: float = 30.0
     return max(window, key=lambda i: sharpness[i] / (1.0 + 0.05 * motion[i]))
 
 
-def _extract_image_from_bytes(
+def _compute_motion_fg_mask(peak_frame: np.ndarray, ref_frame: np.ndarray) -> Optional[np.ndarray]:
+    """Compute a center-ROI boolean foreground mask of the moving thrown/held object vs a calmer baseline frame."""
+    if peak_frame.shape != ref_frame.shape or peak_frame.size == 0:
+        return None
+    h, w = peak_frame.shape[:2]
+    y0, y1 = max(0, h // 5), min(h, max(h // 5 + 1, (4 * h) // 5))
+    x0, x1 = max(0, w // 5), min(w, max(w // 5 + 1, (4 * w) // 5))
+    g_peak = cv2.GaussianBlur(cv2.cvtColor(peak_frame[y0:y1, x0:x1], cv2.COLOR_BGR2GRAY), (5, 5), 0)
+    g_ref = cv2.GaussianBlur(cv2.cvtColor(ref_frame[y0:y1, x0:x1], cv2.COLOR_BGR2GRAY), (5, 5), 0)
+    diff = cv2.absdiff(g_peak, g_ref)
+    fg_mask = diff >= 22
+    if int(np.count_nonzero(fg_mask)) >= 60:
+        return fg_mask
+    return None
+
+
+def _extract_still_and_fg_mask(
     raw_bytes: bytes,
     timestamp_sec: Optional[float] = None,
     detect_throw_peak: bool = True,
-) -> Optional[tuple[bytes, str]]:
+) -> tuple[Optional[tuple[bytes, str]], Optional[np.ndarray]]:
     """
-    Normalize incoming camera bytes (image or up to 30s `.webm`/`.mp4` video clip) to `(jpeg_bytes, mime_type)`.
+    Normalize incoming camera bytes (image or up to 30s `.webm`/`.mp4` video clip) to
+    `((jpeg_bytes, mime_type), optional_motion_fg_mask)`.
 
-    When `/api/director/fork` or `/api/media/create-prop` forwards a `.webm` clip up to 30s (`1200` frames):
-    - If `timestamp_sec` is provided, seeks to `CAP_PROP_POS_MSEC` and picks the sharpest frame within `±0.20s`.
-    - Otherwise, when `detect_throw_peak=True`, locates the center-ROI motion impulse / settled object frame.
+    When extracting from a throw-in video clip, also compares `decoded_frames[peak_idx]` against a calmer
+    reference frame so downstream HSV extraction isolates the moving object from static room walls/desks.
     """
     if not raw_bytes:
-        return None
+        return None, None
 
     # First try decoding directly as a standard image (PNG / JPEG / WebP).
     try:
@@ -234,12 +250,13 @@ def _extract_image_from_bytes(
             rgb = im.convert("RGB")
             buf = io.BytesIO()
             rgb.save(buf, format="JPEG", quality=92)
-            return buf.getvalue(), "image/jpeg"
+            return (buf.getvalue(), "image/jpeg"), None
     except Exception:
         pass
 
     # Fallback: treat bytes as a short video clip (up to 30s `.webm`) and grab target/throw-peak/midpoint frame.
     tmp_path: Optional[Path] = None
+    fg_mask: Optional[np.ndarray] = None
     try:
         tmp_path = _create_ascii_temp_file(".webm")
         tmp_path.write_bytes(raw_bytes)
@@ -297,6 +314,9 @@ def _extract_image_from_bytes(
                 elif detect_throw_peak:
                     peak_idx = _detect_throw_peak_frame_idx(decoded_frames, est_fps=est_fps)
                     frame = decoded_frames[peak_idx]
+                    if len(decoded_frames) >= 4:
+                        ref_idx = 0 if peak_idx >= 4 else len(decoded_frames) - 1
+                        fg_mask = _compute_motion_fg_mask(frame, decoded_frames[ref_idx])
                 else:
                     center_idx = len(decoded_frames) // 2
                     radius = max(1, int(round(0.15 * est_fps)))
@@ -309,13 +329,33 @@ def _extract_image_from_bytes(
         if frame is not None:
             ok_enc, encoded = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 92])
             if ok_enc:
-                return encoded.tobytes(), "image/jpeg"
+                return (encoded.tobytes(), "image/jpeg"), fg_mask
     except Exception:
         pass
     finally:
         if tmp_path is not None:
             tmp_path.unlink(missing_ok=True)
-    return None
+    return None, None
+
+
+def _extract_image_from_bytes(
+    raw_bytes: bytes,
+    timestamp_sec: Optional[float] = None,
+    detect_throw_peak: bool = True,
+) -> Optional[tuple[bytes, str]]:
+    """
+    Normalize incoming camera bytes (image or up to 30s `.webm`/`.mp4` video clip) to `(jpeg_bytes, mime_type)`.
+
+    When `/api/director/fork` or `/api/media/create-prop` forwards a `.webm` clip up to 30s (`1200` frames):
+    - If `timestamp_sec` is provided, seeks to `CAP_PROP_POS_MSEC` and picks the sharpest frame within `±0.20s`.
+    - Otherwise, when `detect_throw_peak=True`, locates the center-ROI motion impulse / settled object frame.
+    """
+    still, _fg_mask = _extract_still_and_fg_mask(
+        raw_bytes,
+        timestamp_sec=timestamp_sec,
+        detect_throw_peak=detect_throw_peak,
+    )
+    return still
 
 
 def _chroma_key_green_to_rgba(raw_image_bytes: bytes, max_size: int = 512) -> Image.Image:
@@ -513,25 +553,49 @@ def _extract_dominant_color_info(
     name: str,
     description: str,
     still: Optional[tuple[bytes, str]],
+    fg_mask: Optional[np.ndarray] = None,
 ) -> tuple[str, tuple[int, int, int], str]:
     """
     Zero-LLM <5ms dominant color extractor returning `(color_label, target_rgb, color_bucket)`.
 
-    When `still` is present, reads the central 50% ROI via OpenCV HSV; otherwise resolves text color hints.
+    When `fg_mask` (from video motion diff) is present, restricts sampling strictly to moving foreground pixels;
+    otherwise filters muted room walls via center-core chromatic salience before falling back to whole-ROI median.
     """
     if still:
         arr = np.frombuffer(still[0], dtype=np.uint8)
         bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
         if bgr is not None and bgr.size > 0:
             h, w = bgr.shape[:2]
-            roi = bgr[max(0, h // 4) : min(h, max(1, (3 * h) // 4)), max(0, w // 4) : min(w, max(1, (3 * w) // 4))]
-            hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
-            med_h = float(np.median(hsv[:, :, 0]))
-            med_s = float(np.median(hsv[:, :, 1]))
-            med_v = float(np.median(hsv[:, :, 2]))
-            med_b = int(round(float(np.median(roi[:, :, 0]))))
-            med_g = int(round(float(np.median(roi[:, :, 1]))))
-            med_r = int(round(float(np.median(roi[:, :, 2]))))
+            if fg_mask is not None:
+                y0, y1 = max(0, h // 5), min(h, max(h // 5 + 1, (4 * h) // 5))
+                x0, x1 = max(0, w // 5), min(w, max(w // 5 + 1, (4 * w) // 5))
+                roi = bgr[y0:y1, x0:x1]
+                hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+                if fg_mask.shape == hsv.shape[:2] and int(np.count_nonzero(fg_mask)) >= 40:
+                    sample_bgr = roi[fg_mask]
+                    sample_hsv = hsv[fg_mask]
+                else:
+                    sample_bgr = roi.reshape(-1, 3)
+                    sample_hsv = hsv.reshape(-1, 3)
+            else:
+                roi = bgr[max(0, h // 5) : min(h, max(1, (4 * h) // 5)), max(0, w // 5) : min(w, max(1, (4 * w) // 5))]
+                hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+                flat_bgr = roi.reshape(-1, 3)
+                flat_hsv = hsv.reshape(-1, 3)
+                vivid = (flat_hsv[:, 1] >= 70) & (flat_hsv[:, 2] >= 65)
+                if int(np.count_nonzero(vivid)) >= max(40, int(0.18 * len(flat_hsv))):
+                    sample_bgr = flat_bgr[vivid]
+                    sample_hsv = flat_hsv[vivid]
+                else:
+                    sample_bgr = flat_bgr
+                    sample_hsv = flat_hsv
+
+            med_h = float(np.median(sample_hsv[:, 0]))
+            med_s = float(np.median(sample_hsv[:, 1]))
+            med_v = float(np.median(sample_hsv[:, 2]))
+            med_b = int(round(float(np.median(sample_bgr[:, 0]))))
+            med_g = int(round(float(np.median(sample_bgr[:, 1]))))
+            med_r = int(round(float(np.median(sample_bgr[:, 2]))))
 
             if med_v < 65:
                 return "matte black", (46, 48, 54), "black"
@@ -714,21 +778,22 @@ async def create_prop(
     resolved_model = _resolve_image_model()
     prop_state = "intact"
 
-    camera_still = (
+    camera_still, motion_fg_mask = (
         await asyncio.to_thread(
-            _extract_image_from_bytes,
+            _extract_still_and_fg_mask,
             camera_frame_bytes,
             timestamp_sec=resolved_ts,
             detect_throw_peak=detect_throw_peak,
         )
         if camera_frame_bytes
-        else None
+        else (None, None)
     )
     color_label, target_rgb, color_bucket = await asyncio.to_thread(
         _extract_dominant_color_info,
         name,
         description,
         camera_still,
+        motion_fg_mask,
     )
     if camera_still is not None:
         base_desc = description.strip() or name.strip() or "object"

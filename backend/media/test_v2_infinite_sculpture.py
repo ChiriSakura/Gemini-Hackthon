@@ -17,10 +17,12 @@ from PIL import Image
 
 from backend import config
 from backend.director.state_tree import get_branch
-from backend.main import app
+from backend.main import _upsert_prop_appearance_note, app
 from backend.media.prop_maker import (
+    _compute_motion_fg_mask,
     _detect_throw_peak_frame_idx,
     _downscale_jpeg_sync,
+    _extract_dominant_color_info,
     _extract_image_from_bytes,
     create_prop,
     estimate_prop_height_m,
@@ -326,10 +328,87 @@ def test_v3_captured_appearance_preservation() -> None:
     assert "bright yellow aluminum beverage can" in prompt_v3
 
 
+def test_round1_product_polish_regressions() -> None:
+    """Round 1: Foreground-masked color resistance, parsed_directive_json /extend, environment_notes anti-bloat, & tail forwarding."""
+    # 1. Grey background wall (68% center) + bright red soda can (32% center): both motion-mask and salience still pick red!
+    bg = np.full((240, 320, 3), (145, 145, 148), dtype=np.uint8)
+    fg = bg.copy()
+    cv2.rectangle(fg, (128, 72), (192, 168), (38, 38, 222), -1)  # BGR crimson red rectangle
+    fg_mask = _compute_motion_fg_mask(fg, bg)
+    assert fg_mask is not None
+    ok_jpg, buf_fg = cv2.imencode(".jpg", fg)
+    assert ok_jpg
+    still = (buf_fg.tobytes(), "image/jpeg")
+    label_vid, _, bucket_vid = _extract_dominant_color_info("Soda Can", "soda can", still, fg_mask=fg_mask)
+    label_img, _, bucket_img = _extract_dominant_color_info("Soda Can", "soda can", still, fg_mask=None)
+    assert bucket_vid == "red" and "red" in label_vid, f"Video fg mask failed: {label_vid}/{bucket_vid}"
+    assert bucket_img == "red" and "red" in label_img, f"Still salience filter failed: {label_img}/{bucket_img}"
+
+    # 2. environment_notes anti-bloat deduplication + stale prop pruning
+    notes = "rain_windows | old_removed_prop: silver mug | soda_can_1: silver can"
+    cleaned = _upsert_prop_appearance_note(notes, "soda_can_1", "bright yellow soda can", {"soda_can_1", "crystal_vase"})
+    assert "old_removed_prop" not in cleaned
+    assert cleaned.count("soda_can_1:") == 1
+    assert "soda_can_1: bright yellow soda can" in cleaned
+    assert "rain_windows" in cleaned
+
+    # 3. /api/director/extend honors parsed_directive_json + /api/media/render-scene accepts prev_tail_cam_b_url cleanly
+    client = TestClient(app)
+    b1_path = config.BRANCHES_DIR / "branch_v1.json"
+    orig_raw = b1_path.read_bytes()
+    prev_demo = config.DEMO_MODE
+    config.DEMO_MODE = True
+    created_branch_id: str | None = None
+    try:
+        parsed_payload = json.dumps(
+            {
+                "instruction": "Lia places a bright crimson soda can gracefully on the conservatory table.",
+                "target_scene_id": 5,
+                "mode": "extend",
+                "vocal_emotion": "joyful",
+                "gesture_intent": "none",
+                "direction_hint": "none",
+                "has_physical_prop": False,
+                "needs_prop_prompt": False,
+            }
+        )
+        r_ext = client.post(
+            "/api/director/extend",
+            data={
+                "branch_id": "branch_v1",
+                "from_scene_id": "4",
+                "parsed_directive_json": parsed_payload,
+            },
+        )
+        assert r_ext.status_code == 200, r_ext.text
+        ext_body = r_ext.json()
+        created_branch_id = ext_body["branch_id"]
+        assert "crimson soda can" in ext_body["scenes"][-1]["narration"]
+
+        r_ren = client.post(
+            "/api/media/render-scene",
+            data={
+                "branch_id": created_branch_id,
+                "scene_id": "5",
+                "prev_tail_frame_url": "/assets/tails/scene_1_cam_a_tail.png",
+                "prev_tail_cam_b_url": "/assets/tails/scene_1_cam_b_tail.png",
+                "fast_live_mode": "true",
+            },
+        )
+        assert r_ren.status_code == 200, r_ren.text
+        assert r_ren.json()["scene_id"] == 5
+    finally:
+        config.DEMO_MODE = prev_demo
+        if created_branch_id and created_branch_id != "branch_v1":
+            (config.BRANCHES_DIR / f"{created_branch_id}.json").unlink(missing_ok=True)
+        b1_path.write_bytes(orig_raw)
+
+
 if __name__ == "__main__":
     test_30s_throw_peak_window_and_degraded_flag()
     test_catch_from_camera_conditional_prompting()
     test_fast_live_mode_sculpture_prompt_and_border_trim()
     test_unbounded_extend_scene_5_plus()
     test_v3_captured_appearance_preservation()
-    print("ALL W1-V2/V3 INFINITE SCULPTURE, 30S THROW-PEAK & APPEARANCE TESTS PASSED!")
+    test_round1_product_polish_regressions()
+    print("ALL W1-V2/V3 & ROUND-1 PRODUCT POLISH TESTS PASSED!")

@@ -186,22 +186,54 @@ async def _invoke_create_prop(
     return await create_prop(**kwargs)
 
 
+def _upsert_prop_appearance_note(
+    notes: str,
+    prop_id: str,
+    appearance_summary: str,
+    active_prop_ids: set[str],
+) -> str:
+    """Deduplicate prop appearance notes and prune removed props so multi-turn `environment_notes` never bloats."""
+    kept: list[str] = []
+    prop_tag_re = re.compile(r"^([a-z0-9_]+):\s*(.+)$", re.IGNORECASE)
+    for raw_part in re.split(r"\s*\|\s*", (notes or "").strip()):
+        part = raw_part.strip()
+        if not part:
+            continue
+        m = prop_tag_re.match(part)
+        if m:
+            pid = m.group(1).strip()
+            if pid == prop_id or pid not in active_prop_ids:
+                continue
+        kept.append(part)
+    clean_app = appearance_summary.strip()
+    if clean_app:
+        kept.append(f"{prop_id}: {clean_app}")
+    joined = " | ".join(kept)
+    return joined[:480] if len(joined) > 480 else joined
+
+
 async def _invoke_render_scene_media(
     scene: Scene,
     refs: list[str],
     *,
     cam_a_preview_path: Optional[str],
     cam_b_preview_path: Optional[str],
+    prev_tail_a: Optional[str] = None,
+    prev_tail_b: Optional[str] = None,
     fast_live_mode: bool = False,
     prop_descriptions: Optional[dict[str, str]] = None,
 ):
-    """Call `render_scene_media` while safely forwarding optional `fast_live_mode` and `prop_descriptions` across P2 updates."""
+    """Call `render_scene_media` while safely forwarding `prev_tail_a/b`, `fast_live_mode`, and `prop_descriptions`."""
     sig = inspect.signature(render_scene_media)
     kwargs: dict = {
         "cam_a_preview_path": cam_a_preview_path,
         "cam_b_preview_path": cam_b_preview_path,
         "tail_inspector": inspect_tail_frame,
     }
+    if prev_tail_a and "prev_tail_a" in sig.parameters:
+        kwargs["prev_tail_a"] = prev_tail_a
+    if prev_tail_b and "prev_tail_b" in sig.parameters:
+        kwargs["prev_tail_b"] = prev_tail_b
     if "fast_live_mode" in sig.parameters:
         kwargs["fast_live_mode"] = fast_live_mode
     if "prop_descriptions" in sig.parameters and prop_descriptions:
@@ -342,6 +374,7 @@ async def api_director_extend(
     text: Optional[str] = Form(None),
     end_freeze_mode: str = Form("sculpture"),
     detect_throw_peak: bool = Form(True),
+    parsed_directive_json: Optional[str] = Form(None),
     clip: Optional[UploadFile] = File(None),
 ) -> BranchState:
     """
@@ -350,6 +383,7 @@ async def api_director_extend(
       single scene `Scene N+1` onto `branch_id` (protecting `branch_v1` baseline by auto-forking).
     - If `from_scene_id < len(branch.scenes)` (user rewound to an earlier historical sculpture),
       forks a brand-new branch `branch_v<N>` preserving `1..from_scene_id` verbatim and appending `Scene from_scene_id + 1`.
+    - Accepts optional `parsed_directive_json` from `/api/director/perceive` to avoid duplicate Hydrogen calls.
     """
     parent = get_branch(branch_id)
     if not parent or not parent.scenes:
@@ -363,12 +397,19 @@ async def api_director_extend(
 
     next_scene_id = prefix_scenes[-1].scene_id + 1
     clip_bytes = await clip.read() if clip else None
-    parsed = await parse_director_input(
-        clip_bytes=clip_bytes,
-        clip_mime_type=(clip.content_type if clip else "video/webm") or "video/webm",
-        text_fallback=text,
-        target_scene_id=next_scene_id,
-    )
+    parsed: Optional[DirectorInputParsed] = None
+    if parsed_directive_json and parsed_directive_json.strip():
+        try:
+            parsed = DirectorInputParsed.model_validate_json(parsed_directive_json)
+        except Exception:
+            parsed = None
+    if parsed is None:
+        parsed = await parse_director_input(
+            clip_bytes=clip_bytes,
+            clip_mime_type=(clip.content_type if clip else "video/webm") or "video/webm",
+            text_fallback=text,
+            target_scene_id=next_scene_id,
+        )
     parsed.target_scene_id = next_scene_id
     parsed.mode = "extend" if anchor_id == ordered_scenes[-1].scene_id else "fork"
 
@@ -398,11 +439,6 @@ async def api_director_extend(
         end_freeze_mode=end_freeze_mode,
     )
     if thrown_prop_id:
-        prop_app = (getattr(updated_registry[thrown_prop_id], "appearance_summary", "") or "").strip()
-        if prop_app:
-            cue = f"{thrown_prop_id}: {prop_app}"
-            if cue not in (next_scene.environment_notes or ""):
-                next_scene.environment_notes = f"{next_scene.environment_notes} {cue}".strip() if next_scene.environment_notes else cue
         if not any(p.id == thrown_prop_id for p in next_scene.stage_props):
             next_scene.stage_props.append(
                 StagePropState(
@@ -414,6 +450,14 @@ async def api_director_extend(
                     entry_origin=[1.0, 2.2, 0.8] if explicit_handoff else None,
                 )
             )
+        prop_app = (getattr(updated_registry[thrown_prop_id], "appearance_summary", "") or "").strip()
+        active_ids = {p.id for p in next_scene.stage_props} | {a.holding_prop for a in next_scene.actors if a.holding_prop}
+        next_scene.environment_notes = _upsert_prop_appearance_note(
+            next_scene.environment_notes,
+            thrown_prop_id,
+            prop_app,
+            active_ids,
+        )
 
     is_rewound = anchor_id < ordered_scenes[-1].scene_id
     # Never mutate immutable cached baseline branches in-place; fork cleanly instead
@@ -506,10 +550,13 @@ async def api_media_create_prop(
                                         entry_motion=norm_motion,  # type: ignore[assignment]
                                     )
                                 )
-                        if appearance_summary:
-                            cue = f"{prop_id}: {appearance_summary}"
-                            if cue not in (s.environment_notes or ""):
-                                s.environment_notes = f"{s.environment_notes} {cue}".strip() if s.environment_notes else cue
+                        active_ids = {p.id for p in s.stage_props} | {a.holding_prop for a in s.actors if a.holding_prop}
+                        s.environment_notes = _upsert_prop_appearance_note(
+                            s.environment_notes,
+                            prop_id,
+                            appearance_summary,
+                            active_ids,
+                        )
                         s.needs_rerender = True
                 save_branch(branch)
     return {
@@ -561,6 +608,7 @@ async def api_media_render_scene(
     cam_b_start_png: Optional[str] = Form(None),
     cam_b_end_png: Optional[str] = Form(None),
     prev_tail_frame_url: Optional[str] = Form(None),
+    prev_tail_cam_b_url: Optional[str] = Form(None),
     fast_live_mode: bool = Form(False),
 ) -> dict:
     """Render either a specific scene (from `scene_id` or `scene_json` + 2.5D previews) or all `needs_rerender` scenes."""
@@ -605,6 +653,8 @@ async def api_media_render_scene(
                     refs,
                     cam_a_preview_path=target.media.cam_a_preview_url,
                     cam_b_preview_path=target.media.cam_b_preview_url,
+                    prev_tail_a=prev_tail_frame_url,
+                    prev_tail_b=prev_tail_cam_b_url,
                     fast_live_mode=fast_live_mode,
                     prop_descriptions=prop_descriptions,
                 ),

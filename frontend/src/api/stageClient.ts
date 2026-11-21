@@ -105,6 +105,7 @@ export interface ExtendStoryPayload {
   fromSceneId?: number;
   clip?: Blob | null;
   text?: string;
+  parsedDirective?: DirectorInputParsed | null;
   endFreezeMode?: 'sculpture' | 'none';
   detectThrowPeak?: boolean;
 }
@@ -119,6 +120,7 @@ export interface RenderScenePayload {
   camBStartPng?: string | null;
   camBEndPng?: string | null;
   prevTailFrameUrl?: string | null;
+  prevTailCamBUrl?: string | null;
   fastLiveMode?: boolean;
 }
 
@@ -239,6 +241,9 @@ export async function extendDirectorStory(
     formData.append('clip', payload.clip, 'director_input.webm');
   } else if (payload.text && payload.text.trim()) {
     formData.append('text', payload.text.trim());
+  }
+  if (payload.parsedDirective) {
+    formData.append('parsed_directive_json', JSON.stringify(payload.parsedDirective));
   }
   formData.append('end_freeze_mode', payload.endFreezeMode ?? 'sculpture');
   formData.append('detect_throw_peak', String(payload.detectThrowPeak ?? true));
@@ -385,6 +390,9 @@ export async function requestSceneRender(
   if (payload.camBEndPng) formData.append('cam_b_end_png', payload.camBEndPng);
   if (payload.prevTailFrameUrl) {
     formData.append('prev_tail_frame_url', payload.prevTailFrameUrl);
+  }
+  if (payload.prevTailCamBUrl) {
+    formData.append('prev_tail_cam_b_url', payload.prevTailCamBUrl);
   }
   if (payload.fastLiveMode) {
     formData.append('fast_live_mode', 'true');
