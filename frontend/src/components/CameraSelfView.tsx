@@ -20,6 +20,8 @@ const MAX_THROW_MS = 30000;
 export interface ThrowObjectSubmission {
   name: string;
   mediaBlob: Blob | null;
+  /** Quick PNG frame captured at submit time for <100ms optimistic 2.5D preview (W2-V3-04). */
+  previewThumbBlob?: Blob | null;
   placement: PropPlacement;
   entryMotion: 'throw_arc' | 'place' | 'held';
   detectThrowPeak: boolean;
@@ -225,6 +227,7 @@ export const CameraSelfView: React.FC<CameraSelfViewProps> = ({
         onSubmitThrow({
           name: propNameRef.current.trim() || 'Stage Object',
           mediaBlob: still,
+          previewThumbBlob: still,
           placement: chosenPlacement,
           entryMotion: resolvedMotion,
           detectThrowPeak: true,
@@ -285,26 +288,28 @@ export const CameraSelfView: React.FC<CameraSelfViewProps> = ({
             chunksRef.current = [];
             const chosenPlacement = placementRef.current;
             const resolvedMotion = chosenPlacement === 'held' ? 'throw_arc' : 'place';
-            if (chunks.length > 0) {
-              const clipBlob = new Blob(chunks, { type: rec.mimeType || mime || 'video/webm' });
-              onSubmitThrow({
-                name: propNameRef.current.trim() || 'Stage Object',
-                mediaBlob: clipBlob,
-                placement: chosenPlacement,
-                entryMotion: resolvedMotion,
-                detectThrowPeak: true,
-              });
-            } else {
-              void captureStillPng(videoRef.current).then((still) => {
+            void captureStillPng(videoRef.current).then((still) => {
+              if (chunks.length > 0) {
+                const clipBlob = new Blob(chunks, { type: rec.mimeType || mime || 'video/webm' });
                 onSubmitThrow({
                   name: propNameRef.current.trim() || 'Stage Object',
-                  mediaBlob: still,
+                  mediaBlob: clipBlob,
+                  previewThumbBlob: still,
                   placement: chosenPlacement,
                   entryMotion: resolvedMotion,
                   detectThrowPeak: true,
                 });
-              });
-            }
+              } else {
+                onSubmitThrow({
+                  name: propNameRef.current.trim() || 'Stage Object',
+                  mediaBlob: still,
+                  previewThumbBlob: still,
+                  placement: chosenPlacement,
+                  entryMotion: resolvedMotion,
+                  detectThrowPeak: true,
+                });
+              }
+            });
           };
           rec.start(250);
           setRecordingThrow(true);
