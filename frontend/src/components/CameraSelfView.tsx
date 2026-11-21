@@ -105,18 +105,22 @@ export const CameraSelfView: React.FC<CameraSelfViewProps> = ({
     placementRef.current = placement;
   }, [placement]);
 
-  // Pre-fill suggested item name & default placement whenever camera capture opens
+  // W2-V3-01: Default to `table` (`entry_motion='place'`). ONLY auto-select `held` (`throw_arc`)
+  // when the story explicitly asks to hand/give/toss/throw/catch an object to Lia.
   useEffect(() => {
     if (throwOpen) {
       setCollapsed(false);
-      setPlacement(promptedByStory ? 'held' : 'table');
+      const shouldAutoToss = Boolean(
+        promptedByStory && /hand|give|toss|throw|catch/i.test(throwHint ?? ''),
+      );
+      setPlacement(shouldAutoToss ? 'held' : 'table');
       if (suggestedPropName && suggestedPropName.trim()) {
         setPropName(suggestedPropName.trim());
       } else {
         setPropName('');
       }
     }
-  }, [throwOpen, suggestedPropName, promptedByStory]);
+  }, [throwOpen, suggestedPropName, promptedByStory, throwHint]);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -431,12 +435,12 @@ export const CameraSelfView: React.FC<CameraSelfViewProps> = ({
           </div>
 
           <div className="selfview-row spread">
-            <div className="selfview-chips" role="group" aria-label="Object landing spot">
+            <div className="selfview-chips" role="group" aria-label="Object placement and motion">
               {(
                 [
-                  { id: 'table', label: 'Table' },
-                  { id: 'floor', label: 'Floor' },
-                  { id: 'held', label: 'Toss to Lia' },
+                  { id: 'table', label: 'Rest on Table' },
+                  { id: 'floor', label: 'Rest on Floor' },
+                  { id: 'held', label: 'Hand / Toss to Lia' },
                 ] as Array<{ id: PropPlacement; label: string }>
               ).map((opt) => (
                 <button

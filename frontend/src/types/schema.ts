@@ -123,6 +123,7 @@ export interface PropRegistryItem {
   state: string;
   origin: 'preset' | 'text_generated' | 'camera_physical';
   height_m?: number | null;
+  appearance_summary?: string;
 }
 
 export interface BranchState {
