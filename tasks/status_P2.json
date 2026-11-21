@@ -1,11 +1,12 @@
 {
   "agent": "P2_media",
   "branch": "feat/w1-media",
-  "current_milestone": "T1",
-  "status": "t1_completed_ready_for_t2",
+  "current_milestone": "T2",
+  "status": "t2_precached_and_smoke_tested",
   "omni_flash_latency_sec": 18.64,
   "omni_flash_total_with_io_sec": 22.65,
   "omni_flash_dual_take_parallel_sec": 25.47,
+  "branch_v1_full_cache_sec": 105.63,
   "keep_4_scenes": true,
   "decisions_api_available": false,
   "verified_model_ids": {
@@ -15,11 +16,14 @@
   "completed_items": [
     "T0: Verified live model list (gemini-omni-flash-preview, gemini-nano-banana-2.1; gemini-decision-1 unavailable)",
     "T0: Benchmarked Omni Flash 360p 4s using shared/assets/lia.png + nyx.png (gen=18.64s, total=22.65s < 40s threshold -> keep 4 scenes)",
-    "T1: Implemented backend/media/prop_maker.py (create_prop via gemini-nano-banana-2.1 + OpenCV chroma-green keying + .webm frame extraction, live tested)",
-    "T1: Implemented backend/media/video_renderer.py (concurrent Dual-Take Best-of-2 via asyncio.gather, File URI caching, OpenCV tail-frame extraction, judge() scoring & repair retries, live tested)"
+    "T1: Implemented backend/media/prop_maker.py (create_prop via gemini-nano-banana-2.1 + OpenCV chroma-green keying + .webm frame extraction)",
+    "T1: Implemented backend/media/video_renderer.py (concurrent Dual-Take Best-of-2, File URI caching, PNG keyframe fallback support, prompt constraints for single prop & no black fade-in, OpenCV tail-frame extraction, judge() scoring & repair retries)",
+    "T2-Prep: Populated backend/assets/actors/{lia,nyx}.png and backend/assets/props/crystal_vase.png so /assets/* URLs serve 200 OK",
+    "T2-Prep: Pre-cached full 4-scene dual-camera branch_v1 (8 MP4 clips + 8 tail PNGs) via backend/media/cache_branch_v1.py into backend/assets/branches/branch_v1.json in 105.63s",
+    "T2-Prep: Added and passed backend/media/test_media_smoke.py covering /api/health, /api/branches, /assets/*, /api/media/create-prop, and /api/media/render-scene"
   ],
   "blockers": [
     "Note for P1: backend/config.py default strings ('omni-flash', 'gemini-3.1-flash-image-preview') are not in models.list(). P2 maps them safely to 'gemini-omni-flash-preview' and 'gemini-nano-banana-2.1', and recommends updating config.py defaults on main."
   ],
-  "last_updated": "2026-11-21T12:34:00-05:00"
+  "last_updated": "2026-11-21T12:46:00-05:00"
 }
