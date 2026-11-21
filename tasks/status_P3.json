@@ -1,15 +1,15 @@
 {
   "agent": "P3_frontend",
   "branch": "feat/w2-frontend",
-  "current_milestone": "V2_LIVING_SCULPTURE_SELFVIEW_THROW_COMPLETE",
-  "status": "v2_complete_6_of_6_gates_green_ready_for_master_merge",
+  "current_milestone": "V3_PROP_FIDELITY_AND_STRICT_PLACE_VS_TOSS_COMPLETE",
+  "status": "v3_complete_6_of_6_gates_green_ready_for_master_merge",
   "feature_freeze_verified": false,
   "capture_stream_mode": "webm_with_png_fallback",
   "auto_poll_enabled": true,
   "bundle_metrics": {
-    "build_time_ms": 640,
-    "app_js_kb": 139.76,
-    "app_js_gzip_kb": 41.65,
+    "build_time_ms": 668,
+    "app_js_kb": 140.40,
+    "app_js_gzip_kb": 41.90,
     "app_css_kb": 39.52,
     "react_vendor_kb": 140.87,
     "three_vendor_kb": 486.78,
@@ -21,13 +21,11 @@
     "smoke_preview_http_200_endpoints": 13
   },
   "completed_items": [
-    "W2-V2-01: Stripped overdesign & BE/HE ribbons from main canvas; kept Anime Stage Hero (object-fit: contain, R-25), collapsible ultra-compact bottom timeline rail (`S1 -> S2 -> ...`), and sleek Voice+Text prompt bar; tucked Saved Examples / Eval / Compare / Clapperboard QA inside single overflow menu",
-    "W2-V2-02: Built persistent bottom-right live mirrored CameraSelfView PiP (`frontend/src/components/CameraSelfView.tsx`) defaulting captured objects to table/floor placement (`entry_motion='place'`), and triggering 30s throw countdown + `entry_motion='throw_arc'` ONLY when story explicitly asks (`needs_prop_prompt`) or user selects `Toss to Lia`",
-    "W2-V2-03: Implemented conditional `catch_from_camera` protagonist forward grab + golden catch ripple (ONLY on explicit toss/hand-off), default resting table/floor placement (`entry_motion='place'`), `spawnThrownPropAnimation()` 3D parabolic throw-in arc from z=+2.6, and `setSculptureFrozen()` moonlit silver/alabaster sculpture freeze/unfreeze in `ThreeStageManager.ts`",
-    "W2-V2-04: Wired `POST /api/director/perceive` (~2s Heard/Saw + auto Throw-In trigger), `POST /api/director/extend` (unbounded Scene 1..∞), and `fast_live_mode=true` rendering with explicit `content_blocked, retrying` + `Open a saved run` notices in `stageClient.ts` & `App.tsx`",
-    "W2-V2-05: Mirrored P2 standalone `red_umbrella_closed.png`, `red_umbrella_open.png`, and `wooden_chair.png` into `frontend/public/assets/props/`, added foot-bottom anchoring (`center=(0.5, 0)`) + `height_m` scaling (R-12/R-24), always-visible `MOCK MODE` badge even in Clean View, Alt-guarded global shortcuts (R-33), non-destructive `Reset stage` (R-26), and `/api/eval/summary` hydration in `EvalModal.tsx` (R-05)",
-    "W2-V2-06: Synced `frontend/src/types/schema.ts` (`catch_from_camera`, `scene_id >= 1`, `end_freeze_mode`, `entry_motion`, `height_m`), expanded `test_stage_helpers.mjs`, and passed full `npm run verify` (6/6 gates green, 0 CJK leaks, 13/13 HTTP 200 smoke endpoints)"
+    "W2-V2-01..06: Completed Living Sculpture V2 layout, persistent bottom-right Self-View Camera, conditional catch_from_camera + 3D throw-arc + sculpture freeze, perceive/extend/fast_live_mode wiring, standalone umbrella/chair PNGs, foot-bottom anchoring, Alt-guarded hotkeys, and EvalModal /api/eval/summary hydration",
+    "W2-V3-01: Locked default `placement='table'` (`entry_motion='place'`) in CameraSelfView.tsx with explicit `Rest on Table` / `Rest on Floor` / `Hand / Toss to Lia` chips (auto-selecting `held`/`throw_arc` ONLY when `promptedByStory && /hand|give|toss|throw|catch/i.test(throwHint)`), and gated `catch_from_camera` in App.tsx strictly on `payload.entryMotion === 'throw_arc'`",
+    "W2-V3-02: Added `PropRegistryItem.appearance_summary` in schema.ts, preserved & CJK-stripped `appearance_summary` in stageClient.ts `createStageProp()`, displayed `Captured prop matched: <appearance_summary>` in App.tsx, and appended `<prop_id>: <appearance_summary>` to `scene.environment_notes` across scenes >= currentSceneId",
+    "W2-V3-03: Extended test_stage_helpers.mjs with place-vs-throw and mixed-CJK appearance_summary assertions; full `npm run verify` passed 6/6 gates (668ms build, 0 CJK leaks, 13/13 HTTP 200 smoke endpoints)"
   ],
   "blockers": [],
-  "last_updated": "2026-11-21T15:20:40-05:00"
+  "last_updated": "2026-11-21T15:22:35-05:00"
 }

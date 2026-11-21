@@ -74,6 +74,7 @@ export interface CreatePropResponse {
   item: PropRegistryItem;
   placement?: 'table' | 'held' | 'floor';
   entry_motion?: PropEntryMotion;
+  appearance_summary?: string;
   simulated?: boolean;
 }
 
@@ -461,15 +462,30 @@ export async function createStageProp(
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const rawItem = data.item as PropRegistryItem;
+    const rawAppearance =
+      typeof data.appearance_summary === 'string' && data.appearance_summary.trim()
+        ? data.appearance_summary.trim()
+        : typeof rawItem?.appearance_summary === 'string'
+          ? rawItem.appearance_summary.trim()
+          : '';
+    const strippedAppearance = rawAppearance
+      .replace(/[\u4e00-\u9fff]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const appearanceSummary = strippedAppearance
+      ? sanitizeTextToEn(strippedAppearance, '')
+      : '';
     return {
       prop_id: data.prop_id,
       image_url: data.image_url,
       placement: data.placement ?? payload.placement ?? 'table',
       entry_motion: data.entry_motion ?? payload.entryMotion ?? 'place',
+      appearance_summary: appearanceSummary || undefined,
       item: {
         ...rawItem,
         name: getPropNameEn(data.prop_id, rawItem),
         state: sanitizeTextToEn(rawItem?.state, 'glowing'),
+        appearance_summary: appearanceSummary || undefined,
       },
       simulated: false,
     };

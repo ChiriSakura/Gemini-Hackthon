@@ -26,6 +26,12 @@
       "details": "Extend `backend/media/test_v2_infinite_sculpture.py` to test: (a) `estimate_prop_height_m('Black Smartphone', 'Matte black mobile phone') == 0.15`, (b) distinct `camera_frame_bytes` produce non-colliding `prop_id`s and populate `PropRegistryItem.appearance_summary`, and (c) `_build_shot_prompt(..., prop_descriptions={'yellow_drink_can': 'bright yellow aluminum beverage can'})` preserves `'bright yellow aluminum beverage can'` in the prompt."
     },
     {
+      "task_id": "W1-V3-04",
+      "priority": "P0",
+      "title": "Fast Category-Template + Dominant-Color Recolor (< 0.3s) for Seen Object Categories (`soda_can`, `smartphone`, `mug`, `snack_bag`, `laptop`)",
+      "details": "USER SPEEDUP REQUEST (15:23 EST): When user captures a familiar object category (e.g. another drink can in yellow/red/blue, black/silver phone, mug, snack bag, laptop), skip the slow 10–20s diffusion round-trip! Implement in `backend/media/prop_maker.py`: (1) Pre-generate clean neutral-white/light-gray 2D anime base templates (`backend/assets/props/templates/{soda_can,smartphone,coffee_mug,snack_bag,laptop}.png`, zero green halo via `audit_props`); (2) Extract center-ROI dominant HSV/RGB color + brightness (or text color cue) in OpenCV/NumPy (<15ms) and shade-preservingly tint the neutral anime template to the exact captured color (e.g. yellow can -> bright yellow matte/metallic can, black phone -> dark matte black phone) in <200ms! Also add `(category, color_bucket)` exact-match disk reuse (0ms). Fall back cleanly to full `gemini-3.1-flash-image` ONLY for brand-new unseen object categories! Add a latency & color fidelity assertion into `test_v2_infinite_sculpture.py`."
+    },
+    {
       "task_id": "W1-V2-B1",
       "priority": "P1",
       "title": "Measure Live A/B Consistency Score Under Fixed-Room Pipeline (`conservatory_cam_a/b.png`)",

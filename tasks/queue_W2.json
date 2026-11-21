@@ -3,27 +3,8 @@
   "branch": "feat/w2-frontend",
   "pull_main_first": true,
   "batch_deadline": "16:25",
-  "feature_freeze": false,
+  "feature_freeze": true,
   "owned_paths": ["frontend/**", "tasks/status_P3.json"],
-  "note": "Master merged ca50836 cleanly into origin/main (`b0e9934`, all 6/6 `npm run verify` gates green!) and added `PropRegistryItem.appearance_summary` + `/api/media/create-prop` `appearance_summary` support in `main.py` & `shared/schema.json`. Pull `origin/main` FIRST and execute these 3 high-priority V3 polish fixes right away so the user can live-test cleanly:",
-  "parallel_tasks": [
-    {
-      "task_id": "W2-V3-01",
-      "priority": "P0",
-      "title": "Fix Default `place` vs Explicit `catch_from_camera` Leak in `CameraSelfView.tsx` & `App.tsx`",
-      "details": "User feedback audit caught two leaks where `catch_from_camera` / `held` still fire by default: (1) In `frontend/src/components/CameraSelfView.tsx`, change default `placement` state from `'held'` to `'table'` (`useState<PropPlacement>('table')`) and add an explicit placement/motion selector (`Rest on Table / Floor` -> `entryMotion='place'` default vs `Hand / Toss to Lia` -> `entryMotion='throw_arc'`, ONLY auto-selecting `'throw_arc'` when `promptedByStory && /hand|give|toss|throw|catch/i.test(throwHint ?? '')`); (2) In `frontend/src/App.tsx` (`handleSubmitThrow`, lines ~900-919), ONLY set `action: 'catch_from_camera'` on Lia when `payload.entryMotion === 'throw_arc'`! NEVER overwrite Lia's `action` to `'catch_from_camera'` when `payload.entryMotion === 'place'` or `payload.placement === 'table' | 'floor'` without explicit throw-arc intent."
-    },
-    {
-      "task_id": "W2-V3-02",
-      "priority": "P0",
-      "title": "Propagate & Display Captured `appearance_summary` for Visual-Faithful Props (Yellow Can, Black Phone)",
-      "details": "Update `frontend/src/types/schema.ts`, `frontend/src/api/stageClient.ts`, and `frontend/src/App.tsx`: (1) Add optional `appearance_summary?: string;` to `PropRegistryItem` in `schema.ts` and preserve `data.appearance_summary` / `rawItem.appearance_summary` inside `createStageProp()`; (2) When `handleSubmitThrow` creates a prop from the corner camera, store `appearance_summary`, surface a crisp status line showing the matched traits (e.g. `Captured prop matched: <appearance_summary or name>`), and append `<prop_id>: <appearance_summary>` cleanly to `scene.environment_notes` on scenes `>= currentSceneId` so downstream 2.5D preview -> `/api/media/render-scene` keeps full color/material fidelity."
-    },
-    {
-      "task_id": "W2-V3-03",
-      "priority": "P0",
-      "title": "Extend `test_stage_helpers.mjs` + Re-run Full `npm run verify` (6/6 Gates)",
-      "details": "Add unit assertions in `frontend/scripts/test_stage_helpers.mjs` covering: (a) `entryMotion='place'` never forces `catch_from_camera`, while `entryMotion='throw_arc'` does, and (b) `PropRegistryItem.appearance_summary` sanitization with 0 CJK leaks. Run `npm run verify` cleanly and update `tasks/status_P3.json` before pushing `feat/w2-frontend`."
-    }
-  ]
+  "note": "Master merged bc45bde cleanly into origin/main (all 6/6 `npm run verify` gates green!). W2-V3-01..03 are complete. Only stay on standby for final rehearsal tweaks or optional latency/toast polish while P2 lands W1-V3-01..04.",
+  "parallel_tasks": []
 }
