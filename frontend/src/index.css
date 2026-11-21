@@ -2304,3 +2304,475 @@ body::before {
   transform: scaleX(0);
   transform-origin: 0 50%;
 }
+
+/* ==========================================================================
+   W2-V2-01..05: Zero-crop stage, Sculpture Freeze, Compact Timeline Rail &
+   Persistent Bottom-Right Live Self-View Camera PiP + 30s Throw-In Reticle
+   ========================================================================== */
+.cam canvas,
+.cam video {
+  object-fit: contain !important;
+  background: #060714;
+}
+
+.cam-state.sculpture {
+  color: #e2ecff;
+  background: rgba(148, 163, 184, 0.28);
+  border: 1px solid rgba(226, 236, 255, 0.45);
+}
+
+.sculpture-pill-btn {
+  height: 30px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(226, 236, 255, 0.24);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e2ecff;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  transition: all 0.16s ease;
+}
+
+.sculpture-pill-btn:hover {
+  border-color: var(--gold-soft);
+  background: rgba(245, 196, 81, 0.14);
+}
+
+.sculpture-pill-btn.frozen {
+  border-color: #cbd7ea;
+  background: rgba(203, 215, 234, 0.2);
+  color: #f8fafc;
+}
+
+/* Ultra-compact collapsible bottom-rail timeline pill (`S1 -> S2 -> ...`) */
+.timeline-rail {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(14, 11, 36, 0.72);
+  box-shadow: 0 0 0 1px var(--line);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.timeline-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.timeline-pills {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+
+.timeline-arrow {
+  color: rgba(245, 196, 81, 0.55);
+  font-size: 0.74rem;
+  user-select: none;
+}
+
+.timeline-arrow.muted {
+  color: rgba(169, 164, 201, 0.45);
+}
+
+.timeline-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: #dcd8f1;
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.timeline-pill:hover {
+  border-color: var(--gold-soft);
+}
+
+.timeline-pill.active {
+  background: rgba(245, 196, 81, 0.2);
+  border-color: var(--gold);
+  color: #fff6dc;
+}
+
+.timeline-pill small {
+  font-weight: 400;
+  color: #fde68a;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.timeline-next {
+  font-size: 0.72rem;
+  color: var(--ink-muted);
+  white-space: nowrap;
+  padding: 2px 6px;
+}
+
+.timeline-toggle-btn {
+  flex: 0 0 auto;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(196, 181, 253, 0.26);
+  background: rgba(255, 255, 255, 0.06);
+  color: #dcd8f1;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.timeline-toggle-btn:hover {
+  border-color: var(--gold-soft);
+  color: #fff6dc;
+}
+
+.tree-collapse-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 6px 6px;
+}
+
+.tree-collapse-label {
+  font-size: 0.74rem;
+  color: var(--ink-muted);
+}
+
+.dock-scene-pill {
+  flex: 0 0 auto;
+  height: 36px;
+  padding: 0 11px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  background: rgba(245, 196, 81, 0.14);
+  border: 1px solid rgba(245, 196, 81, 0.35);
+  color: #fde68a;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.dock-scene-pill.rewound {
+  background: rgba(56, 189, 248, 0.16);
+  border-color: rgba(56, 189, 248, 0.45);
+  color: #bae6fd;
+}
+
+/* Persistent Bottom-Right Live Self-View Camera Window (W2-V2-02) */
+.selfview-pill {
+  position: fixed;
+  right: 16px;
+  bottom: 84px;
+  z-index: 65;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 196, 81, 0.45);
+  background: rgba(16, 13, 42, 0.9);
+  backdrop-filter: blur(12px);
+  color: #fff6dc;
+  font-size: 0.76rem;
+  font-weight: 600;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+}
+
+.selfview-card {
+  position: fixed;
+  right: 16px;
+  bottom: 84px;
+  z-index: 65;
+  width: 224px;
+  border-radius: 14px;
+  background: rgba(14, 11, 38, 0.88);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(196, 181, 253, 0.28);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.62);
+  overflow: hidden;
+  transition: width 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+}
+
+.selfview-card.compact {
+  width: 196px;
+  opacity: 0.92;
+}
+
+.selfview-card.throwing {
+  width: 316px;
+  border-color: var(--gold);
+  box-shadow:
+    0 0 0 2px rgba(245, 196, 81, 0.45),
+    0 20px 55px rgba(0, 0, 0, 0.72);
+}
+
+.selfview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.selfview-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #f1eefc;
+  letter-spacing: 0.02em;
+}
+
+.selfview-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #64748b;
+}
+
+.selfview-dot.on {
+  background: #34d399;
+  box-shadow: 0 0 8px rgba(52, 211, 153, 0.8);
+}
+
+.selfview-dot.rec {
+  background: #fb7185;
+  box-shadow: 0 0 10px rgba(251, 113, 133, 0.9);
+  animation: pulse-rec 0.7s infinite alternate;
+}
+
+.selfview-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.selfview-icon-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.08);
+  color: #dcd8f1;
+  display: grid;
+  place-items: center;
+}
+
+.selfview-video-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #070616;
+  overflow: hidden;
+}
+
+.selfview-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.selfview-fallback {
+  width: 100%;
+  height: 100%;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--ink-muted);
+}
+
+.selfview-reticle {
+  position: absolute;
+  inset: 14% 20%;
+  pointer-events: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.reticle-corner {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-color: var(--gold);
+  border-style: solid;
+}
+
+.reticle-corner.tl {
+  top: 0;
+  left: 0;
+  border-width: 2px 0 0 2px;
+  border-top-left-radius: 4px;
+}
+
+.reticle-corner.tr {
+  top: 0;
+  right: 0;
+  border-width: 2px 2px 0 0;
+  border-top-right-radius: 4px;
+}
+
+.reticle-corner.bl {
+  bottom: 0;
+  left: 0;
+  border-width: 0 0 2px 2px;
+  border-bottom-left-radius: 4px;
+}
+
+.reticle-corner.br {
+  bottom: 0;
+  right: 0;
+  border-width: 0 2px 2px 0;
+  border-bottom-right-radius: 4px;
+}
+
+.reticle-label {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(8, 7, 24, 0.78);
+  color: #fff6dc;
+  font-size: 0.66rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.selfview-countdown-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.selfview-countdown-bar > div {
+  height: 100%;
+  background: linear-gradient(90deg, #f5c451, #fb7185);
+  transition: width 100ms linear;
+}
+
+.selfview-throw-controls {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.selfview-hint {
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: #fde68a;
+}
+
+.selfview-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.selfview-row.spread {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.selfview-input {
+  width: 100%;
+  padding: 6px 9px;
+  border-radius: 8px;
+  border: 1px solid rgba(196, 181, 253, 0.25);
+  background: rgba(6, 5, 18, 0.85);
+  color: #fff;
+  font-size: 0.76rem;
+}
+
+.selfview-chips {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.selfview-chip {
+  padding: 3px 7px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: #cbd5e1;
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.selfview-chip.active {
+  border-color: var(--gold);
+  background: rgba(245, 196, 81, 0.2);
+  color: #fff6dc;
+}
+
+.selfview-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.selfview-mini-btn {
+  padding: 4px 8px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  color: #e8e5f7;
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.selfview-mini-btn.accent {
+  border-color: rgba(245, 196, 81, 0.48);
+  background: rgba(245, 196, 81, 0.18);
+  color: #fff6dc;
+}
+
+.selfview-mini-btn.primary {
+  border: 0;
+  background: var(--gold);
+  color: #221703;
+  font-weight: 700;
+}
+
+.selfview-mini-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+@media (max-width: 900px) {
+  .selfview-card {
+    width: 176px;
+    right: 10px;
+    bottom: 76px;
+  }
+
+  .selfview-card.throwing {
+    width: min(300px, calc(100vw - 20px));
+  }
+}

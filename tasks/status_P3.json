@@ -1,34 +1,33 @@
 {
   "agent": "P3_frontend",
   "branch": "feat/w2-frontend",
-  "current_milestone": "T12_CROSS_PLATFORM_VERIFY_LOCKED",
-  "status": "feature_freeze_verified_100pct_ready_for_pitch",
-  "feature_freeze_verified": true,
+  "current_milestone": "V2_LIVING_SCULPTURE_SELFVIEW_THROW_COMPLETE",
+  "status": "v2_complete_6_of_6_gates_green_ready_for_master_merge",
+  "feature_freeze_verified": false,
   "capture_stream_mode": "webm_with_png_fallback",
   "auto_poll_enabled": true,
   "bundle_metrics": {
-    "build_time_ms": 610,
-    "app_js_kb": 99.42,
-    "app_js_gzip_kb": 28.64,
-    "app_css_kb": 13.37,
+    "build_time_ms": 627,
+    "app_js_kb": 139.45,
+    "app_js_gzip_kb": 41.54,
+    "app_css_kb": 39.52,
     "react_vendor_kb": 140.87,
     "three_vendor_kb": 486.78,
     "cjk_ui_hits": 0,
+    "source_files_scanned": 19,
     "cached_branches_verified": 4,
     "referenced_assets_verified": 13,
     "submission_and_desk_assets_verified": 9,
     "smoke_preview_http_200_endpoints": 10
   },
   "completed_items": [
-    "W2-T11A: Added combined `npm run verify` script in frontend/package.json chaining tsc, vite build, verify-locale.mjs, verify_frontend.mjs, and test_stage_helpers.mjs",
-    "W2-T11B: Mirrored star_token.png into frontend/public/assets/props/ alongside crystal_vase.png and crystal_vase_broken.png for 100% real transparent PNG offline 2.5D rendering across all 4 branches",
-    "W2-T11C: Added frontend/scripts/smoke_preview.mjs spawning `vite preview --port 4173` and asserting HTTP 200 OK for /, lia.png, crystal_vase_broken.png, and star_token.png with clean shutdown",
-    "W2-T11D: Executed `npm run verify` + `node scripts/smoke_preview.mjs` (100% PASS, zero UI component edits) and locked `feature_freeze_verified: true`",
-    "W2-T12A: Fixed Windows Node v24 `spawn EINVAL` in frontend/scripts/smoke_preview.mjs by spawning `process.execPath` with `node_modules/vite/bin/vite.js` directly (no `npx.cmd` or `shell: true`)",
-    "W2-T12B: Verified stage_concept_split.png & mirrored showcase_desk_{brass_key,coffee_mug,paper_heart}.png under frontend/public/assets/props/, extending smoke_preview.mjs ENDPOINTS to assert HTTP 200 across all 10 offline paths",
-    "W2-T12C: Chained `node scripts/smoke_preview.mjs` directly into `npm run verify` in frontend/package.json (all 6 gates in 1 command)",
-    "W2-T12D: Re-ran full `npm run verify` cleanly (6/6 gates PASS, 10/10 HTTP 200 OK, zero UI component edits) and locked tasks/status_P3.json"
+    "W2-V2-01: Stripped overdesign & BE/HE ribbons from main canvas; kept Anime Stage Hero (object-fit: contain, R-25), collapsible ultra-compact bottom timeline rail (`S1 -> S2 -> ...`), and sleek Voice+Text prompt bar; tucked Saved Examples / Eval / Compare / Clapperboard QA inside single overflow menu",
+    "W2-V2-02: Built persistent bottom-right live mirrored CameraSelfView PiP (`frontend/src/components/CameraSelfView.tsx`) with collapse/permission-retry + auto 30s Throw-In Capture countdown border & center target reticle (`detect_throw_peak=true`, `entry_motion=throw_arc`) triggered by `needs_prop_prompt` or `Throw Object` button",
+    "W2-V2-03: Implemented `catch_from_camera` protagonist forward camera-grab animation + golden catch ripple, `spawnThrownPropAnimation()` 3D parabolic throw-in arc from z=+2.6, and `setSculptureFrozen()` moonlit silver/alabaster sculpture freeze/unfreeze in `ThreeStageManager.ts`",
+    "W2-V2-04: Wired `POST /api/director/perceive` (~2s Heard/Saw + auto Throw-In trigger), `POST /api/director/extend` (unbounded Scene 1..∞), and `fast_live_mode=true` rendering with explicit `content_blocked, retrying` + `Open a saved run` notices in `stageClient.ts` & `App.tsx`",
+    "W2-V2-05: Added standalone `red_umbrella` (closed/open) & `wooden_chair` sprites with crisp procedural fallbacks, foot-bottom anchoring (`center=(0.5, 0)`) + `height_m` scaling (R-12/R-24), always-visible `MOCK MODE` badge even in Clean View, Alt-guarded global shortcuts (R-33), non-destructive `Reset stage` (R-26), and `/api/eval/summary` hydration in `EvalModal.tsx` (R-05)",
+    "W2-V2-06: Synced `frontend/src/types/schema.ts` (`catch_from_camera`, `scene_id >= 1`, `end_freeze_mode`, `entry_motion`, `height_m`), expanded `test_stage_helpers.mjs`, and passed full `npm run verify` (6/6 gates green, 0 CJK leaks, 10/10 HTTP 200 smoke endpoints)"
   ],
   "blockers": [],
-  "last_updated": "2026-11-21T14:14:35-05:00"
+  "last_updated": "2026-11-21T15:16:00-05:00"
 }

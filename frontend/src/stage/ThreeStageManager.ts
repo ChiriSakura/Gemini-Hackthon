@@ -40,7 +40,19 @@ interface SpriteEntity {
   broken?: boolean;
   currentTextureUrl?: string;
   usingBrokenAsset?: boolean;
+  heightM?: number | null;
 }
+
+interface PropFlightState {
+  startPos: THREE.Vector3;
+  endPos: THREE.Vector3;
+  peakHeight: number;
+  startedAt: number;
+  durationSec: number;
+}
+
+const WORLD_UNITS_PER_METER = 1.36;
+const PROP_ASSET_ROOT = `${'/assets'}/props`;
 
 /**
  * Convert `[col, row]` in 0..2 into Three.js world `[x, z]` coordinates.
@@ -79,6 +91,132 @@ function createFallbackStarTexture(): THREE.CanvasTexture {
   }
   ctx.closePath();
   ctx.fill();
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/**
+ * Procedural standalone crimson umbrella texture (closed furled vs open dome)
+ * used as graceful fallback when P2's standalone PNG is not yet on disk (R-12).
+ */
+function createFallbackUmbrellaTexture(open: boolean): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d')!;
+  ctx.clearRect(0, 0, 256, 256);
+
+  if (open) {
+    // Open crimson vintage dome
+    const domeGrad = ctx.createLinearGradient(36, 40, 220, 128);
+    domeGrad.addColorStop(0, '#991b1b');
+    domeGrad.addColorStop(0.5, '#dc2626');
+    domeGrad.addColorStop(1, '#7f1d1d');
+    ctx.fillStyle = domeGrad;
+    ctx.beginPath();
+    ctx.moveTo(28, 124);
+    ctx.quadraticCurveTo(128, 22, 228, 124);
+    ctx.quadraticCurveTo(195, 108, 162, 124);
+    ctx.quadraticCurveTo(128, 106, 94, 124);
+    ctx.quadraticCurveTo(60, 108, 28, 124);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // Brass finial + shaft + curved wooden handle
+    ctx.strokeStyle = '#d97706';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(128, 36);
+    ctx.lineTo(128, 232);
+    ctx.arc(114, 232, 14, 0, Math.PI, false);
+    ctx.stroke();
+  } else {
+    // Closed (furled) vertical crimson umbrella resting tip-down
+    const furledGrad = ctx.createLinearGradient(104, 52, 152, 232);
+    furledGrad.addColorStop(0, '#dc2626');
+    furledGrad.addColorStop(0.6, '#991b1b');
+    furledGrad.addColorStop(1, '#450a0a');
+    ctx.fillStyle = furledGrad;
+    ctx.beginPath();
+    ctx.moveTo(128, 246);
+    ctx.lineTo(108, 72);
+    ctx.quadraticCurveTo(128, 56, 148, 72);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // Brass tie band
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillRect(113, 140, 30, 8);
+
+    // Curved handle at top + brass tip at bottom
+    ctx.strokeStyle = '#d97706';
+    ctx.lineWidth = 7;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(128, 66);
+    ctx.lineTo(128, 30);
+    ctx.arc(144, 30, 16, Math.PI, 0, false);
+    ctx.stroke();
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/**
+ * Procedural Victorian wooden conservatory chair fallback texture (R-12).
+ */
+function createFallbackChairTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d')!;
+  ctx.clearRect(0, 0, 256, 256);
+
+  ctx.strokeStyle = '#92400e';
+  ctx.fillStyle = '#78350f';
+  ctx.lineWidth = 10;
+  ctx.lineCap = 'round';
+
+  // Backrest posts & slats
+  ctx.beginPath();
+  ctx.moveTo(74, 36);
+  ctx.lineTo(74, 244);
+  ctx.moveTo(182, 36);
+  ctx.lineTo(182, 244);
+  ctx.moveTo(74, 48);
+  ctx.lineTo(182, 48);
+  ctx.moveTo(74, 88);
+  ctx.lineTo(182, 88);
+  ctx.stroke();
+
+  // Seat plank
+  ctx.fillStyle = '#b45309';
+  ctx.fillRect(62, 134, 132, 18);
+  ctx.strokeStyle = '#fcd34d';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(62, 134, 132, 18);
+
+  // Front legs & stretcher
+  ctx.strokeStyle = '#78350f';
+  ctx.lineWidth = 9;
+  ctx.beginPath();
+  ctx.moveTo(86, 152);
+  ctx.lineTo(86, 244);
+  ctx.moveTo(170, 152);
+  ctx.lineTo(170, 244);
+  ctx.moveTo(74, 206);
+  ctx.lineTo(182, 206);
+  ctx.stroke();
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
@@ -139,8 +277,15 @@ export class ThreeStageManager {
   private flippedTextureCache = new Map<string, THREE.Texture>();
   private failedUrls = new Set<string>();
   private fallbackStarTexture: THREE.CanvasTexture | null = null;
+  private fallbackUmbrellaClosedTexture: THREE.CanvasTexture | null = null;
+  private fallbackUmbrellaOpenTexture: THREE.CanvasTexture | null = null;
+  private fallbackChairTexture: THREE.CanvasTexture | null = null;
   private actorEntities = new Map<string, SpriteEntity>();
   private propEntities = new Map<string, SpriteEntity>();
+  private activePropFlights = new Map<string, PropFlightState>();
+  private seenThrownPropKeys = new Set<string>();
+  private cameraGrabState: { actorId: string; startedAt: number; durationSec: number } | null = null;
+  private catchRippleMesh: THREE.Mesh;
 
   private currentLighting: LightingPreset = 'warm_dim';
   private cameraShake = false;
@@ -152,6 +297,14 @@ export class ThreeStageManager {
   private targetSpotColor = new THREE.Color('#fde68a');
   private targetSpotIntensity = 26;
   private targetRimColor = new THREE.Color('#60a5fa');
+  private sculptureFrozen = false;
+  private sculptureTintBlend = 0;
+  private frozenElapsed = 0;
+  private animElapsed = 0;
+  private readonly colorWhite = new THREE.Color('#ffffff');
+  private readonly colorSculpture = new THREE.Color('#cbd7ea');
+  private readonly colorSculptureAmbient = new THREE.Color('#9fb3d4');
+  private readonly colorSculptureSpot = new THREE.Color('#e2ecff');
   private animFrameId: number | null = null;
   private clock = new THREE.Clock();
   private disposed = false;
@@ -243,6 +396,20 @@ export class ThreeStageManager {
     this.snowPoints = this.buildWeatherParticles(320, '#fde68a', 0.22);
     this.scene.add(this.rainPoints);
     this.scene.add(this.snowPoints);
+
+    // Golden outstretched-arm catch ripple ring shown during `catch_from_camera` (W2-V2-03)
+    this.catchRippleMesh = new THREE.Mesh(
+      new THREE.RingGeometry(0.24, 0.36, 36),
+      new THREE.MeshBasicMaterial({
+        color: '#fde68a',
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.82,
+        depthWrite: false,
+      }),
+    );
+    this.catchRippleMesh.visible = false;
+    this.scene.add(this.catchRippleMesh);
 
     this.canvasA.addEventListener('webglcontextlost', this.handleContextLost, false);
     this.canvasB.addEventListener('webglcontextlost', this.handleContextLost, false);
@@ -417,6 +584,28 @@ export class ThreeStageManager {
     return this.fallbackStarTexture;
   }
 
+  private getFallbackPropTexture(propId: string, state: string): THREE.CanvasTexture {
+    if (propId === 'red_umbrella') {
+      if (state === 'open') {
+        if (!this.fallbackUmbrellaOpenTexture) {
+          this.fallbackUmbrellaOpenTexture = createFallbackUmbrellaTexture(true);
+        }
+        return this.fallbackUmbrellaOpenTexture;
+      }
+      if (!this.fallbackUmbrellaClosedTexture) {
+        this.fallbackUmbrellaClosedTexture = createFallbackUmbrellaTexture(false);
+      }
+      return this.fallbackUmbrellaClosedTexture;
+    }
+    if (propId === 'wooden_chair' || propId.includes('chair')) {
+      if (!this.fallbackChairTexture) {
+        this.fallbackChairTexture = createFallbackChairTexture();
+      }
+      return this.fallbackChairTexture;
+    }
+    return this.getFallbackStarTexture();
+  }
+
   private loadSpriteTexture(
     url: string,
     fallbackKey?: string,
@@ -544,10 +733,16 @@ export class ThreeStageManager {
             baseActor.action !== actor.action ||
             baseActor.holding_prop !== actor.holding_prop),
       );
-      // Keep Nyx realistically cat-sized (~29% of Lia's 2.25 height)
-      const maxW = isNyx ? 0.68 : 1.75;
-      const maxH = isNyx ? 0.65 : 2.25;
-      const y = maxH / 2 + 0.02;
+      // R-24: Foot-bottom anchoring (`center = (0.5, 0)`) and optional `height_m` scaling
+      const scaledH =
+        typeof actor.height_m === 'number' && actor.height_m > 0
+          ? Math.min(2.6, Math.max(0.35, actor.height_m * WORLD_UNITS_PER_METER))
+          : isNyx
+            ? 0.65
+            : 2.25;
+      const maxH = scaledH;
+      const maxW = isNyx ? Math.max(0.68, maxH * 1.05) : Math.max(1.75, maxH * 0.78);
+      const floorY = 0.015;
 
       let entity = this.actorEntities.get(actor.id);
       if (!entity) {
@@ -563,7 +758,7 @@ export class ThreeStageManager {
             }
             if (spriteRef.entity) {
               spriteRef.entity.baseScale = fitted;
-              spriteRef.entity.targetPos.y = fitted[1] / 2 + 0.02;
+              spriteRef.entity.targetPos.y = floorY;
               spriteRef.entity.appliedFlipped = undefined;
               this.syncActorFacingTexture(spriteRef.entity);
             }
@@ -571,7 +766,8 @@ export class ThreeStageManager {
           transparent: true,
         });
         const sprite = new THREE.Sprite(mat);
-        sprite.position.set(x, y, z);
+        sprite.center.set(0.5, 0);
+        sprite.position.set(x, floorY, z);
         sprite.scale.set(maxW, maxH, 1);
         this.scene.add(sprite);
 
@@ -612,26 +808,32 @@ export class ThreeStageManager {
           haloRing,
           diffHighlighted: changedFromBaseline,
           baseScale: [maxW, maxH],
-          targetPos: new THREE.Vector3(x, y, z),
+          targetPos: new THREE.Vector3(x, floorY, z),
           action: actor.action,
           facing: actor.facing,
           assetUrl: actor.asset_url,
+          heightM: actor.height_m ?? null,
         };
         spriteRef.entity = entity;
         this.actorEntities.set(actor.id, entity);
         this.syncActorFacingTexture(entity);
       } else {
-        entity.targetPos.set(x, entity.baseScale[1] / 2 + 0.02, z);
+        entity.sprite.center.set(0.5, 0);
+        entity.targetPos.set(x, floorY, z);
         entity.action = actor.action;
         entity.facing = actor.facing;
         entity.assetUrl = actor.asset_url;
+        entity.heightM = actor.height_m ?? null;
         entity.diffHighlighted = changedFromBaseline;
         if (entity.haloRing) {
           entity.haloRing.visible = this.diffHaloEnabled && changedFromBaseline;
         }
         this.syncActorFacingTexture(entity);
       }
-      sumPos.add(entity.targetPos);
+      if (actor.action === 'catch_from_camera') {
+        this.triggerCameraGrab(actor.id, 1.8);
+      }
+      sumPos.add(new THREE.Vector3(entity.targetPos.x, maxH * 0.45, entity.targetPos.z));
     }
 
     if (sceneData.actors.length > 0) {
@@ -650,7 +852,7 @@ export class ThreeStageManager {
       }
     }
 
-    // Sync props (stage_props + any non-umbrella prop currently held by an actor)
+    // Sync props (stage_props + any prop held by an actor, including standalone umbrella R-12)
     const activePropIds = new Set<string>();
     let anyBrokenVase = false;
 
@@ -659,19 +861,32 @@ export class ThreeStageManager {
       grid: [number, number];
       on_floor: boolean;
       state: string;
+      entry_motion?: string;
+      entry_origin?: number[] | null;
       heldByActor?: boolean;
-    }> = [...sceneData.stage_props];
+      umbrellaOpen?: boolean;
+    }> = sceneData.stage_props.map((p) => ({ ...p }));
 
     for (const actor of sceneData.actors) {
-      if (actor.holding_prop && actor.holding_prop !== 'red_umbrella') {
+      if (actor.holding_prop) {
         const alreadyListed = propsToPlace.some((p) => p.id === actor.holding_prop);
         if (!alreadyListed) {
+          const isUmbrella = actor.holding_prop === 'red_umbrella';
+          const regState = propsRegistry[actor.holding_prop]?.state;
+          const umbrellaOpen =
+            isUmbrella && (regState === 'open' || actor.action === 'shared_umbrella');
           propsToPlace.push({
             id: actor.holding_prop,
-            grid: [Math.min(2, actor.grid[0] + 0.18), actor.grid[1]],
+            grid: [
+              isUmbrella
+                ? Math.max(0, actor.grid[0] - 0.16)
+                : Math.min(2, actor.grid[0] + 0.18),
+              actor.grid[1],
+            ],
             on_floor: false,
-            state: 'held',
+            state: isUmbrella ? (umbrellaOpen ? 'open' : 'closed') : 'held',
             heldByActor: true,
+            umbrellaOpen,
           });
         }
       }
@@ -690,22 +905,37 @@ export class ThreeStageManager {
     let extraTablePropIdx = 0;
 
     for (const prop of propsToPlace) {
-      if (prop.id === 'red_umbrella' && !prop.on_floor) continue;
       activePropIds.add(prop.id);
 
       const regItem = propsRegistry[prop.id];
-      const baseImageUrl = regItem?.image_url ?? `/assets/props/${prop.id}.png`;
+      const isUmbrella = prop.id === 'red_umbrella';
+      const isChair = prop.id === 'wooden_chair' || prop.id.includes('chair');
       const isBroken = prop.state === 'broken';
+      const umbrellaVariant =
+        prop.umbrellaOpen || prop.state === 'open' ? 'open' : 'closed';
+
+      // R-12: Resolve standalone umbrella/chair PNGs dynamically (never draw Lia's standee as umbrella)
+      const rawBaseUrl = regItem?.image_url ?? `${PROP_ASSET_ROOT}/${prop.id}.png`;
+      const baseImageUrl =
+        isUmbrella && rawBaseUrl.includes('/actors/lia')
+          ? `${PROP_ASSET_ROOT}/red_umbrella_${umbrellaVariant}.png`
+          : isChair
+            ? `${PROP_ASSET_ROOT}/wooden_chair.png`
+            : rawBaseUrl;
       const preferredUrl =
         prop.id === 'crystal_vase' && isBroken
           ? '/assets/props/crystal_vase_broken.png'
-          : baseImageUrl;
+          : isUmbrella
+            ? `${PROP_ASSET_ROOT}/red_umbrella_${umbrellaVariant}.png`
+            : baseImageUrl;
+
       const worldCoords = gridToWorld(prop.grid);
       let x = worldCoords.x;
       let z = worldCoords.z;
       const nearCenterTable =
         !prop.on_floor &&
         !prop.heldByActor &&
+        !isChair &&
         Math.abs(prop.grid[0] - 1) < 0.35 &&
         Math.abs(prop.grid[1] - 1) < 0.35;
       if (hasTableVase && nearCenterTable && prop.id !== 'crystal_vase') {
@@ -718,14 +948,39 @@ export class ThreeStageManager {
         anyBrokenVase = true;
       }
 
-      // Normalize all props cleanly inside realistic stage bounding boxes
-      const maxPropW = prop.id === 'crystal_vase' ? 0.42 : prop.heldByActor ? 0.30 : 0.38;
-      const maxPropH = prop.id === 'crystal_vase' ? 0.46 : prop.heldByActor ? 0.30 : 0.38;
+      // R-24: Foot-bottom anchoring (`center=(0.5, 0)`) + optional `height_m` scaling
+      const customH =
+        typeof regItem?.height_m === 'number' && regItem.height_m > 0
+          ? Math.min(1.8, Math.max(0.24, regItem.height_m * WORLD_UNITS_PER_METER))
+          : null;
+      const maxPropH =
+        customH ??
+        (isChair
+          ? 0.92
+          : isUmbrella
+            ? umbrellaVariant === 'open'
+              ? 1.05
+              : 0.85
+            : prop.id === 'crystal_vase'
+              ? 0.46
+              : prop.heldByActor
+                ? 0.34
+                : 0.40);
+      const maxPropW = isChair
+        ? maxPropH * 0.9
+        : isUmbrella && umbrellaVariant === 'open'
+          ? maxPropH * 1.15
+          : maxPropH * 0.95;
+
       const y = prop.heldByActor
-        ? 0.92
-        : prop.on_floor
-          ? maxPropH / 2 + 0.02
-          : 0.77 + maxPropH / 2;
+        ? isUmbrella
+          ? umbrellaVariant === 'open'
+            ? 1.25
+            : 0.14
+          : 0.86
+        : prop.on_floor || isChair
+          ? 0.015
+          : 0.77;
 
       let entity = this.propEntities.get(prop.id);
       const rescalePropToBox = (ent: SpriteEntity, tex?: THREE.Texture | null) => {
@@ -748,7 +1003,7 @@ export class ThreeStageManager {
         ent.usingBrokenAsset = false;
 
         if (this.failedUrls.has(effectiveUrl)) {
-          const fbTex = this.getFallbackStarTexture();
+          const fbTex = this.getFallbackPropTexture(prop.id, prop.state);
           ent.sprite.material.map = fbTex;
           ent.sprite.material.needsUpdate = true;
           rescalePropToBox(ent, fbTex);
@@ -790,7 +1045,7 @@ export class ThreeStageManager {
           undefined,
           () => {
             this.failedUrls.add(effectiveUrl);
-            if (effectiveUrl !== fallbackUrl) {
+            if (effectiveUrl !== fallbackUrl && !this.failedUrls.has(fallbackUrl)) {
               ent.usingBrokenAsset = false;
               ent.currentTextureUrl = fallbackUrl;
               const fbTex = this.loadSpriteTexture(
@@ -799,7 +1054,8 @@ export class ThreeStageManager {
                 (iw, ih) => {
                   ent.baseScale = this.fitScaleToBox(iw, ih, maxPropW, maxPropH);
                 },
-                (proceduralFb) => {
+                () => {
+                  const proceduralFb = this.getFallbackPropTexture(prop.id, prop.state);
                   ent.sprite.material.map = proceduralFb;
                   ent.sprite.material.needsUpdate = true;
                 },
@@ -809,10 +1065,11 @@ export class ThreeStageManager {
               ent.sprite.material.opacity = isBroken ? 0.55 : 1.0;
               ent.sprite.material.rotation = isBroken ? 0.65 : 0;
             } else {
-              const proceduralFb = this.getFallbackStarTexture();
+              const proceduralFb = this.getFallbackPropTexture(prop.id, prop.state);
               this.textureCache.set(effectiveUrl, proceduralFb);
               ent.sprite.material.map = proceduralFb;
               ent.sprite.material.needsUpdate = true;
+              rescalePropToBox(ent, proceduralFb);
             }
           },
         );
@@ -823,10 +1080,11 @@ export class ThreeStageManager {
 
       if (!entity) {
         const mat = new THREE.SpriteMaterial({
-          map: this.getFallbackStarTexture(),
+          map: this.getFallbackPropTexture(prop.id, prop.state),
           transparent: true,
         });
         const sprite = new THREE.Sprite(mat);
+        sprite.center.set(0.5, 0);
         sprite.position.set(x, y, z);
         sprite.scale.set(maxPropW, maxPropH, 1);
         this.scene.add(sprite);
@@ -837,13 +1095,16 @@ export class ThreeStageManager {
           action: prop.state,
           facing: 'front',
           broken: isBroken,
+          heightM: regItem?.height_m ?? null,
         };
         this.propEntities.set(prop.id, entity);
         applyPropTexture(entity, preferredUrl, baseImageUrl);
       } else {
+        entity.sprite.center.set(0.5, 0);
         entity.targetPos.set(x, y, z);
         entity.action = prop.state;
         entity.broken = isBroken;
+        entity.heightM = regItem?.height_m ?? null;
         applyPropTexture(entity, preferredUrl, baseImageUrl);
       }
 
@@ -853,6 +1114,15 @@ export class ThreeStageManager {
       } else {
         entity.sprite.material.opacity = 1.0;
         entity.sprite.material.rotation = 0;
+      }
+
+      // W2-V2-03: Auto-trigger 3D parabolic throw-in arc once per scene for thrown props
+      if (prop.entry_motion === 'throw_arc') {
+        const throwKey = `${sceneData.scene_id}:${prop.id}`;
+        if (!this.seenThrownPropKeys.has(throwKey)) {
+          this.seenThrownPropKeys.add(throwKey);
+          this.spawnThrownPropAnimation(prop.id, prop.entry_origin, prop.grid);
+        }
       }
     }
 
@@ -903,17 +1173,99 @@ export class ThreeStageManager {
     }
   }
 
+  /**
+   * Animate the protagonist (`lia`) reaching forward toward the front camera with
+   * a warm golden catch ripple (`catch_from_camera`, W2-V2-03).
+   */
+  public triggerCameraGrab(actorId = 'lia', durationSec = 1.6): void {
+    this.sculptureFrozen = false;
+    this.cameraGrabState = {
+      actorId,
+      startedAt: this.animElapsed,
+      durationSec,
+    };
+  }
+
+  /**
+   * Fly a newly captured physical prop along a smooth 3D parabolic arc from the
+   * viewer's front camera (`z = +2.6`) straight into Lia's hand or tabletop (W2-V2-03).
+   */
+  public spawnThrownPropAnimation(
+    propId: string,
+    entryOrigin?: number[] | null,
+    targetGrid?: [number, number] | null,
+  ): void {
+    this.sculptureFrozen = false;
+    const ent = this.propEntities.get(propId);
+    const startPos =
+      entryOrigin && entryOrigin.length >= 3
+        ? new THREE.Vector3(
+            (entryOrigin[0] - 1) * 1.4,
+            Math.max(1.1, Math.min(2.2, entryOrigin[1])),
+            Math.max(2.0, entryOrigin[2] + 1.8),
+          )
+        : new THREE.Vector3(0.35, 1.45, 2.65);
+
+    let endPos: THREE.Vector3;
+    if (ent) {
+      endPos = ent.targetPos.clone();
+      ent.sprite.position.copy(startPos);
+      ent.sprite.visible = true;
+    } else if (targetGrid) {
+      const { x, z } = gridToWorld(targetGrid);
+      endPos = new THREE.Vector3(x, 0.85, z);
+    } else {
+      endPos = new THREE.Vector3(0, 0.85, 0.1);
+    }
+
+    this.activePropFlights.set(propId, {
+      startPos,
+      endPos,
+      peakHeight: 1.1,
+      startedAt: this.animElapsed,
+      durationSec: 1.15,
+    });
+    this.triggerCameraGrab('lia', 1.55);
+  }
+
+  /**
+   * Freeze or unfreeze the living stage into a moonlit silver/alabaster sculpture
+   * tableau (`setSculptureFrozen`, W2-V2-03).
+   */
+  public setSculptureFrozen(frozen: boolean): void {
+    if (this.sculptureFrozen === frozen) return;
+    this.sculptureFrozen = frozen;
+    if (frozen) {
+      this.frozenElapsed = this.animElapsed;
+    }
+  }
+
+  public isSculptureFrozen(): boolean {
+    return this.sculptureFrozen;
+  }
+
   private updateLighting(dt: number): void {
     const t = Math.min(1, dt * 4.5);
+    const desiredBlend =
+      this.sculptureFrozen && this.activePropFlights.size === 0 && !this.cameraGrabState ? 1 : 0;
+    this.sculptureTintBlend += (desiredBlend - this.sculptureTintBlend) * Math.min(1, dt * 3.8);
+
     if (this.scene.background instanceof THREE.Color) {
       this.scene.background.lerp(this.targetBgColor, t);
     }
     if (this.scene.fog instanceof THREE.FogExp2) {
       this.scene.fog.color.lerp(this.targetBgColor, t);
     }
-    this.ambientLight.color.lerp(this.targetAmbientColor, t);
+    const blendedAmbient = this.targetAmbientColor
+      .clone()
+      .lerp(this.colorSculptureAmbient, this.sculptureTintBlend * 0.72);
+    const blendedSpot = this.targetSpotColor
+      .clone()
+      .lerp(this.colorSculptureSpot, this.sculptureTintBlend * 0.75);
+
+    this.ambientLight.color.lerp(blendedAmbient, t);
     this.ambientLight.intensity += (this.targetAmbientIntensity - this.ambientLight.intensity) * t;
-    this.spotLight.color.lerp(this.targetSpotColor, t);
+    this.spotLight.color.lerp(blendedSpot, t);
     this.spotLight.intensity += (this.targetSpotIntensity - this.spotLight.intensity) * t;
     this.rimLight.color.lerp(this.targetRimColor, t);
   }
@@ -927,12 +1279,19 @@ export class ThreeStageManager {
         return;
       }
       const dt = Math.min(this.clock.getDelta(), 0.05);
-      const elapsed = this.clock.elapsedTime;
+      const isEffectivelyFrozen =
+        this.sculptureFrozen && this.activePropFlights.size === 0 && !this.cameraGrabState;
+      if (!isEffectivelyFrozen) {
+        this.animElapsed += dt;
+      }
+      const elapsed = isEffectivelyFrozen ? this.frozenElapsed : this.animElapsed;
 
       this.updateLighting(dt);
-      this.updateEntities(dt, elapsed);
-      this.updateWeather(dt, elapsed);
-      this.updateCameras(dt, elapsed);
+      this.updateEntities(dt, elapsed, isEffectivelyFrozen);
+      if (!isEffectivelyFrozen) {
+        this.updateWeather(dt, elapsed);
+      }
+      this.updateCameras(dt, elapsed, isEffectivelyFrozen);
 
       this.rendererA.render(this.scene, this.cameraA);
       this.rendererB.render(this.scene, this.cameraB);
@@ -940,31 +1299,76 @@ export class ThreeStageManager {
     tick();
   }
 
-  private updateEntities(dt: number, elapsed: number): void {
+  private updateEntities(dt: number, elapsed: number, frozen: boolean): void {
     const lerpFactor = Math.min(1, dt * 6.5);
+    const spriteTint = this.colorWhite.clone().lerp(this.colorSculpture, this.sculptureTintBlend);
+    let showCatchRipple = false;
+
     for (const [id, ent] of this.actorEntities.entries()) {
       if (!ent.sprite.visible) continue;
-      ent.sprite.position.lerp(ent.targetPos, lerpFactor);
+      ent.sprite.material.color.copy(spriteTint);
 
       const [w, h] = ent.baseScale;
       this.syncActorFacingTexture(ent);
-      let scaleY = h;
-      let offsetY = Math.sin(elapsed * 2.4 + (id === 'nyx' ? 1.4 : 0)) * 0.03;
 
-      if (ent.action === 'kneel' || ent.action === 'crouch') {
-        scaleY = h * 0.78;
-        offsetY -= 0.18;
-      } else if (ent.action === 'jump') {
-        offsetY += Math.abs(Math.sin(elapsed * 5.2)) * 0.42;
-      } else if (ent.action === 'flee') {
-        offsetY += Math.abs(Math.sin(elapsed * 9.0)) * 0.1;
-      } else if (ent.action === 'nuzzle' || ent.action === 'shared_umbrella') {
-        offsetY += Math.sin(elapsed * 3.2) * 0.04;
+      // Compute optional `catch_from_camera` forward reach surge toward Camera A
+      let grabSurge = 0;
+      if (this.cameraGrabState && this.cameraGrabState.actorId === id) {
+        const progress = (elapsed - this.cameraGrabState.startedAt) / this.cameraGrabState.durationSec;
+        if (progress >= 1) {
+          this.cameraGrabState = null;
+        } else if (progress >= 0) {
+          grabSurge = Math.sin(progress * Math.PI);
+        }
+      } else if (ent.action === 'catch_from_camera' && !frozen) {
+        grabSurge = 0.45 + Math.sin(elapsed * 3.4) * 0.35;
       }
 
-      ent.sprite.position.y = ent.targetPos.y + offsetY;
+      const desiredPos = ent.targetPos.clone();
+      if (grabSurge > 0) {
+        desiredPos.z += grabSurge * 1.15;
+      }
+      if (!frozen) {
+        ent.sprite.position.lerp(desiredPos, lerpFactor);
+      }
+
+      let scaleW = w;
+      let scaleY = h;
+      let offsetY = frozen ? 0 : Math.sin(elapsed * 2.4 + (id === 'nyx' ? 1.4 : 0)) * 0.025;
+
+      if (ent.action === 'kneel' || ent.action === 'crouch') {
+        scaleY = h * 0.74;
+        offsetY = 0;
+      } else if (ent.action === 'jump' && !frozen) {
+        offsetY += Math.abs(Math.sin(elapsed * 5.2)) * 0.42;
+      } else if (ent.action === 'flee' && !frozen) {
+        offsetY += Math.abs(Math.sin(elapsed * 9.0)) * 0.1;
+      } else if ((ent.action === 'nuzzle' || ent.action === 'shared_umbrella') && !frozen) {
+        offsetY += Math.sin(elapsed * 3.2) * 0.035;
+      }
+
+      if (grabSurge > 0) {
+        const swell = 1 + grabSurge * 0.16;
+        scaleW = w * swell;
+        scaleY = scaleY * swell;
+        ent.sprite.material.rotation = -grabSurge * 0.07;
+        showCatchRipple = true;
+        this.catchRippleMesh.position.set(
+          ent.sprite.position.x,
+          ent.sprite.position.y + scaleY * 0.56,
+          ent.sprite.position.z + 0.38,
+        );
+        const rippleScale = 0.75 + grabSurge * 0.9;
+        this.catchRippleMesh.scale.set(rippleScale, rippleScale, 1);
+        (this.catchRippleMesh.material as THREE.MeshBasicMaterial).opacity =
+          0.35 + grabSurge * 0.55;
+      } else {
+        ent.sprite.material.rotation = 0;
+      }
+
+      ent.sprite.position.y = ent.targetPos.y + Math.max(0, offsetY);
       // Keep positive scale.x in Three.js r170 (horizontal flip handled via UV-mirrored texture)
-      ent.sprite.scale.set(w, scaleY, 1);
+      ent.sprite.scale.set(scaleW, scaleY, 1);
       if (ent.shadow) {
         ent.shadow.position.x = ent.sprite.position.x;
         ent.shadow.position.z = ent.sprite.position.z;
@@ -972,24 +1376,50 @@ export class ThreeStageManager {
       if (ent.haloRing && ent.haloRing.visible) {
         ent.haloRing.position.x = ent.sprite.position.x;
         ent.haloRing.position.z = ent.sprite.position.z;
-        const pulse = 1 + Math.sin(elapsed * 4.2) * 0.07;
+        const pulse = frozen ? 1 : 1 + Math.sin(elapsed * 4.2) * 0.07;
         ent.haloRing.scale.set(pulse, pulse, 1);
         const haloMat = ent.haloRing.material as THREE.MeshBasicMaterial;
-        haloMat.opacity = 0.55 + Math.sin(elapsed * 4.2) * 0.25;
+        haloMat.opacity = frozen ? 0.4 : 0.55 + Math.sin(elapsed * 4.2) * 0.25;
       }
     }
+    this.catchRippleMesh.visible = showCatchRipple;
 
-    for (const ent of this.propEntities.values()) {
+    for (const [propId, ent] of this.propEntities.entries()) {
       if (!ent.sprite.visible) continue;
-      ent.sprite.position.lerp(ent.targetPos, lerpFactor);
-      if (ent.action === 'glowing') {
+      ent.sprite.material.color.copy(spriteTint);
+
+      const flight = this.activePropFlights.get(propId);
+      if (flight) {
+        const rawT = (elapsed - flight.startedAt) / flight.durationSec;
+        const t = Math.min(1, Math.max(0, rawT));
+        const eased = 1 - Math.pow(1 - t, 2);
+        const px = flight.startPos.x + (flight.endPos.x - flight.startPos.x) * eased;
+        const pz = flight.startPos.z + (flight.endPos.z - flight.startPos.z) * eased;
+        const baseY = flight.startPos.y + (flight.endPos.y - flight.startPos.y) * eased;
+        const arcY = 4 * flight.peakHeight * t * (1 - t);
+        ent.sprite.position.set(px, baseY + arcY, pz);
+        const airScale = 1 + (1 - t) * 0.42;
+        ent.sprite.scale.set(ent.baseScale[0] * airScale, ent.baseScale[1] * airScale, 1);
+        ent.sprite.material.rotation = (1 - t) * Math.PI * 2.0;
+        if (rawT >= 1) {
+          this.activePropFlights.delete(propId);
+          ent.sprite.material.rotation = ent.broken && !ent.usingBrokenAsset ? 0.65 : 0;
+        }
+        continue;
+      }
+
+      if (!frozen) {
+        ent.sprite.position.lerp(ent.targetPos, lerpFactor);
+      }
+      if (ent.action === 'glowing' && !frozen) {
         const pulse = 1 + Math.sin(elapsed * 4) * 0.08;
         ent.sprite.scale.set(ent.baseScale[0] * pulse, ent.baseScale[1] * pulse, 1);
-        ent.sprite.position.y = ent.targetPos.y + Math.sin(elapsed * 2.6) * 0.06;
+        ent.sprite.position.y = ent.targetPos.y + Math.sin(elapsed * 2.6) * 0.05;
       } else {
         const sx = ent.sprite.scale.x + (ent.baseScale[0] - ent.sprite.scale.x) * lerpFactor;
         const sy = ent.sprite.scale.y + (ent.baseScale[1] - ent.sprite.scale.y) * lerpFactor;
         ent.sprite.scale.set(sx, sy, 1);
+        ent.sprite.position.y = ent.targetPos.y;
       }
     }
   }
@@ -1024,9 +1454,9 @@ export class ThreeStageManager {
     }
   }
 
-  private updateCameras(dt: number, elapsed: number): void {
-    const shakeX = this.cameraShake ? Math.sin(elapsed * 38) * 0.08 : 0;
-    const shakeY = this.cameraShake ? Math.cos(elapsed * 43) * 0.06 : 0;
+  private updateCameras(dt: number, elapsed: number, frozen = false): void {
+    const shakeX = this.cameraShake && !frozen ? Math.sin(elapsed * 38) * 0.08 : 0;
+    const shakeY = this.cameraShake && !frozen ? Math.cos(elapsed * 43) * 0.06 : 0;
 
     this.cameraA.position.set(shakeX, 2.75 + shakeY, 6.2);
     this.cameraA.lookAt(0, 0.9, 0);
@@ -1208,11 +1638,25 @@ export class ThreeStageManager {
     }
     this.flippedTextureCache.clear();
 
-    if (this.fallbackStarTexture && !disposedTextures.has(this.fallbackStarTexture)) {
-      disposedTextures.add(this.fallbackStarTexture);
-      this.fallbackStarTexture.dispose();
+    const fallbacks = [
+      this.fallbackStarTexture,
+      this.fallbackUmbrellaClosedTexture,
+      this.fallbackUmbrellaOpenTexture,
+      this.fallbackChairTexture,
+    ];
+    for (const fb of fallbacks) {
+      if (fb && !disposedTextures.has(fb)) {
+        disposedTextures.add(fb);
+        fb.dispose();
+      }
     }
     this.fallbackStarTexture = null;
+    this.fallbackUmbrellaClosedTexture = null;
+    this.fallbackUmbrellaOpenTexture = null;
+    this.fallbackChairTexture = null;
+    this.activePropFlights.clear();
+    this.seenThrownPropKeys.clear();
+    this.cameraGrabState = null;
 
     this.actorEntities.clear();
     this.propEntities.clear();
