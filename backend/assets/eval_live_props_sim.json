@@ -1,0 +1,50 @@
+{
+  "generated_at": "2026-11-21T13:35:15",
+  "count": 3,
+  "wall_sec": 16.86,
+  "avg_latency_sec": 15.75,
+  "all_rgba": true,
+  "all_zero_green_spill": true,
+  "all_bottom_flush": true,
+  "props": [
+    {
+      "file": "showcase_desk_coffee_mug.png",
+      "mode": "RGBA",
+      "width": 509,
+      "height": 477,
+      "aspect_ratio": 1.067,
+      "bottom_pad_px": 0,
+      "opaque_green_spill_pixels": 0,
+      "transparent_ratio": 0.333,
+      "elapsed_sec": 15.49,
+      "image_url": "/assets/props/showcase_desk_coffee_mug.png",
+      "name": "Ceramic Coffee Mug"
+    },
+    {
+      "file": "showcase_desk_paper_heart.png",
+      "mode": "RGBA",
+      "width": 499,
+      "height": 508,
+      "aspect_ratio": 0.982,
+      "bottom_pad_px": 0,
+      "opaque_green_spill_pixels": 0,
+      "transparent_ratio": 0.345,
+      "elapsed_sec": 14.97,
+      "image_url": "/assets/props/showcase_desk_paper_heart.png",
+      "name": "Folded Red Paper Heart"
+    },
+    {
+      "file": "showcase_desk_brass_key.png",
+      "mode": "RGBA",
+      "width": 331,
+      "height": 511,
+      "aspect_ratio": 0.648,
+      "bottom_pad_px": 0,
+      "opaque_green_spill_pixels": 0,
+      "transparent_ratio": 0.714,
+      "elapsed_sec": 16.8,
+      "image_url": "/assets/props/showcase_desk_brass_key.png",
+      "name": "Brass Apartment Key"
+    }
+  ]
+}
