@@ -318,12 +318,56 @@ export class ThreeStageManager {
   private orbitScratch = new THREE.Vector3();
   private orbitSpherical = new THREE.Spherical();
 
+  /** Called when the user drops a character at a new spot: (actor id, new grid position). */
+  public onActorMoved: ((actorId: string, grid: [number, number]) => void) | null = null;
+  private actorDrag: { id: string; camera: THREE.PerspectiveCamera } | null = null;
+  private pickRay = new THREE.Raycaster();
+  private pickNdc = new THREE.Vector2();
+  private floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  private floorHit = new THREE.Vector3();
+
+  private aimPickRay(e: PointerEvent, camera: THREE.PerspectiveCamera): void {
+    const rect = (e.currentTarget as HTMLCanvasElement).getBoundingClientRect();
+    this.pickNdc.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+    this.pickRay.setFromCamera(this.pickNdc, camera);
+  }
+
+  /** Keep a dragged character on the stage floor and outside the round table, so nothing clips through it. */
+  private clampToFreeFloor(x: number, z: number, actorId: string): [number, number] {
+    const cx = Math.max(-2.1, Math.min(2.1, x));
+    const cz = Math.max(-1.7, Math.min(1.7, z));
+    const minDist = actorId === 'nyx' ? 0.8 : 1.05;
+    const dist = Math.hypot(cx, cz);
+    if (dist >= minDist) return [cx, cz];
+    if (dist < 0.001) return [-minDist, 0];
+    return [(cx / dist) * minDist, (cz / dist) * minDist];
+  }
+
   private handleOrbitDown = (e: PointerEvent): void => {
-    this.orbitDrag = { x: e.clientX, y: e.clientY };
+    const camera = e.currentTarget === this.canvasB ? this.cameraB : this.cameraA;
+    this.aimPickRay(e, camera);
+    const sprites = [...this.actorEntities.values()].map((entity) => entity.sprite);
+    const hit = this.pickRay.intersectObjects(sprites, false)[0];
+    const hitId = hit ? [...this.actorEntities.entries()].find(([, entity]) => entity.sprite === hit.object)?.[0] : null;
+    if (hitId) {
+      this.actorDrag = { id: hitId, camera };
+    } else {
+      this.orbitDrag = { x: e.clientX, y: e.clientY };
+    }
     (e.currentTarget as HTMLCanvasElement).setPointerCapture?.(e.pointerId);
   };
 
   private handleOrbitMove = (e: PointerEvent): void => {
+    if (this.actorDrag) {
+      const entity = this.actorEntities.get(this.actorDrag.id);
+      this.aimPickRay(e, this.actorDrag.camera);
+      if (entity && this.pickRay.ray.intersectPlane(this.floorPlane, this.floorHit)) {
+        const [x, z] = this.clampToFreeFloor(this.floorHit.x, this.floorHit.z, this.actorDrag.id);
+        entity.targetPos.x = x;
+        entity.targetPos.z = z;
+      }
+      return;
+    }
     if (!this.orbitDrag) return;
     this.orbitYaw -= (e.clientX - this.orbitDrag.x) * 0.008;
     this.orbitPitch = Math.max(-0.45, Math.min(0.6, this.orbitPitch + (e.clientY - this.orbitDrag.y) * 0.005));
@@ -331,6 +375,17 @@ export class ThreeStageManager {
   };
 
   private handleOrbitUp = (): void => {
+    if (this.actorDrag) {
+      const entity = this.actorEntities.get(this.actorDrag.id);
+      if (entity) {
+        const grid: [number, number] = [
+          Math.round((entity.targetPos.x / 2.1 + 1) * 100) / 100,
+          Math.round((entity.targetPos.z / 1.7 + 1) * 100) / 100,
+        ];
+        this.onActorMoved?.(this.actorDrag.id, grid);
+      }
+      this.actorDrag = null;
+    }
     this.orbitDrag = null;
   };
 

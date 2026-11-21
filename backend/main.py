@@ -438,6 +438,7 @@ async def api_director_extend(
         learned_rules=load_general_rules(),
         end_freeze_mode=end_freeze_mode,
     )
+    _keep_actors_clear_of_table(next_scene)
     if thrown_prop_id:
         held_by_actor = any(a.holding_prop == thrown_prop_id for a in next_scene.actors)
         if not held_by_actor and not any(p.id == thrown_prop_id for p in next_scene.stage_props):
@@ -594,6 +595,51 @@ async def _save_preview_file(
         out_path.write_bytes(base64.b64decode(b64_part))
         return f"/assets/previews/{out_path.name}"
     return None
+
+
+TABLE_CLEARANCE_M = {"nyx": 0.8}
+DEFAULT_TABLE_CLEARANCE_M = 1.05
+
+
+def _keep_actors_clear_of_table(scene: Scene) -> None:
+    """Push any actor standing inside the centre table out to its edge, so sprites and renders do not clip through it."""
+    import math
+
+    for actor in scene.actors:
+        if actor.action == "jump":  # on top of the table on purpose
+            continue
+        wx, wz = (actor.grid[0] - 1) * 2.1, (actor.grid[1] - 1) * 1.7
+        clearance = TABLE_CLEARANCE_M.get(actor.id, DEFAULT_TABLE_CLEARANCE_M)
+        dist = math.hypot(wx, wz)
+        if dist >= clearance:
+            continue
+        if dist < 1e-3:
+            wx, wz, dist = -1.0, 0.0, 1.0
+        wx, wz = wx / dist * clearance, wz / dist * clearance
+        actor.grid = [round(wx / 2.1 + 1, 2), round(wz / 1.7 + 1, 2)]
+
+
+@app.post("/api/director/move-actor")
+async def api_director_move_actor(
+    branch_id: str = Form(...),
+    scene_id: int = Form(...),
+    actor_id: str = Form(...),
+    grid_x: float = Form(...),
+    grid_y: float = Form(...),
+) -> dict:
+    """Store a character position the user set by dragging on the 3D stage; later scenes continue from it."""
+    async with _get_branch_lock(branch_id):
+        branch = get_branch(branch_id)
+        if not branch:
+            raise HTTPException(status_code=404, detail=f"Branch {branch_id} not found")
+        scene = next((s for s in branch.scenes if s.scene_id == scene_id), None)
+        actor = next((a for a in scene.actors if a.id == actor_id), None) if scene else None
+        if not actor:
+            raise HTTPException(status_code=404, detail=f"Actor {actor_id} not found in scene {scene_id}")
+        actor.grid = [max(0.0, min(2.0, grid_x)), max(0.0, min(2.0, grid_y))]
+        _keep_actors_clear_of_table(scene)
+        save_branch(branch)
+        return {"branch_id": branch_id, "scene_id": scene_id, "actor_id": actor_id, "grid": actor.grid}
 
 
 @app.post("/api/media/render-scene")

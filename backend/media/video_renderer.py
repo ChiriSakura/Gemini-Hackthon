@@ -1324,6 +1324,8 @@ def _derive_cam_b_keyframe_sync(
         "Everything in the 3D scene stays identical: the same room (same arched glass walls, lanterns, floor and furniture), "
         "the same characters with the same poses, clothes and held objects, the same props on the same floor spots, "
         "the same lighting and weather. Do not add, remove, duplicate or resize anything. "
+        "There is exactly ONE of each character and each object, the same count as in Image 1: never draw a second "
+        "copy of a character. "
         "Each character keeps the same body and face direction RELATIVE TO THE ROOM: whoever faces the table, a window or "
         "another character in Image 1 still faces that same thing here, so we now see them from 45 degrees further "
         "round. Never turn a character to face the new camera. "

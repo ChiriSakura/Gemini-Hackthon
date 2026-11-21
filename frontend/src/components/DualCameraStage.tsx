@@ -22,6 +22,7 @@ import React, {
   useState,
 } from 'react';
 import type { RenderProgressSnapshot } from '../api/stageClient';
+import { moveStageActor } from '../api/stageClient';
 import {
   ThreeStageManager,
   type PreviewExportResult,
@@ -290,6 +291,20 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
       if (!managerRef.current || !scene) return;
       managerRef.current.applyScene(scene, activeBranch.props_registry, compareScene);
     }, [scene, activeBranch.props_registry, compareScene]);
+
+    useEffect(() => {
+      const manager = managerRef.current;
+      if (!manager || !scene) return;
+      // Dragging a character on the 3D stage moves it in the world state, so later scenes start from the new spot.
+      manager.onActorMoved = (actorId, grid) => {
+        const actor = scene.actors.find((item) => item.id === actorId);
+        if (actor) actor.grid = grid;
+        void moveStageActor(activeBranch.branch_id, scene.scene_id, actorId, grid);
+      };
+      return () => {
+        manager.onActorMoved = null;
+      };
+    }, [scene, activeBranch.branch_id]);
 
     useEffect(() => {
       if (!managerRef.current) return;

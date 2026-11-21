@@ -2533,6 +2533,9 @@ body::before {
 }
 
 .selfview-status {
+  font-variant-numeric: tabular-nums;
+  min-width: 3.6em;
+  white-space: nowrap;
   display: inline-flex;
   align-items: center;
   gap: 6px;

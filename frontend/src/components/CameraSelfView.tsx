@@ -378,7 +378,7 @@ export const CameraSelfView: React.FC<CameraSelfViewProps> = ({
   const overlayText = creatingProp
     ? 'Stylizing…'
     : recordingThrow
-      ? `${(remainingMs / 1000).toFixed(0)}s`
+      ? `${String(Math.ceil(remainingMs / 1000)).padStart(2, '0')}s`
       : camStatus === 'starting'
         ? 'Starting camera…'
         : cameraOn
