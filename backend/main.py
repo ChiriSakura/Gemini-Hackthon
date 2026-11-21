@@ -30,6 +30,7 @@ from backend.director.hydrogen_judge import (
     parse_director_input,
 )
 from backend.director.neon_director import plan_scenes
+from backend.director.rule_memory import add_rule, load_rules
 from backend.director.state_tree import get_branch, list_branches, save_branch
 from backend.logger import log_function_call
 from backend.media.prop_maker import create_prop
@@ -82,6 +83,13 @@ def api_get_branch(branch_id: str) -> BranchState:
     if not branch:
         raise HTTPException(status_code=404, detail=f"Branch {branch_id} not found")
     return branch
+
+
+@app.get("/api/director/rules")
+@log_function_call
+def api_get_rules() -> dict:
+    """Return active continuity rules learned from QA repairs."""
+    return {"rules": load_rules()}
 
 
 @app.post("/api/director/fork", response_model=BranchState)
@@ -137,6 +145,7 @@ async def api_director_fork(
         base_scenes=parent.scenes,
         parent_branch_id=parent.branch_id,
         props_registry=updated_registry,
+        learned_rules=load_rules(),
     )
     old_by_id = {s.scene_id: s for s in parent.scenes}
     affected_ids = set(await filter_affected_scenes(parsed.instruction, parent.scenes, parsed.target_scene_id))
@@ -255,6 +264,10 @@ async def api_media_render_scene(
             cam_b_preview_path=target.media.cam_b_preview_url,
             tail_inspector=inspect_tail_frame,
         )
+        if target.media.qa_retries > 0 and target.media.qa_result:
+            for item in target.media.qa_result.items:
+                if not item.passed:
+                    add_rule(f"Scene {target.scene_id} check reminder: {item.question}")
         save_branch(branch)
         return {"scene_id": target.scene_id, "media": target.media, "environment_notes": target.environment_notes}
 

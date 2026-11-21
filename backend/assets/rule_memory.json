@@ -1,0 +1,5 @@
+[
+  "Once crystal_vase is broken in scene k, it MUST remain broken on the floor in all scenes > k unless explicitly repaired.",
+  "Every registered prop in props_registry has at most ONE holder (or rests on stage_props) per scene; never duplicate held props.",
+  "Never introduce extra unintended human characters beyond Lia and Nyx unless explicitly instructed."
+]
