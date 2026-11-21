@@ -24,7 +24,24 @@ export interface CreatePropPayload {
   description?: string;
   branchId: string;
   sceneId?: number;
+  placement?: 'table' | 'held' | 'floor';
   imageBlob?: Blob | null;
+}
+
+export interface EvalSummaryResponse {
+  stress_report?: unknown;
+  latest_eval?: unknown;
+  dual_cam_stats?: unknown;
+  calibration_20_clips?: unknown;
+  decisions_multimodal?: unknown;
+  audio_mood?: unknown;
+  branch_matrix?: unknown;
+  prop_persistence?: unknown;
+  cache_savings?: unknown;
+  resolution_bench?: unknown;
+  failover_rehearsal?: unknown;
+  submission_summary?: unknown;
+  preflight?: unknown;
 }
 
 export interface SceneRenderProgress {
@@ -129,7 +146,26 @@ export async function fetchHealth(): Promise<BackendHealth> {
   }
 }
 
-const FORK_TIMEOUT_MS = 120000;
+const FORK_TIMEOUT_MS = 45000;
+const RENDER_TIMEOUT_MS = 105000;
+const PROP_TIMEOUT_MS = 90000;
+
+/**
+ * Fetch consolidated offline evaluation summaries from `GET /api/eval/summary`.
+ * Returns `null` when the backend is offline so `EvalModal` falls back to
+ * exact audited repo JSON values.
+ */
+export async function fetchEvalSummary(): Promise<EvalSummaryResponse | null> {
+  try {
+    const res = await fetch('/api/eval/summary', {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as EvalSummaryResponse;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Turn a failed request into a short human-readable reason.
@@ -220,7 +256,7 @@ export interface RenderSceneResponse {
  */
 export async function requestSceneRender(
   payload: RenderScenePayload,
-): Promise<RenderSceneResponse | null> {
+): Promise<{ result: RenderSceneResponse | null; error: string | null }> {
   const formData = new FormData();
   formData.append('branch_id', payload.branchId);
   formData.append('scene_id', String(payload.scene.scene_id));
@@ -243,19 +279,25 @@ export async function requestSceneRender(
     const res = await fetch('/api/media/render-scene', {
       method: 'POST',
       body: formData,
+      signal: AbortSignal.timeout(RENDER_TIMEOUT_MS),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      return { result: null, error: await readErrorDetail(res) };
+    }
     const data = await res.json();
     const resolvedSceneId = data.scene_id ?? payload.scene.scene_id;
     return {
-      scene_id: resolvedSceneId,
-      media: sanitizeSceneMediaToEn((data.media ?? data) as SceneMedia, resolvedSceneId),
-      environment_notes: data.environment_notes
-        ? sanitizeTextToEn(data.environment_notes, 'clean_stage')
-        : undefined,
+      result: {
+        scene_id: resolvedSceneId,
+        media: sanitizeSceneMediaToEn((data.media ?? data) as SceneMedia, resolvedSceneId),
+        environment_notes: data.environment_notes
+          ? sanitizeTextToEn(data.environment_notes, 'clean_stage')
+          : undefined,
+      },
+      error: null,
     };
-  } catch {
-    return null;
+  } catch (err) {
+    return { result: null, error: describeRequestError(err, RENDER_TIMEOUT_MS) };
   }
 }
 
@@ -288,6 +330,7 @@ export async function createStageProp(
   formData.append('description', (payload.description ?? payload.name).trim());
   formData.append('branch_id', payload.branchId);
   formData.append('scene_id', String(payload.sceneId ?? 1));
+  formData.append('placement', payload.placement ?? 'table');
   if (payload.imageBlob) {
     formData.append('image', payload.imageBlob, 'webcam_prop.png');
   }
@@ -296,6 +339,7 @@ export async function createStageProp(
     const res = await fetch('/api/media/create-prop', {
       method: 'POST',
       body: formData,
+      signal: AbortSignal.timeout(PROP_TIMEOUT_MS),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
@@ -357,17 +401,20 @@ export async function fetchRenderProgress(
  */
 export async function requestBranchRender(
   branchId: string,
-): Promise<BranchState | null> {
+): Promise<{ branch: BranchState | null; error: string | null }> {
   const formData = new FormData();
   formData.append('branch_id', branchId);
   try {
     const res = await fetch('/api/media/render-scene', {
       method: 'POST',
       body: formData,
+      signal: AbortSignal.timeout(RENDER_TIMEOUT_MS),
     });
-    if (!res.ok) return null;
-    return sanitizeBranchToEn((await res.json()) as BranchState);
-  } catch {
-    return null;
+    if (!res.ok) {
+      return { branch: null, error: await readErrorDetail(res) };
+    }
+    return { branch: sanitizeBranchToEn((await res.json()) as BranchState), error: null };
+  } catch (err) {
+    return { branch: null, error: describeRequestError(err, RENDER_TIMEOUT_MS) };
   }
 }

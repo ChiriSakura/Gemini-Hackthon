@@ -474,17 +474,18 @@ def _build_shot_prompt(
         cam_desc = (
             "Camera A WIDE ESTABLISHING front-center full-stage shot (IGNORE any mention of Camera B or close-up in narration): "
             "pull the camera back to show the entire conservatory floor, all three arched glass walls, the central 0.75m round "
-            "cafe table ALWAYS clearly visible in the middle, and full bodies of all characters from head to shoes. "
-            "The image fills the whole frame edge to edge from the very first frame: no black bars, no letterbox, no inset picture"
+            "cafe table ALWAYS clearly visible in the middle, and full bodies of all characters from head to shoes"
         )
     else:
         cam_desc = (
-            "Camera B THREE-QUARTER SIDE CLOSE-UP: the camera stands at the front-right corner of the room, turned 45 degrees "
-            "horizontally (yaw only) to look across the central round table toward the girl and cat "
-            "(IGNORE any mention of Camera A wide shot in narration): clear three-quarter perspective depth, noticeably tighter "
-            "medium close-up framing than Camera A (NEVER flat front-on). The camera is perfectly LEVEL from the very first frame: "
-            "horizon and floor lines horizontal, no camera roll, no Dutch angle, no tilted or rotated picture, no zoom-in from a "
-            "smaller inset, and the image fills the whole frame edge to edge with no black corners or bars"
+            "Camera B STRONG 45-DEGREE SIDE-ANGLE CLOSE-UP (IGNORE any mention of Camera A wide shot in narration): "
+            "the camera stands at the front-right corner of the room and is rotated 45 degrees around the vertical axis, so it "
+            "looks obliquely ACROSS the central round table at the girl and cat from the side. We see them in three-quarter "
+            "profile, the table edge-on at an angle, and the glass walls receding diagonally into depth in two-point perspective "
+            "(NEVER a flat front-on view). Noticeably tighter medium close-up than Camera A. "
+            "The 45 degrees is the camera's position around the room, NOT a rotation of the picture: vertical lines stay vertical, "
+            "the horizon and floor are level, no camera roll, no Dutch angle, and the image fills the whole frame from the very "
+            "first frame with no black corners, bars or inset picture"
         )
 
     lighting_desc = {

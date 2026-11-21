@@ -8,7 +8,7 @@
  * - Provides text fallback input, target scene selector (1..4), quick hackathon
  *   demo preset chips, and inline contradiction confirmation.
  */
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 export type PropPlacement = 'table' | 'held' | 'floor';
 
@@ -26,11 +26,64 @@ interface DirectControlBarProps {
     imageBlob?: Blob | null;
     placement: PropPlacement;
   }) => void;
+  /** Resolves to true only when a new branch was actually added. */
   onSubmitFork: (opts: {
     clip?: Blob | null;
     text?: string;
     confirmContradiction?: boolean;
-  }) => void;
+  }) => Promise<boolean> | void;
+}
+
+const MAX_CLIP_MS = 3000;
+const MIN_CLIP_MS = 1000;
+
+/**
+ * Ask for camera + microphone at 1280x720 (ideal, never a hard requirement),
+ * falling back to any camera and finally to voice only when no camera works.
+ * A permission refusal is rethrown so the caller can explain it.
+ */
+async function acquireDirectorStream(): Promise<MediaStream> {
+  const media = navigator.mediaDevices;
+  if (!media?.getUserMedia) throw new Error('unsupported');
+  const isDenied = (err: unknown) => {
+    const name = (err as { name?: string } | null)?.name;
+    return name === 'NotAllowedError' || name === 'SecurityError';
+  };
+  try {
+    return await media.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: true,
+    });
+  } catch (err) {
+    if (isDenied(err)) throw err;
+    try {
+      return await media.getUserMedia({ video: true, audio: true });
+    } catch (err2) {
+      if (isDenied(err2)) throw err2;
+      return media.getUserMedia({ audio: true });
+    }
+  }
+}
+
+function describeMediaError(err: unknown): string {
+  const name = (err as { name?: string } | null)?.name;
+  if (name === 'NotAllowedError' || name === 'SecurityError') {
+    return 'Camera/microphone permission was denied — allow access in the browser, or type instead.';
+  }
+  if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+    return 'No camera or microphone found — type instead.';
+  }
+  if (name === 'NotReadableError') {
+    return 'Camera or microphone is in use by another app — close it, or type instead.';
+  }
+  return 'Camera/microphone unavailable — type instead.';
+}
+
+function pickRecorderMime(hasVideo: boolean): string | undefined {
+  const candidates = hasVideo
+    ? ['video/webm;codecs=vp8,opus', 'video/webm']
+    : ['audio/webm;codecs=opus', 'audio/webm'];
+  return candidates.find((m) => MediaRecorder.isTypeSupported(m));
 }
 
 const DEMO_PROMPTS: Array<{ sceneId: number; label: string; text: string }> = [
@@ -70,7 +123,8 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
 }) => {
   const [text, setText] = useState('');
   const [recording, setRecording] = useState(false);
-  const [remainingMs, setRemainingMs] = useState(3000);
+  const [remainingMs, setRemainingMs] = useState(MAX_CLIP_MS);
+  const [holdHint, setHoldHint] = useState<string | null>(null);
   const [audioLevel, setAudioLevel] = useState(0);
   const [camError, setCamError] = useState<string | null>(null);
   const [propPanelOpen, setPropPanelOpen] = useState(false);
@@ -87,6 +141,10 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
   const countdownIntervalRef = useRef<number | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const meterRafRef = useRef<number | null>(null);
+  // Set synchronously on press so a second press cannot start a second stream
+  const holdBusyRef = useRef(false);
+  const holdReleasedRef = useRef(false);
+  const recordStartedAtRef = useRef(0);
 
   const clearCapturedProp = () => {
     if (capturedPropPreviewUrl) {
@@ -110,7 +168,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
     setCamError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 360 },
+        video: { width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false,
       });
       propStreamRef.current = stream;
@@ -119,8 +177,13 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
           propVideoRef.current.srcObject = stream;
         }
       }, 60);
-    } catch {
-      setCamError('Camera unavailable — enter a prop name to generate via text.');
+    } catch (err) {
+      const name = (err as { name?: string } | null)?.name;
+      setCamError(
+        name === 'NotAllowedError'
+          ? 'Camera permission was denied — allow access, or enter a prop name to generate via text.'
+          : 'Camera unavailable — enter a prop name to generate via text.',
+      );
     }
   };
 
@@ -213,7 +276,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
       audioCtxRef.current = null;
     }
     setAudioLevel(0);
-    setRemainingMs(3000);
+    setRemainingMs(MAX_CLIP_MS);
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
@@ -255,68 +318,133 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
     }
   };
 
+  const handleRelease = useCallback(() => {
+    holdReleasedRef.current = true;
+    const recorder = recorderRef.current;
+    if (recorder && recorder.state === 'recording') {
+      recorder.stop();
+    }
+  }, []);
+
+  const detachReleaseListeners = useCallback(() => {
+    window.removeEventListener('pointerup', handleRelease);
+    window.removeEventListener('pointercancel', handleRelease);
+    window.removeEventListener('blur', handleRelease);
+  }, [handleRelease]);
+
+  const endHold = () => {
+    recorderRef.current = null;
+    holdBusyRef.current = false;
+    setRecording(false);
+    stopStream();
+    detachReleaseListeners();
+  };
+
   const handleStartHold = async () => {
-    if (recording || submitting) return;
+    if (holdBusyRef.current || submitting) return;
+    holdBusyRef.current = true;
+    holdReleasedRef.current = false;
     setCamError(null);
+    setHoldHint(null);
+    // Release is tracked on the window so sliding off the button keeps recording
+    window.addEventListener('pointerup', handleRelease);
+    window.addEventListener('pointercancel', handleRelease);
+    window.addEventListener('blur', handleRelease);
+
+    let stream: MediaStream;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 360 },
-        audio: true,
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-      startAudioMeter(stream);
+      stream = await acquireDirectorStream();
+    } catch (err) {
+      endHold();
+      setCamError(describeMediaError(err));
+      return;
+    }
 
-      const chunks: BlobPart[] = [];
-      const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
-        ? 'video/webm;codecs=vp8,opus'
-        : 'video/webm';
-      const recorder = new MediaRecorder(stream, { mimeType: mime });
-      recorderRef.current = recorder;
+    if (holdReleasedRef.current) {
+      // Released while the permission prompt was open: nothing was recorded
+      stream.getTracks().forEach((t) => t.stop());
+      endHold();
+      setHoldHint('Camera and microphone are ready — press and hold again to record.');
+      return;
+    }
 
-      recorder.ondataavailable = (ev) => {
-        if (ev.data.size > 0) chunks.push(ev.data);
-      };
-      recorder.onstop = () => {
-        setRecording(false);
-        stopStream();
-        if (chunks.length > 0) {
-          const blob = new Blob(chunks, { type: mime });
-          onSubmitFork({ clip: blob, text });
-        }
-      };
+    streamRef.current = stream;
+    startAudioMeter(stream);
 
-      const startedAt = Date.now();
-      setRemainingMs(3000);
-      recorder.start();
-      setRecording(true);
-      countdownIntervalRef.current = window.setInterval(() => {
-        const left = Math.max(0, 3000 - (Date.now() - startedAt));
-        setRemainingMs(left);
-      }, 50);
-      timerRef.current = window.setTimeout(() => {
-        if (recorder.state === 'recording') {
-          recorder.stop();
-        }
-      }, 3000);
+    const chunks: BlobPart[] = [];
+    const mime = pickRecorderMime(stream.getVideoTracks().length > 0);
+    let recorder: MediaRecorder;
+    try {
+      recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
     } catch {
-      setCamError('Camera/microphone unavailable — use text input on the right.');
-      stopStream();
+      endHold();
+      setCamError('Recording is not supported in this browser — type instead.');
+      return;
     }
+    recorderRef.current = recorder;
+
+    recorder.ondataavailable = (ev) => {
+      if (ev.data.size > 0) chunks.push(ev.data);
+    };
+    recorder.onerror = () => {
+      endHold();
+      setCamError('Recording failed — try again, or type instead.');
+    };
+    recorder.onstop = () => {
+      const durationMs = Date.now() - recordStartedAtRef.current;
+      const blobType = recorder.mimeType || mime || 'video/webm';
+      endHold();
+      if (durationMs < MIN_CLIP_MS || chunks.length === 0) {
+        setHoldHint(
+          `Clip too short (${(durationMs / 1000).toFixed(1)}s) — hold for at least 1 second.`,
+        );
+        return;
+      }
+      // A recorded clip is sent on its own: text box content is never attached
+      void onSubmitFork({ clip: new Blob(chunks, { type: blobType }) });
+    };
+
+    recordStartedAtRef.current = Date.now();
+    setRemainingMs(MAX_CLIP_MS);
+    recorder.start();
+    setRecording(true);
+    countdownIntervalRef.current = window.setInterval(() => {
+      setRemainingMs(Math.max(0, MAX_CLIP_MS - (Date.now() - recordStartedAtRef.current)));
+    }, 50);
+    timerRef.current = window.setTimeout(() => {
+      if (recorder.state === 'recording') {
+        recorder.stop();
+      }
+    }, MAX_CLIP_MS);
   };
 
-  const handleStopHold = () => {
-    if (recorderRef.current && recorderRef.current.state === 'recording') {
-      recorderRef.current.stop();
+  // The PiP <video> only mounts once `recording` is true, so attach the stream here
+  useEffect(() => {
+    if (recording && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
     }
-  };
+  }, [recording]);
 
-  const handleTextSubmit = (e: React.FormEvent) => {
+  // Always release the camera, microphone and listeners when the bar unmounts
+  useEffect(() => {
+    return () => {
+      const recorder = recorderRef.current;
+      if (recorder && recorder.state !== 'inactive') {
+        recorder.onstop = null;
+        recorder.stop();
+      }
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      propStreamRef.current?.getTracks().forEach((t) => t.stop());
+      audioCtxRef.current?.close().catch(() => {});
+      detachReleaseListeners();
+    };
+  }, [detachReleaseListeners]);
+
+  const handleTextSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!text.trim() || submitting) return;
-    onSubmitFork({ text });
+    const ok = await onSubmitFork({ text });
+    if (ok) setText('');
   };
 
   return (
@@ -348,6 +476,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
             <button
               type="button"
               className="pill-btn active"
+              disabled={submitting}
               onClick={() =>
                 onForceRewrite
                   ? onForceRewrite()
@@ -361,16 +490,22 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
       )}
 
       {camError && <div className="warning-banner">{camError}</div>}
+      {holdHint && !camError && (
+        <div className="status-banner blue" role="status">
+          {holdHint}
+        </div>
+      )}
 
       <form className="director-controls-row" onSubmit={handleTextSubmit}>
         <button
           type="button"
           className={`hold-direct-btn ${recording ? 'recording' : ''}`}
-          onMouseDown={handleStartHold}
-          onMouseUp={handleStopHold}
-          onMouseLeave={handleStopHold}
-          onTouchStart={handleStartHold}
-          onTouchEnd={handleStopHold}
+          onPointerDown={(e) => {
+            if (e.button !== 0) return;
+            void handleStartHold();
+          }}
+          onContextMenu={(e) => e.preventDefault()}
+          style={{ touchAction: 'none' }}
           disabled={submitting}
         >
           {recording
@@ -405,7 +540,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
               <div className="countdown-track">
                 <div
                   className="countdown-fill"
-                  style={{ width: `${Math.round((remainingMs / 3000) * 100)}%` }}
+                  style={{ width: `${Math.round((remainingMs / MAX_CLIP_MS) * 100)}%` }}
                 />
               </div>
               <div className="rms-row" title="Live microphone input RMS level">
@@ -446,7 +581,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
           className="send-btn"
           disabled={submitting || !text.trim()}
         >
-          {submitting ? 'Simulating…' : '⚡ Fork & Direct'}
+          {submitting ? 'Working…' : '⚡ Fork & Direct'}
         </button>
       </form>
 
