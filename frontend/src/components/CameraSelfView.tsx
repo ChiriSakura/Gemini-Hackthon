@@ -12,7 +12,6 @@
  *   2D anime prop flying into the stage (`detect_throw_peak=true`, `entry_motion=throw_arc`).
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { IconCamera, IconClose } from './Icons';
 import type { PropPlacement } from './DirectControlBar';
 
 const MAX_THROW_MS = 30000;
@@ -78,7 +77,6 @@ export const CameraSelfView: React.FC<CameraSelfViewProps> = ({
   onSkipThrowAndContinue,
   onSubmitThrow,
 }) => {
-  const [collapsed, setCollapsed] = useState(false);
   const [camStatus, setCamStatus] = useState<'idle' | 'ready' | 'blocked' | 'unavailable'>('idle');
   const [camMessage, setCamMessage] = useState<string | null>(null);
   const [propName, setPropName] = useState('');
@@ -111,7 +109,6 @@ export const CameraSelfView: React.FC<CameraSelfViewProps> = ({
   // when the story explicitly asks to hand/give/toss/throw/catch an object to Lia.
   useEffect(() => {
     if (throwOpen) {
-      setCollapsed(false);
       const shouldAutoToss = Boolean(
         promptedByStory && /hand|give|toss|throw|catch/i.test(throwHint ?? ''),
       );
@@ -196,12 +193,12 @@ export const CameraSelfView: React.FC<CameraSelfViewProps> = ({
     };
   }, [startCamera, stopCamera]);
 
-  // Re-attach live stream to video element after uncollapsing
+  // Re-attach live stream to video element when status changes
   useEffect(() => {
-    if (!collapsed && videoRef.current && streamRef.current) {
+    if (videoRef.current && streamRef.current) {
       videoRef.current.srcObject = streamRef.current;
     }
-  }, [collapsed, camStatus]);
+  }, [camStatus]);
 
   const stopThrowRecorder = useCallback((shouldSubmit: boolean) => {
     if (countdownTimerRef.current !== null) {
@@ -330,62 +327,48 @@ export const CameraSelfView: React.FC<CameraSelfViewProps> = ({
 
   const progressPct = Math.round((remainingMs / MAX_THROW_MS) * 100);
 
-  if (collapsed && !throwOpen) {
-    return (
-      <button
-        type="button"
-        className="selfview-pill"
-        onClick={() => {
-          setCollapsed(false);
-          void startCamera();
-        }}
-        title="Show live camera self-view"
-      >
-        <IconCamera size={15} />
-        <span>Self-View</span>
-      </button>
-    );
-  }
-
   return (
     <aside
       className={`selfview-card ${throwOpen ? 'throwing' : ''} ${cleanCaptureMode && !throwOpen ? 'compact' : ''}`}
       aria-label="Live camera self-view"
     >
-      <div className="selfview-head">
-        <span className="selfview-status">
-          <span className={`selfview-dot ${camStatus === 'ready' ? 'on' : ''} ${recordingThrow ? 'rec' : ''}`} />
-          {throwOpen
-            ? `Throw In · ${(remainingMs / 1000).toFixed(0)}s`
-            : 'Live Self-View'}
-        </span>
-        <div className="selfview-head-actions">
-          {!throwOpen && (
-            <button
-              type="button"
-              className="selfview-mini-btn accent"
-              disabled={creatingProp}
-              onClick={onRequestOpenThrow}
-              title="Toss an everyday object (drink, snack, mug, laptop) into the anime stage"
-            >
-              {creatingProp ? 'Creating…' : 'Throw Object'}
-            </button>
-          )}
-          {!throwOpen && (
-            <button
-              type="button"
-              className="selfview-icon-btn"
-              aria-label="Collapse self-view camera"
-              title="Minimize"
-              onClick={() => setCollapsed(true)}
-            >
-              <IconClose size={13} />
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="selfview-video-wrap">
+      <div
+        className="selfview-video-wrap"
+        role="button"
+        tabIndex={0}
+        aria-label={
+          throwOpen
+            ? 'Capturing object in self-view camera'
+            : camStatus === 'ready'
+              ? 'Click camera to capture an object for the stage'
+              : 'Click to allow camera access'
+        }
+        title={
+          throwOpen
+            ? `Capturing (${(remainingMs / 1000).toFixed(0)}s left)`
+            : camStatus === 'ready'
+              ? 'Click camera to capture or toss an object'
+              : 'Click to enable camera'
+        }
+        style={{ cursor: creatingProp ? 'default' : 'pointer' }}
+        onClick={() => {
+          if (creatingProp) return;
+          if (camStatus !== 'ready') {
+            void startCamera();
+            return;
+          }
+          if (!throwOpen) {
+            onRequestOpenThrow();
+          }
+        }}
+        onKeyDown={(e) => {
+          if ((e.key === 'Enter' || e.key === ' ') && !creatingProp) {
+            e.preventDefault();
+            if (camStatus !== 'ready') void startCamera();
+            else if (!throwOpen) onRequestOpenThrow();
+          }
+        }}
+      >
         <video
           ref={videoRef}
           className="selfview-video"
@@ -395,16 +378,20 @@ export const CameraSelfView: React.FC<CameraSelfViewProps> = ({
           style={{ display: camStatus === 'ready' ? 'block' : 'none' }}
         />
 
+        <div className="selfview-overlay-label" aria-hidden="true">
+          <span className={`selfview-dot ${camStatus === 'ready' ? 'on' : ''} ${recordingThrow ? 'rec' : ''}`} />
+          <span>
+            {creatingProp
+              ? 'Stylizing…'
+              : throwOpen
+                ? `${(remainingMs / 1000).toFixed(0)}s`
+                : 'Click to capture'}
+          </span>
+        </div>
+
         {camStatus !== 'ready' && (
           <div className="selfview-fallback">
             <span>{camMessage ?? 'Starting camera…'}</span>
-            <button
-              type="button"
-              className="selfview-mini-btn accent"
-              onClick={() => void startCamera()}
-            >
-              Allow camera
-            </button>
           </div>
         )}
 

@@ -3,51 +3,8 @@
   "branch": "feat/w1-media",
   "pull_main_first": true,
   "batch_deadline": "16:25",
-  "feature_freeze": false,
+  "feature_freeze": true,
   "owned_paths": ["backend/media/**", "backend/assets/**", "tasks/status_P2.json"],
-  "note": "Master merged 902b4de cleanly AND updated shared/schema.json + backend/schemas.py + backend/main.py to add PropRegistryItem.appearance_summary and forward prop_descriptions into render_scene_media(). NEW USER REQUIREMENT (15:17 EST): Captured physical objects MUST preserve exact real-world colors, finish, and features in BOTH the 2D anime prop PNG and the Omni Flash scene render (e.g. a YELLOW soda can stays bright yellow; a BLACK smartphone stays matte black — NEVER overridden by a warm ivory/gold palette!). Pull origin/main FIRST and prioritize W1-V3-01..03 before W1-V2-B1..B4.",
-  "parallel_tasks": [
-    {
-      "task_id": "W1-V3-01",
-      "priority": "P0",
-      "title": "Exact Captured Color + Category Preservation in `prop_maker.py` (Yellow Can -> Yellow Can, Black Phone -> Black Phone)",
-      "details": "In `backend/media/prop_maker.py`: (1) Add smartphone keywords (`smartphone`, `phone`, `cellphone`, `mobile`, `iphone`, `手机` -> `0.15`m) to `_PROP_HEIGHT_KEYWORDS`; (2) When `camera_still` is present in `_generate_prop_sync()`, REMOVE/DO NOT apply the hardcoded `'Use warm rich ivory, gold, brass, crimson, amber, ceramic white, silver, or sapphire tones'` palette! Use ZERO extra serial LLM calls: extract the center-ROI dominant color name in `< 5ms` via OpenCV HSV (e.g. `'bright yellow'`, `'matte black'`, `'ruby red'`, `'cobalt blue'`) + combined `appearance_summary = f'{color_label} {name}'`, instruct `_resolve_image_model()` to preserve that EXACT object type and primary color cleanly on solid `#00FF00` chroma green, set `PropRegistryItem.appearance_summary`, and make camera-captured `prop_id` collision-free (include slug + short 4-hex digest of `camera_still` bytes when `prop_id` is omitted)."
-    },
-    {
-      "task_id": "W1-V3-02",
-      "priority": "P0",
-      "title": "Propagate `appearance_summary` / `prop_descriptions` into `video_renderer.py` Shot Prompts",
-      "details": "In `backend/media/video_renderer.py`: (1) Add optional `prop_descriptions: Optional[dict[str, str]] = None` parameter to `render_scene_media()`, `render_branch_scenes()`, `_build_shot_prompt()`, and `_describe_prop_with_scale()`; (2) `backend/main.py` already forwards `prop_descriptions={pid: p.appearance_summary or p.name}` automatically when supported by signature — read each active prop's visual traits from `prop_descriptions` (matching real captured color/shape like `'bright yellow aluminum drink can'` or `'matte black smartphone'`) and inject it directly into `_describe_prop_with_scale()` and `_build_shot_prompt()` alongside the cutout ref PNG in `_select_scene_ref_images()`."
-    },
-    {
-      "task_id": "W1-V3-03",
-      "priority": "P0",
-      "title": "Add Regression Checks for Appearance-Faithful `prop_maker.py` + `video_renderer.py`",
-      "details": "Extend `backend/media/test_v2_infinite_sculpture.py` to test: (a) `estimate_prop_height_m('Black Smartphone', 'Matte black mobile phone') == 0.15`, (b) distinct `camera_frame_bytes` produce non-colliding `prop_id`s and populate `PropRegistryItem.appearance_summary`, and (c) `_build_shot_prompt(..., prop_descriptions={'yellow_drink_can': 'bright yellow aluminum beverage can'})` preserves `'bright yellow aluminum beverage can'` in the prompt."
-    },
-    {
-      "task_id": "W1-V3-04",
-      "priority": "P0",
-      "title": "Fast Category-Template + Dominant-Color Recolor (< 0.3s) for Seen Object Categories (`soda_can`, `smartphone`, `mug`, `snack_bag`, `laptop`)",
-      "details": "USER SPEEDUP REQUEST (15:23 EST): When user captures a familiar object category (e.g. another drink can in yellow/red/blue, black/silver phone, mug, snack bag, laptop), skip the slow 10–20s diffusion round-trip! Implement in `backend/media/prop_maker.py`: (1) Pre-generate clean neutral-white/light-gray 2D anime base templates (`backend/assets/props/templates/{soda_can,smartphone,coffee_mug,snack_bag,laptop}.png`, zero green halo via `audit_props`); (2) Extract center-ROI dominant HSV/RGB color + brightness (or text color cue) in OpenCV/NumPy (<15ms) and shade-preservingly tint the neutral anime template to the exact captured color (e.g. yellow can -> bright yellow matte/metallic can, black phone -> dark matte black phone) in <200ms! Also add `(category, color_bucket)` exact-match disk reuse (0ms). Fall back cleanly to full `gemini-3.1-flash-image` ONLY for brand-new unseen object categories! Add a latency & color fidelity assertion into `test_v2_infinite_sculpture.py`."
-    },
-    {
-      "task_id": "W1-V3-05",
-      "priority": "P0",
-      "title": "Ultra-Fast Lean Mode for Brand-New Unseen Objects (`max 384px` payload + Simplified Shape/Color-Only Prompt)",
-      "details": "USER SPEEDUP REQUEST (15:25 EST): When generating a brand-new unseen object (not matching cached category templates), optimize `create_prop()` in `backend/media/prop_maker.py` for MAXIMUM speed over fine surface detail: (1) Downscale `camera_still` to max `384px` JPEG (quality 80) before sending to `_resolve_image_model()` so upload/tokenization latency drops sharply; (2) When the object name is already known (`name` is non-generic, e.g. from `/perceive` or user input) + OpenCV HSV already extracted dominant color, prefer an ultra-lean text-only or `384px` single-call prompt: `'Simple clean 2D anime cel-shaded game icon of a <color> <object>: keep ONLY what the object is and its primary color; omit fine labels, small patterns, or complex lighting details. Solid #00FF00 chroma green background.'`; (3) Never run a sequential second Vision LLM call before image gen, and output cutout at `max_size=384` for fast transfer. Keep total live capture->PNG time as fast as possible."
-    },
-    {
-      "task_id": "W1-V2-B3",
-      "priority": "P1",
-      "title": "Everyday User-Requested Prop Kit (`yellow soda can`, `chips snack bag`, `black smartphone`, `silver laptop`)",
-      "details": "Run `create_prop()` cleanly, verify zero green halo via `audit_props`, verify accurate SI heights, and save showcase assets under `backend/assets/props/showcase_everyday_*.png`."
-    },
-    {
-      "task_id": "W1-V2-B4",
-      "priority": "P1",
-      "title": "Final Pre-Rehearsal Media Smoke (`audit_props`, `test_v2_infinite_sculpture`, `test_media_smoke`, `preflight_check`)",
-      "details": "Run all P2 verification scripts cleanly after W1-V3-01..03 and B1..B3 finish and push `feat/w1-media`."
-    }
-  ]
+  "note": "FEATURE FROZEN & COMPLETE (eaf145a merged): W1-V3-01..05 complete with 19/19 zero-halo RGBA props, 5 anime category templates + <0.2s color recolor, <=384px unseen lean icon mode, prop_descriptions shot injection, 29/29 H.264+AAC MP4s.",
+  "parallel_tasks": []
 }

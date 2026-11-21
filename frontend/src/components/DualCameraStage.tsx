@@ -27,17 +27,9 @@ import {
   type PreviewExportResult,
 } from '../stage/ThreeStageManager';
 import type { BranchState, Scene } from '../types/schema';
-import { getBranchLabelEn, getSceneTextEn } from '../utils/displayLocale';
+import { getSceneTextEn } from '../utils/displayLocale';
 import { findParentScene, hasOwnFinalMedia } from '../utils/sceneMedia';
-import {
-  IconClapper,
-  IconFilm,
-  IconPlay,
-  IconStage,
-  IconStop,
-  IconVolume,
-  IconVolumeOff,
-} from './Icons';
+import { IconPlay } from './Icons';
 
 export interface DualCameraStageHandle {
   /** Capture the 4s dual-camera preview; optionally send it on to the AI render. */
@@ -157,7 +149,6 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
       allBranches,
       activeSceneIndex,
       viewMode,
-      compareEnabled,
       pixelArtMode,
       autoCutEnabled,
       diffHaloEnabled,
@@ -167,15 +158,7 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
       isPlayingStory,
       soundEnabled,
       modalOpen = false,
-      sceneRenderedLive = false,
-      cleanCaptureMode = false,
       footer,
-      onSoundEnabledChange,
-      onViewModeChange,
-      onToggleSculptureFreeze,
-      onSelectCompareBranch,
-      onOpenSavedRun,
-      onTogglePlayStory,
       onExportStart,
       onExportComplete,
       onRenderScene,
@@ -190,10 +173,8 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
     const managerRef = useRef<ThreeStageManager | null>(null);
     const [exporting, setExporting] = useState(false);
     const [activeCutCam, setActiveCutCam] = useState<'A' | 'B'>('A');
-    const [beforeAudioOn, setBeforeAudioOn] = useState(false);
     const [narrationExpanded, setNarrationExpanded] = useState(false);
     const [failedVideoUrls, setFailedVideoUrls] = useState<Record<string, boolean>>({});
-    const [renderElapsedSec, setRenderElapsedSec] = useState(0);
 
     const markVideoFailed = (url: string) => {
       setFailedVideoUrls((prev) => (prev[url] ? prev : { ...prev, [url]: true }));
@@ -223,18 +204,6 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
         }
       }
     }, [modalOpen]);
-
-    useEffect(() => {
-      if (!renderingScene) {
-        setRenderElapsedSec(0);
-        return;
-      }
-      const startedAt = Date.now();
-      const timer = window.setInterval(() => {
-        setRenderElapsedSec(Math.floor((Date.now() - startedAt) / 1000));
-      }, 500);
-      return () => window.clearInterval(timer);
-    }, [renderingScene]);
 
     const handleSyncReplay = () => {
       const videos = [videoARef.current, videoBRef.current, beforeVideoRef.current];
@@ -306,10 +275,6 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
       : null;
 
     const sceneText = getSceneTextEn(activeBranch.branch_id, scene);
-    const compareSceneText =
-      compareBranch && compareScene
-        ? getSceneTextEn(compareBranch.branch_id, compareScene)
-        : null;
 
     useEffect(() => {
       if (!canvasARef.current || !canvasBRef.current) return;
@@ -373,13 +338,6 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
       scene,
       findParentScene(activeBranch, allBranches, scene.scene_id),
     );
-    const compareOwnsFinal =
-      compareBranch && compareScene
-        ? hasOwnFinalMedia(
-            compareScene,
-            findParentScene(compareBranch, allBranches, compareScene.scene_id),
-          )
-        : false;
 
     const camAUrl = sceneOwnsFinal ? (scene.media.cam_a_final_url ?? null) : null;
     const camBUrl = sceneOwnsFinal ? (scene.media.cam_b_final_url ?? null) : null;
@@ -389,12 +347,6 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
     const camBPoster = sceneOwnsFinal
       ? (scene.media.cam_b_tail_frame_url ?? undefined)
       : undefined;
-    const beforeUrl = compareOwnsFinal
-      ? (compareScene?.media.cam_a_final_url ?? null)
-      : null;
-    const beforeStill = compareOwnsFinal
-      ? (compareScene?.media.cam_a_tail_frame_url ?? null)
-      : null;
 
     // Preload the next scene's clips during film view / Play 1-4 to avoid black flashes
     useEffect(() => {
@@ -431,35 +383,8 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
       !scene.media.fallback_to_preview &&
       !(camBUrl && failedVideoUrls[camBUrl]);
 
-    const notRenderedYet = !sceneOwnsFinal && !scene.media.fallback_to_preview;
-    const isDegradedA = viewMode === 'final' && !showFinalA && !notRenderedYet;
-    const isDegradedB = viewMode === 'final' && !showFinalB && !notRenderedYet;
-
-    const compareOpen = compareEnabled && Boolean(compareBranch && compareScene);
-    const showBeforeVideo =
-      compareOpen &&
-      viewMode === 'final' &&
-      Boolean(beforeUrl) &&
-      !(beforeUrl && failedVideoUrls[beforeUrl]);
-
-    // One small state tag per camera: Sculpture / Saved / Live for clips, otherwise preview state
-    const stateTag = (showFinal: boolean, degraded: boolean): React.ReactNode =>
-      sculptureFrozen && !showFinal ? (
-        <span className="cam-state sculpture">Sculpture Frozen</span>
-      ) : showFinal ? (
-        <span className={`cam-state ${sceneRenderedLive ? 'live' : ''}`}>
-          {sceneRenderedLive ? 'Live' : 'Saved'}
-        </span>
-      ) : degraded ? (
-        <span className="cam-state rose">Degraded · 2.5D preview</span>
-      ) : notRenderedYet ? (
-        <span className="cam-state">2.5D Live Stage</span>
-      ) : (
-        <span className="cam-state">{pixelArtMode ? 'Pixel preview' : '2.5D preview'}</span>
-      );
-
     const onAir = (cam: 'A' | 'B') =>
-      autoCutEnabled && !compareOpen
+      autoCutEnabled
         ? activeCutCam === cam
           ? 'on-air'
           : 'off-air'
@@ -482,66 +407,6 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
               {sceneText.narration}
             </button>
           </div>
-
-          {!cleanCaptureMode && (
-            <div className="stage-transport">
-              {onToggleSculptureFreeze && viewMode === 'preview' && (
-                <button
-                  type="button"
-                  className={`sculpture-pill-btn ${sculptureFrozen ? 'frozen' : ''}`}
-                  onClick={() => onToggleSculptureFreeze(!sculptureFrozen)}
-                  title={sculptureFrozen ? 'Unfreeze sculpture stage (Alt+S)' : 'Freeze as moonlit sculpture (Alt+S)'}
-                >
-                  {sculptureFrozen ? 'Unfreeze' : 'Freeze'}
-                </button>
-              )}
-              <button
-                type="button"
-                className={`icon-btn ${isPlayingStory ? 'on' : ''}`}
-                aria-label={isPlayingStory ? 'Stop playing scenes' : 'Play scenes'}
-                title={isPlayingStory ? 'Stop (Alt+Space)' : 'Play scenes (Alt+Space)'}
-                onClick={onTogglePlayStory}
-              >
-                {isPlayingStory ? <IconStop /> : <IconPlay />}
-              </button>
-              <span className="seg" role="group" aria-label="Stage view">
-                <button
-                  type="button"
-                  className={`icon-btn ${viewMode === 'preview' ? 'on' : ''}`}
-                  aria-label="2.5D stage preview"
-                  aria-pressed={viewMode === 'preview'}
-                  title="2.5D stage preview (Alt+V)"
-                  onClick={() => onViewModeChange('preview')}
-                >
-                  <IconStage />
-                </button>
-                <button
-                  type="button"
-                  className={`icon-btn ${viewMode === 'final' ? 'on' : ''}`}
-                  aria-label="Rendered film clips"
-                  aria-pressed={viewMode === 'final'}
-                  title="Rendered film clips (Alt+V)"
-                  onClick={() => onViewModeChange('final')}
-                >
-                  <IconFilm />
-                </button>
-              </span>
-              <button
-                type="button"
-                className={`icon-btn ${soundEnabled ? 'on' : ''}`}
-                aria-label={soundEnabled ? 'Mute clip sound' : 'Turn clip sound on'}
-                aria-pressed={soundEnabled}
-                title={soundEnabled ? 'Sound on' : 'Muted'}
-                onClick={() => {
-                  const next = !soundEnabled;
-                  onSoundEnabledChange(next);
-                  if (next) setBeforeAudioOn(false);
-                }}
-              >
-                {soundEnabled ? <IconVolume /> : <IconVolumeOff />}
-              </button>
-            </div>
-          )}
         </header>
 
         <div className="stage-cams">
@@ -560,37 +425,14 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
               />
             )}
             <div className="cam-caption">
-              <span>
-                {compareOpen
-                  ? `After · ${getBranchLabelEn(activeBranch)}`
-                  : `${autoCutEnabled && activeCutCam === 'A' ? 'On air · ' : ''}A · Front wide`}
-              </span>
+              <span>A</span>
             </div>
-            {stateTag(showFinalA, isDegradedA)}
-            {notRenderedYet && !cleanCaptureMode && onRenderScene && (
-              <div className="cam-cta">
-                <button
-                  type="button"
-                  className="cta"
-                  disabled={exporting || renderingScene}
-                  onClick={() => handleExportPreview(true)}
-                  title="Render this scene on both cameras, then run the judge"
-                >
-                  <IconClapper size={15} />
-                  {renderingScene
-                    ? `Rendering ${renderElapsedSec}s`
-                    : exporting
-                      ? 'Capturing preview'
-                      : 'Render scene'}
-                </button>
-              </div>
-            )}
           </div>
 
-          {/* Camera B stays mounted too; Compare only hides it */}
-          <div className={`cam ${onAir('B')}`} style={{ display: compareOpen ? 'none' : undefined }}>
+          {/* Camera B stays mounted alongside Camera A */}
+          <div className={`cam ${onAir('B')}`}>
             <canvas ref={canvasBRef} style={{ display: showFinalB ? 'none' : 'block' }} />
-            {showFinalB && camBUrl && !compareOpen && (
+            {showFinalB && camBUrl && (
               <StageVideo
                 ref={videoBRef}
                 key={camBUrl}
@@ -602,99 +444,19 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
               />
             )}
             <div className="cam-caption">
-              <span>
-                {autoCutEnabled && activeCutCam === 'B' ? 'On air · ' : ''}B · 45° close-up
-              </span>
+              <span>B</span>
             </div>
-            {stateTag(showFinalB, isDegradedB)}
           </div>
 
-          {compareOpen && compareBranch && compareScene && compareSceneText && (
-            <div className="cam cam-before">
-              {showBeforeVideo && beforeUrl ? (
-                <StageVideo
-                  ref={beforeVideoRef}
-                  key={beforeUrl}
-                  src={beforeUrl}
-                  poster={beforeStill ?? undefined}
-                  muted={!beforeAudioOn || modalOpen}
-                  onError={() => markVideoFailed(beforeUrl)}
-                  onToggle={handleToggleVideos}
-                />
-              ) : beforeStill ? (
-                <img className="cam-still" src={beforeStill} alt="" />
-              ) : (
-                <div className="cam-summary">
-                  <strong>
-                    Scene {compareScene.scene_id} · {compareSceneText.title}
-                  </strong>
-                  <span>{compareSceneText.narration}</span>
-                  <small>
-                    No clip for this branch yet · lighting {compareScene.lighting}
-                    {compareScene.stage_props.length > 0
-                      ? ` · ${compareScene.stage_props.map((p) => `${p.id} ${p.state}`).join(', ')}`
-                      : ''}
-                  </small>
-                </div>
-              )}
-              <div className="cam-caption">
-                {allBranches.length > 2 && onSelectCompareBranch ? (
-                  <select
-                    className="chip-select"
-                    value={compareBranch.branch_id}
-                    onChange={(e) => onSelectCompareBranch(e.target.value)}
-                    aria-label="Branch shown as Before"
-                  >
-                    {allBranches
-                      .filter((b) => b.branch_id !== activeBranch.branch_id)
-                      .map((b) => (
-                        <option key={b.branch_id} value={b.branch_id}>
-                          Before · {getBranchLabelEn(b)}
-                        </option>
-                      ))}
-                  </select>
-                ) : (
-                  <span>Before · {getBranchLabelEn(compareBranch)}</span>
-                )}
-                {showBeforeVideo && (
-                  <button
-                    type="button"
-                    className={`icon-btn ${beforeAudioOn ? 'on' : ''}`}
-                    aria-label={beforeAudioOn ? 'Mute the Before clip' : 'Listen to the Before clip'}
-                    aria-pressed={beforeAudioOn}
-                    title={beforeAudioOn ? 'Before clip sound on' : 'Listen to the Before clip'}
-                    onClick={() => {
-                      const next = !beforeAudioOn;
-                      setBeforeAudioOn(next);
-                      if (next) onSoundEnabledChange(false);
-                    }}
-                  >
-                    {beforeAudioOn ? <IconVolume size={15} /> : <IconVolumeOff size={15} />}
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {renderingScene && (
+          {renderingScene && renderProgress && Object.keys(renderProgress.scenes).length > 0 && (
             <div className="stage-float" role="status" aria-live="polite">
-              {renderProgress &&
-                Object.values(renderProgress.scenes)
-                  .sort((a, b) => a.scene_id - b.scene_id)
-                  .map((sc) => (
-                    <span key={sc.scene_id} className="chip">
-                      Scene {sc.scene_id}: {sc.status}
-                      {sc.fallback_to_preview ? ' (2.5D)' : ''}
-                    </span>
-                  ))}
-              {renderElapsedSec >= 35 && onOpenSavedRun && (
-                <>
-                  <span className="chip gold">Render is taking {renderElapsedSec}s</span>
-                  <button type="button" className="cta" onClick={onOpenSavedRun}>
-                    Open a saved run
-                  </button>
-                </>
-              )}
+              {Object.values(renderProgress.scenes)
+                .sort((a, b) => a.scene_id - b.scene_id)
+                .map((sc) => (
+                  <span key={sc.scene_id} className="chip">
+                    Scene {sc.scene_id}: {sc.status}
+                  </span>
+                ))}
             </div>
           )}
         </div>

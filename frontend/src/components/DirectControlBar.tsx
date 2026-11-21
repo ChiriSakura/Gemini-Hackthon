@@ -10,23 +10,15 @@
  *   listeners, `MIN_CLIP_MS = 1000`, never attaching stale text to a voice clip).
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { IconCamera, IconClapper, IconClose, IconMic } from './Icons';
+import { IconClapper, IconClose, IconMic } from './Icons';
 
 export type PropPlacement = 'table' | 'held' | 'floor';
 
 interface DirectControlBarProps {
-  /** Current anchor scene the next prompt continues from (`from_scene_id`). */
-  currentSceneId: number;
-  /** True when the user rewound earlier than the tail scene (will branch cleanly). */
-  isRewound?: boolean;
   submitting: boolean;
-  creatingProp?: boolean;
-  throwOpen?: boolean;
   contradictionWarning: string | null;
-  cleanCaptureMode?: boolean;
   onDismissContradiction?: () => void;
   onForceRewrite?: () => void;
-  onOpenThrowCamera?: () => void;
   /** Resolves to true only when the backend accepted and applied the prompt. */
   onSubmitPrompt: (opts: {
     clip?: Blob | null;
@@ -88,15 +80,10 @@ function pickRecorderMime(hasVideo: boolean): string | undefined {
 }
 
 export const DirectControlBar: React.FC<DirectControlBarProps> = ({
-  currentSceneId,
-  isRewound = false,
   submitting,
-  creatingProp = false,
-  throwOpen = false,
   contradictionWarning,
   onDismissContradiction,
   onForceRewrite,
-  onOpenThrowCamera,
   onSubmitPrompt,
 }) => {
   const [text, setText] = useState('');
@@ -378,24 +365,13 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
       )}
 
       <form className="dock-row" onSubmit={handleTextSubmit}>
-        <span
-          className={`dock-scene-pill ${isRewound ? 'rewound' : ''}`}
-          title={
-            isRewound
-              ? `Rewound to Scene ${currentSceneId}: next prompt branches into Scene ${currentSceneId + 1}`
-              : `Continuing seamlessly into Scene ${currentSceneId + 1}`
-          }
-        >
-          {isRewound ? `Branch S${currentSceneId + 1}` : `Next S${currentSceneId + 1}`}
-        </span>
-
         <div className="dock-field">
           <input
             ref={textInputRef}
             type="text"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Speak or type what happens next… (or toss an object into your camera)"
+            placeholder="Speak or type what happens next…"
             aria-label="Direct the next scene"
           />
         </div>
@@ -404,7 +380,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
           type="submit"
           className="dock-btn primary"
           disabled={submitting || !text.trim()}
-          title="Continue the story from the current scene"
+          title="Send direction"
         >
           <IconClapper />
           <span>{submitting ? 'Working' : 'Direct'}</span>
@@ -440,20 +416,6 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
           <IconMic />
           <span>{recording ? `${(remainingMs / 1000).toFixed(1)}s` : 'Hold to talk'}</span>
         </button>
-
-        {onOpenThrowCamera && (
-          <button
-            type="button"
-            className={`dock-btn ${throwOpen ? 'on' : ''}`}
-            onClick={onOpenThrowCamera}
-            disabled={creatingProp}
-            aria-pressed={throwOpen}
-            title="Toss a real object (drink, snack, mug, laptop) into your bottom-right camera (Alt+T)"
-          >
-            <IconCamera />
-            <span>{creatingProp ? 'Creating' : 'Throw Object'}</span>
-          </button>
-        )}
       </form>
     </section>
   );

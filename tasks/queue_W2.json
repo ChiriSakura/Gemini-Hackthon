@@ -3,27 +3,8 @@
   "branch": "feat/w2-frontend",
   "pull_main_first": true,
   "batch_deadline": "16:15",
-  "feature_freeze": false,
+  "feature_freeze": true,
   "owned_paths": ["frontend/**", "tasks/status_P3.json"],
-  "note": "DIRECT USER UI ORDER (15:32 EST): '现在页面 UI 还是太复杂。只留 4 个部分：(1) 两个镜头画面 (Camera A + Camera B)；(2) 一个树状剧情结构 (StoryBranchTree)；(3) 底部一个多模态输入对话框；(4) 右下角 Camera 自拍界面。别的 button 都不要！' Pull origin/main FIRST and execute W2-V4-01..03 immediately.",
-  "parallel_tasks": [
-    {
-      "task_id": "W2-V4-01",
-      "priority": "P0",
-      "title": "Strip ALL Extra Buttons — Keep ONLY 4 UI Elements (Dual-Cam + Story Tree + Multimodal Prompt Bar + Bottom-Right Self-View Camera)",
-      "details": "Strictly simplify `frontend/src/App.tsx`, `DualCameraStage.tsx`, `StoryBranchTree.tsx`, `DirectControlBar.tsx`, and `CameraSelfView.tsx`: (1) REMOVE topbar extra buttons (`More (...)` menu button — keep at most a tiny subtle `StageState` title + `MOCK MODE` badge only when mocked, ZERO clickable topbar buttons); (2) In `DualCameraStage.tsx`, REMOVE `stage-transport` toolbar buttons (`Freeze`, `Play/Stop`, `Stage/Film`, `Sound` mute buttons) AND REMOVE the floating `Render scene` (`cam-cta`) overlay button and clutter badges from inside the cameras — leave ONLY the two clean side-by-side anime camera views (`Camera A` + `Camera B`) with a minimal caption (`A` / `B`) and automatic AI rendering/playback triggered seamlessly by prompts (plus Alt+ shortcuts kept silently under the hood); (3) In `StoryBranchTree.tsx`, render the branching vine/tree ALWAYS visible in a clean compact height below the two cameras (remove collapse/expand toggle button AND remove `BE`/`HE` ribbons completely so there are zero BE/HE tags anywhere!); (4) In `DirectControlBar.tsx`, keep ONLY the wide multimodal text input + Send button (`Direct`) + Hold-to-talk voice/gesture button (`Hold to talk`) — REMOVE `Throw Object` button and `Next S(N+1)` pill clutter; (5) In `CameraSelfView.tsx`, keep a sleek bottom-right self-view camera window where clicking directly on the camera frame (or automatic story `needs_prop_prompt` trigger) snaps/records the physical object cleanly without extra chrome buttons."
-    },
-    {
-      "task_id": "W2-V3-04",
-      "priority": "P0",
-      "title": "Instant Optimistic Captured-Object Preview (`< 100ms` visual swap) + Seamless Prompt-to-Render Pipeline",
-      "details": "In `frontend/src/App.tsx`: (1) Keep automatic fast flow: submitting a multimodal prompt seamlessly calls `/api/director/perceive` -> `/api/director/extend` -> `/api/media/render-scene` (`fast_live_mode=true`) automatically without needing manual Render/Play button clicks; (2) When `CameraSelfView` submits a captured object, immediately show the captured snapshot thumbnail on the 2.5D stage (`< 100ms` instant feedback) while `/api/media/create-prop` returns the color-matched transparent PNG (`appearance_summary`), then swap cleanly."
-    },
-    {
-      "task_id": "W2-V4-02",
-      "priority": "P0",
-      "title": "Update Frontend Verification & Run `npm run verify` (6/6 Gates, Zero Button Clutter)",
-      "details": "Adjust `frontend/scripts/test_stage_helpers.mjs` and `verify_frontend.mjs` if needed for the stripped minimalist 4-zone UI, verify zero CJK UI leaks (`verify-locale.mjs`), verify `smoke_preview.mjs` passes 100%, update `tasks/status_P3.json`, and push `feat/w2-frontend`."
-    }
-  ]
+  "note": "FEATURE FROZEN & COMPLETE (8b97c40 merged): W2-V4-01..02 ultra-minimal 4-zone UI (Dual-Cam + StoryTree + Multimodal Prompt Bar + Click-to-Capture Self-View), <100ms optimistic thumbnail preview, all 6 verify gates passing.",
+  "parallel_tasks": []
 }

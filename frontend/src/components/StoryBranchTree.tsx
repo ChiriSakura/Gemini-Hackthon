@@ -95,19 +95,12 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
   activeSceneIndex,
   renderedSceneKeys,
   liveBranchIds,
-  expanded = false,
-  onToggleExpanded,
   showSavedExamples = false,
   onSelectScene,
 }) => {
   const [tip, setTip] = useState<{ key: string; x: number; y: number } | null>(null);
   const [failedThumbs, setFailedThumbs] = useState<Record<string, boolean>>({});
   const nodeRefs = useRef(new Map<string, HTMLButtonElement>());
-
-  const activeBranch = useMemo(
-    () => branches.find((b) => b.branch_id === activeBranchId) ?? branches[0],
-    [branches, activeBranchId],
-  );
 
   const visibleBranches = useMemo(() => {
     if (showSavedExamples) return branches;
@@ -267,64 +260,8 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
     '--rows': Math.max(1, layout.rows),
   } as React.CSSProperties;
 
-  if (!expanded && activeBranch) {
-    return (
-      <nav className="timeline-rail" aria-label="Scene timeline">
-        <div className="timeline-pills">
-          {activeBranch.scenes.map((sc, idx) => {
-            const isCurrent = idx === activeSceneIndex;
-            const text = getSceneTextEn(activeBranch.branch_id, sc);
-            return (
-              <React.Fragment key={sc.scene_id}>
-                {idx > 0 && <span className="timeline-arrow" aria-hidden="true">→</span>}
-                <button
-                  type="button"
-                  className={`timeline-pill ${isCurrent ? 'active' : ''}`}
-                  aria-current={isCurrent ? 'true' : undefined}
-                  title={`Scene ${sc.scene_id} · ${text.title}`}
-                  onClick={() => onSelectScene(activeBranch.branch_id, idx)}
-                >
-                  <span>S{sc.scene_id}</span>
-                  {isCurrent && <small>{text.title}</small>}
-                </button>
-              </React.Fragment>
-            );
-          })}
-          <span className="timeline-arrow muted" aria-hidden="true">→</span>
-          <span className="timeline-next" title="Prompt below to continue into the next scene">
-            S{activeBranch.scenes.length + 1} …
-          </span>
-        </div>
-        {onToggleExpanded && (
-          <button
-            type="button"
-            className="timeline-toggle-btn"
-            onClick={onToggleExpanded}
-            aria-expanded={false}
-            title="Expand full story save tree to rewind or branch"
-          >
-            History ({visibleBranches.length})
-          </button>
-        )}
-      </nav>
-    );
-  }
-
   return (
-    <nav className="tree" aria-label="Story save tree" style={style}>
-      {onToggleExpanded && (
-        <div className="tree-collapse-row">
-          <span className="tree-collapse-label">Story History (click any scene to rewind &amp; branch)</span>
-          <button
-            type="button"
-            className="timeline-toggle-btn"
-            onClick={onToggleExpanded}
-            aria-expanded={true}
-          >
-            Collapse
-          </button>
-        </div>
-      )}
+    <nav className="tree" aria-label="Story tree" style={style}>
       <div className="tree-inner">
         <div className="tree-head" aria-hidden="true">
           {Array.from({ length: layout.cols }, (_, i) => (
