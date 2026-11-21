@@ -327,6 +327,21 @@ def test_v3_captured_appearance_preservation() -> None:
     )
     assert "bright yellow aluminum beverage can" in prompt_v3
 
+    # Verify Camera B geometric derivation anchors on Camera A's rendered frame as Ref #1 (no conflicting room ref)
+    sample_cam_a_tail = next(iter(sorted(config.TAILS_DIR.glob("*cam_a*_tail.png"))), None)
+    if sample_cam_a_tail is not None:
+        refs_b = _select_scene_ref_images(
+            scene_v3,
+            [str(sample_cam_a_tail), str(config.SHARED_ASSETS_DIR / "lia.png")],
+            max_refs=5,
+            cam_id="cam_b",
+        )
+        assert refs_b and refs_b[0].resolve() == sample_cam_a_tail.resolve(), f"Expected Cam A anchor first, got {refs_b}"
+        assert all(p.name != "conservatory_cam_b.png" for p in refs_b), f"Conflicting room ref in Cam B: {refs_b}"
+    prompt_b = _build_shot_prompt(scene_v3, "cam_b", has_first_frame=False, has_preview_video=False)
+    assert "GEOMETRICALLY DERIVED +45-DEGREE RIGHT-SIDE ORBIT OF CAMERA A" in prompt_b
+    assert "FIXED IN 3D WORLD SPACE" in prompt_b
+
 
 def test_round1_product_polish_regressions() -> None:
     """Round 1: Foreground-masked color resistance, parsed_directive_json /extend, environment_notes anti-bloat, & tail forwarding."""

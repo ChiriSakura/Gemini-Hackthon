@@ -534,12 +534,32 @@ export default function App(): React.ReactElement {
       text: opts.text,
     });
 
+    const existingCustomProps = Object.entries(activeBranch.props_registry).filter(
+      ([id, item]) =>
+        item.origin === 'camera_physical' ||
+        item.origin === 'text_generated' ||
+        !['red_umbrella', 'crystal_vase', 'wooden_chair', 'star_token'].includes(id),
+    );
+    const rawPromptText = (parsed?.instruction || opts.text || '').trim();
+    const referencesExistingProp =
+      existingCustomProps.length > 0 &&
+      (/\b(we gave|i gave|gave her|the drink|the beverage|beverge|drink it|eat it|use it|hold it|pick up|that drink|that snack|that phone)\b/i.test(
+        rawPromptText,
+      ) ||
+        existingCustomProps.some(([id, item]) => {
+          const words = `${id.replace(/_/g, ' ')} ${item.name} ${item.appearance_summary ?? ''}`
+            .toLowerCase()
+            .split(/\s+/)
+            .filter((w) => w.length >= 4);
+          return words.some((w) => rawPromptText.toLowerCase().includes(w));
+        }));
+
     if (parsed) {
       setHeardNote({
         heard: parsed.instruction,
         saw: parsed.prop_name ?? (parsed.gesture_intent !== 'none' ? parsed.gesture_intent : null),
       });
-      if (parsed.needs_prop_prompt) {
+      if (parsed.needs_prop_prompt && !referencesExistingProp) {
         submittingRef.current = false;
         setSubmitting(false);
         setBusy(null);
@@ -551,22 +571,35 @@ export default function App(): React.ReactElement {
         });
         setThrowHint(
           parsed.prop_prompt_hint ??
-            'Toss an everyday object (drink, snack, mug, laptop) into your camera!',
+            'Hold or toss an everyday object (drink, snack, mug, laptop) into your camera!',
         );
         setSuggestedPropName(parsed.prop_name ?? null);
         setThrowOpen(true);
-        setStatusNote('Story wants an object from you — toss one into the bottom-right camera!');
+        setStatusNote('Story wants an object from you — capture one in the bottom-right camera!');
         return true;
       }
     }
 
     // Stage 2: Unbounded continuation via `/api/director/extend` (reuse Stage-1 parsedDirective to save 1 LLM round-trip)
+    let enrichedText = rawPromptText;
+    if (referencesExistingProp && existingCustomProps.length > 0) {
+      const [pid, pItem] = existingCustomProps[existingCustomProps.length - 1];
+      const pDesc = pItem.appearance_summary || pItem.name;
+      enrichedText = `${rawPromptText} (ACTION REQUIREMENT: Use the already-present stage prop "${pItem.name}" [${pDesc}, id=${pid}]. Lia MUST put aside her umbrella, pick up "${pItem.name}", and visibly perform the requested action!)`;
+    }
+    const effectiveParsed = parsed
+      ? {
+          ...parsed,
+          instruction: enrichedText || parsed.instruction,
+          needs_prop_prompt: referencesExistingProp ? false : parsed.needs_prop_prompt,
+        }
+      : null;
     const ok = await runStoryExtend({
       branchId: anchorBranchId,
       fromSceneId: anchorSceneId,
-      text: parsed?.instruction || opts.text,
+      text: enrichedText || undefined,
       clip: opts.clip,
-      parsedDirective: parsed ?? null,
+      parsedDirective: effectiveParsed,
     });
     submittingRef.current = false;
     setSubmitting(false);
@@ -979,8 +1012,8 @@ export default function App(): React.ReactElement {
         branchId: queued.branchId,
         fromSceneId: queued.fromSceneId,
         text: isExplicitToss
-          ? `${queued.text} (The viewer explicitly tossed "${created.item.name}" to Lia to catch and interact with.)`
-          : `${queued.text} (The viewer placed "${created.item.name}" on the ${payload.placement}.)`,
+          ? `${queued.text} (ACTION REQUIREMENT: The viewer explicitly tossed "${created.item.name}" [${matchedLabel}, id=${created.prop_id}] to Lia — Lia catches it, puts aside her umbrella if needed, and visibly performs: "${queued.text}".)`
+          : `${queued.text} (ACTION REQUIREMENT: The viewer placed "${created.item.name}" [${matchedLabel}, id=${created.prop_id}] on the ${payload.placement} — Lia puts aside her umbrella if needed, interacts with "${created.item.name}", and visibly performs: "${queued.text}".)`,
         clip: queued.clip,
       });
       submittingRef.current = false;
@@ -1078,7 +1111,7 @@ export default function App(): React.ReactElement {
         activeSceneIndex={activeSceneIndex}
         renderedSceneKeys={renderedSceneKeys}
         liveBranchIds={liveBranchIds}
-        showSavedExamples={true}
+        showSavedExamples={false}
         onSelectScene={handleSelectScene}
       />
 

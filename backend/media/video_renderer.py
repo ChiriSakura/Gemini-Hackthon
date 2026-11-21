@@ -571,8 +571,17 @@ def _select_scene_ref_images(
             seen_paths.add(resolved_key)
             companion_refs.append(p)
 
-    # Actors + fixed room ref first (never evicted by extra props), then active props, then companion frames.
-    selected = prioritized_actors + stage_refs + prioritized_props + companion_refs
+    # When Camera B is geometrically derived from Camera A's actual rendered frame (in companion_refs),
+    # anchor Camera B FIRST on Camera A's rendered frame and OMIT conservatory_cam_b.png so there is
+    # zero conflicting room geometry!
+    has_cam_a_anchor = cam_id == "cam_b" and any(
+        "cam_a" in p.name.lower() for p in companion_refs
+    )
+    if has_cam_a_anchor:
+        selected = companion_refs + prioritized_actors + prioritized_props
+    else:
+        # Actors + fixed room ref first (never evicted by extra props), then active props, then companion frames.
+        selected = prioritized_actors + stage_refs + prioritized_props + companion_refs
     return selected[:max_refs]
 
 
@@ -594,14 +603,20 @@ def _build_shot_prompt(
         )
     else:
         cam_desc = (
-            "Camera B STRONG 45-DEGREE SIDE-ANGLE CLOSE-UP (IGNORE any mention of Camera A wide shot in narration): "
-            "the camera stands at the front-right corner of the room and is rotated 45 degrees around the vertical axis, so it "
-            "looks obliquely ACROSS the central round table at the girl and cat from the side. We see them in three-quarter "
-            "profile, the table edge-on at an angle, and the glass walls receding diagonally into depth in two-point perspective "
-            "(NEVER a flat front-on view). Noticeably tighter medium close-up than Camera A. "
-            "The 45 degrees is the camera's position around the room, NOT a rotation of the picture: vertical lines stay vertical, "
-            "the horizon and floor are level, no camera roll, no Dutch angle, and the image fills the whole frame from the very "
-            "first frame with no black corners, bars or inset picture"
+            "Camera B GEOMETRICALLY DERIVED +45-DEGREE RIGHT-SIDE ORBIT OF CAMERA A (Reference Image 1) "
+            "(IGNORE any mention of Camera A wide shot in narration): "
+            "This MUST be the EXACT SAME instant, EXACT SAME conservatory room architecture (identical arched glass mullions, "
+            "identical ceiling dome ribs, identical wall lanterns, identical wooden floor planks, identical chair presence/absence, "
+            "identical outdoor skyline), EXACT SAME props, and EXACT SAME character 3D world-space positions & face/head gaze "
+            "directions shown in Reference Image 1 (Camera A) — ONLY the virtual camera has orbited +45 degrees clockwise to the "
+            "front-right around the central round table! "
+            "STRICT 3D PERSPECTIVE & FACING LOCK: because the camera moved +45 degrees right (closer to Nyx on the right), "
+            "Nyx appears closer in the right foreground/midground, the center table and props sit angled centrally in two-point "
+            "perspective, the left glass wall recedes diagonally toward back-left, and Lia stands slightly further left-midground. "
+            "Keep Lia's and Nyx's head/face direction FIXED IN 3D WORLD SPACE identical to Reference Image 1 (e.g. if Lia faces "
+            "right toward the table/cat or drinks her beverage in Camera A, keep her facing that EXACT SAME world target in "
+            "Camera B — NEVER rotate Lia's face toward the lens or flip Nyx's gaze direction). "
+            "Vertical lines stay strictly vertical, floor and horizon stay level (NO Dutch tilt, NO camera roll), edge-to-edge full frame"
         )
 
     lighting_desc = {
@@ -642,12 +657,17 @@ def _build_shot_prompt(
         config.STYLE_ANCHOR_PROMPT,
         "Full-bleed borderless anime cinema frame inside a nighttime rooftop glass conservatory — NO black borders, NO coordinate axes, NO tick marks, NO numbers, NO text or captions.",
         f"{cam_desc}.",
-        f"Story action: {safe_narration}",
+        f"PRIMARY PHYSICAL ACTION TO ANIMATE VISIBLY (highest priority — characters MUST perform this exact action clearly throughout the shot): {safe_narration}",
         f"Time & lighting: {lighting_desc}.",
         f"Audio & SFX mood: {scene.audio_mood or scene.vocal_emotion}.",
     ]
-    room_ref_exists = (config.ASSETS_DIR / "stages" / f"conservatory_{cam_id}.png").is_file()
-    if room_ref_exists:
+    if cam_id == "cam_b":
+        parts.append(
+            "Room & 3D character geometry lock: copy the EXACT room architecture, ceiling dome ribs, arched glass panes, "
+            "wall lanterns, furniture presence/absence, table props, and 3D world-space character face/body directions "
+            "from Camera A (Reference Image 1), rotated ONLY by a +45-degree right-side camera orbit."
+        )
+    elif (config.ASSETS_DIR / "stages" / "conservatory_cam_a.png").is_file():
         parts.append(
             "Room architecture lock: glass window arches, wall lanterns, floor tiles, and center table layout MUST match the empty conservatory room reference image identically across scenes and cameras."
         )
@@ -1195,27 +1215,41 @@ async def render_scene_media(
     preview_a = cam_a_preview_path or scene.media.cam_a_preview_url
     preview_b = cam_b_preview_path or scene.media.cam_b_preview_url
 
-    res_a, res_b = await asyncio.gather(
-        render_single_camera_shot(
-            scene,
-            "cam_a",
-            prev_tail_a,
-            reference_images,
-            preview_path=preview_a,
-            overwrite_canonical=overwrite_canonical,
-            fast_live_mode=fast_live_mode,
-            prop_descriptions=prop_descriptions,
-        ),
-        render_single_camera_shot(
-            scene,
-            "cam_b",
-            prev_tail_b,
-            reference_images,
-            preview_path=preview_b,
-            overwrite_canonical=overwrite_canonical,
-            fast_live_mode=fast_live_mode,
-            prop_descriptions=prop_descriptions,
-        ),
+    # Sequential geometric derivation: ALWAYS render Camera A first, then geometrically derive
+    # Camera B (+45-degree right-side orbit) strictly anchored on Camera A's actual rendered frame
+    # so room architecture, furniture, props, and 3D character facing directions match 1:1.
+    res_a = await render_single_camera_shot(
+        scene,
+        "cam_a",
+        prev_tail_a,
+        reference_images,
+        preview_path=preview_a,
+        overwrite_canonical=overwrite_canonical,
+        fast_live_mode=fast_live_mode,
+        prop_descriptions=prop_descriptions,
+    )
+
+    cam_b_refs = list(reference_images)
+    cam_b_extra = ""
+    if res_a[1]:
+        cam_b_refs = [res_a[1]] + cam_b_refs
+        cam_b_extra = (
+            "GEOMETRIC DERIVATION FROM CAMERA A (Reference Image 1): reproduce the EXACT SAME room background, "
+            "ceiling arches, lanterns, furniture (do not add or remove chairs), table props, lighting, and exact 3D "
+            "world-space character positions & head/face directions from Reference Image 1, viewed ONLY from a "
+            "+45-degree clockwise camera orbit to the front-right around the central table."
+        )
+
+    res_b = await render_single_camera_shot(
+        scene,
+        "cam_b",
+        prev_tail_b,
+        cam_b_refs,
+        preview_path=preview_b,
+        extra_constraint=cam_b_extra,
+        overwrite_canonical=overwrite_canonical,
+        fast_live_mode=fast_live_mode,
+        prop_descriptions=prop_descriptions,
     )
 
     cross_item = None if fast_live_mode else await _check_cross_camera_consistency(scene, res_a[1], res_b[1])
