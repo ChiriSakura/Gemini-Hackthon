@@ -16,8 +16,8 @@
     {
       "task_id": "W1-V2-02",
       "priority": "P0",
-      "title": "Video Renderer `catch_from_camera` Grab Prompting + `fast_live_mode` (10–20s) + Sculpture End-Freeze",
-      "details": "In `backend/media/video_renderer.py`: (1) Add explicit visual choreography in `_build_shot_prompt()` whenever any actor has `action == 'catch_from_camera'` or any prop has `entry_motion == 'throw_arc'`: 'The silver-haired anime girl turns slightly toward the viewer, reaches forward gracefully toward the camera lens to catch/grab the flying item out of mid-air, and interacts with it naturally!'; (2) Add `fast_live_mode: bool = False` in `render_scene_media()` / `render_branch_scenes()` (single-take + single quick Decisions QA ~0.8s -> 16–19s live turnaround); (3) Append end-of-shot stillness tableau cues when `scene.end_freeze_mode == 'sculpture'`."
+      "title": "Video Renderer Conditional `catch_from_camera` Grab Prompting + `fast_live_mode` (10–20s) + Sculpture End-Freeze",
+      "details": "In `backend/media/video_renderer.py`: (1) Default new props to rest naturally on the table/floor; ONLY inject the forward-camera grab choreography in `_build_shot_prompt()` when an actor explicitly has `action == 'catch_from_camera'` OR a prop explicitly has `entry_motion == 'throw_arc'` ('ONLY when explicitly handed/tossed to her: Lia leans toward the camera to catch the flying item out of mid-air!'); (2) Add `fast_live_mode: bool = False` in `render_scene_media()` / `render_branch_scenes()` (single-take + single quick Decisions QA ~0.8s -> 16–19s live turnaround); (3) Append end-of-shot stillness tableau cues when `scene.end_freeze_mode == 'sculpture'`."
     },
     {
       "task_id": "W1-V2-03",

@@ -85,7 +85,7 @@ Characters on stage:
 Your job:
 1. Follow the user's spontaneous voice/text instruction freely—NO preset BE/HE endings or forced drama clichés.
 2. Generate ONLY ONE next Scene inheriting physical object permanence from `previous_sculpture_scene`.
-3. Whenever a physical object was just tossed or handed from the camera (`entry_motion="throw_arc"` or new prop in `props_registry`), set Lia's `action` to `"catch_from_camera"` so she reaches forward toward the viewer/camera to catch and interact with the 2D-styled item!
+3. DEFAULT PROP PLACEMENT: When a physical object appears without an explicit hand-off/toss to the characters, place it on the table or floor (`entry_motion="place"`) and keep characters reacting naturally. ONLY set Lia's `action` to `"catch_from_camera"` (and `entry_motion="throw_arc"`) when the user EXPLICITLY states they are handing, giving, passing, tossing, or throwing the object TO Lia/you (e.g. "here, catch this drink", "I'm handing you a snack").
 4. Keep `end_freeze_mode="sculpture"` and write natural, playful English `title` and `narration`.
 5. Generate 3 crisp single-condition yes/no `qa_questions`.
 

@@ -5,7 +5,7 @@
   "batch_deadline": "16:25",
   "feature_freeze": false,
   "owned_paths": ["frontend/**", "tasks/status_P3.json"],
-  "note": "CRITICAL PRODUCT DIRECTION UPDATE (15:02) — READ FIRST! User explicitly asks to CUT OVERDESIGN: (1) NO prominent BE/HE badges, NO sprawling preset story branches or busy secondary widgets on the home view — spontaneous user voice/text prompts drive the story; (2) Main layout MUST feel effortless and minimal: big central 2D Anime Stage + clean bottom Voice/Text Prompt Bar + a PERSISTENT bottom-right live Camera Self-View window; (3) When the story or prompt needs the user to toss an everyday item (drink, snack, laptop, mug), capture the throw right from that corner camera, turn it into a 2D anime prop, and animate the protagonist reaching forward toward the camera (`catch_from_camera` + `throw_arc`) to grab and interact with it! Pull origin/main FIRST!",
+  "note": "CRITICAL PRODUCT DIRECTION UPDATE (15:06): (1) CUT OVERDESIGN — NO prominent BE/HE badges, NO sprawling preset branches or busy widgets; (2) Main layout: big central 2D Anime Stage + clean bottom Voice/Text Prompt Bar + PERSISTENT bottom-right live Camera Self-View window; (3) PROP PLACEMENT RULE: By default, newly captured objects spawn cleanly on the TABLE or FLOOR (`entry_motion='place'`). ONLY trigger `'catch_from_camera'` + `'throw_arc'` when the user EXPLICITLY says they are handing/tossing an item to Lia/you! Pull origin/main FIRST!",
   "parallel_tasks": [
     {
       "task_id": "W2-V2-01",
@@ -16,14 +16,14 @@
     {
       "task_id": "W2-V2-02",
       "priority": "P0",
-      "title": "Persistent Bottom-Right Live Self-View Camera Window (`Camera Self-View PiP` + Auto Throw-In Capture)",
-      "details": "In `frontend/src/components/DirectControlBar.tsx` / `App.tsx`: render a clean, persistent **bottom-right live Camera Self-View PiP window** (`200–240px` wide rounded glass card, mirrored `scaleX(-1)`, gracefully collapsible/shows camera permission retry if blocked) showing the presenter live! When `/api/director/perceive` returns `needs_prop_prompt=true` OR the user clicks the quick `Throw Object` trigger right on that corner camera: activate a crisp **30s countdown border + center target reticle** directly inside/expanded from that bottom-right camera -> on release/click (`detect_throw_peak=true`, `entry_motion=throw_arc`), generate the 2D anime prop (drink/snack/laptop/etc.) cleanly."
+      "title": "Persistent Bottom-Right Live Self-View Camera Window (`Camera Self-View PiP` + Default Place vs Explicit Toss)",
+      "details": "In `DirectControlBar.tsx` / `App.tsx`: render a clean, persistent **bottom-right live Camera Self-View PiP window** (`200–240px` wide rounded glass card, mirrored `scaleX(-1)`, gracefully collapsible). Default captured physical props use `entry_motion='place'` onto the table or floor (`grid` on table/floor). ONLY when user clicks Toss-To-Lia or prompt explicitly hands/tosses an item (`needs_prop_prompt` or hand-off wording) activate the 30s throw countdown + `entry_motion='throw_arc'` + `action='catch_from_camera'`."
     },
     {
       "task_id": "W2-V2-03",
       "priority": "P0",
-      "title": "Protagonist Forward Camera-Grab Animation (`catch_from_camera`) + 3D Throw-In Arc + Sculpture Freeze (`ThreeStageManager.ts`)",
-      "details": "In `frontend/src/stage/ThreeStageManager.ts`: (1) Support new schema action `'catch_from_camera'`: animate Lia leaning forward / scaling slightly larger briefly toward the front camera with an outstretched arm ripple to grab/catch an incoming prop from the viewer; (2) Implement `spawnThrownPropAnimation(propId, entryOrigin, targetGrid)` flying newly captured physical props along a smooth 3D parabolic arc from camera front (`z=+2.6`) straight into Lia's hand or tabletop; (3) Implement `setSculptureFrozen(frozen)` cleanly pausing motion with moonlit silver/alabaster sculpture tint after each scene finishes until the next voice/text prompt unfreezes it!"
+      "title": "Conditional Forward Grab (`catch_from_camera`), Default Table/Floor Placement, 3D Throw Arc & Sculpture Freeze",
+      "details": "In `frontend/src/stage/ThreeStageManager.ts`: (1) Default new props to render resting cleanly on the table or floor (`entry_motion='place'`, Lia stays in normal pose); (2) ONLY when `actor.action === 'catch_from_camera'` (or `prop.entry_motion === 'throw_arc'`), animate Lia leaning forward toward the front camera to catch the flying 3D parabolic prop via `spawnThrownPropAnimation()`; (3) Implement `setSculptureFrozen(frozen)` pausing idle/particle motion with subtle silver sculpture tint after each scene until the next prompt unfreezes it."
     },
     {
       "task_id": "W2-V2-04",

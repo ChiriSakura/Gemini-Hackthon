@@ -253,7 +253,12 @@ async def extend_single_scene(
         next_scene.needs_rerender = True
         next_scene.reused_from_branch = None
         next_scene.media = SceneMedia()
-        if parsed_input.has_physical_prop:
+        inst_lower = parsed_input.instruction.lower()
+        explicit_handoff = any(
+            kw in inst_lower
+            for kw in ("hand you", "give you", "toss", "throw", "catch", "pass you", "to lia", "for you", "for lia", "递给", "给你", "扔给", "丢给")
+        )
+        if parsed_input.has_physical_prop and explicit_handoff:
             for actor in next_scene.actors:
                 if actor.id == "lia":
                     actor.action = "catch_from_camera"
