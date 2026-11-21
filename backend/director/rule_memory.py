@@ -11,6 +11,7 @@ Feature & Use Cases:
 """
 
 import json
+import re
 from pathlib import Path
 
 from backend import config
@@ -22,6 +23,7 @@ _DEFAULT_RULES: list[str] = [
     "Once crystal_vase is broken in scene k, it MUST remain broken on the floor in all scenes > k unless explicitly repaired.",
     "Every registered prop in props_registry has at most ONE holder (or rests on stage_props) per scene; never duplicate held props.",
     "Never introduce extra unintended human characters beyond Lia and Nyx unless explicitly instructed.",
+    "The red umbrella stays closed (furled) indoors; write 'opens the umbrella' explicitly in the narration of any scene where it is open.",
 ]
 
 
@@ -38,6 +40,16 @@ def load_rules() -> list[str]:
     except Exception:
         pass
     return list(_DEFAULT_RULES)
+
+
+def load_general_rules() -> list[str]:
+    """Return only story-agnostic rules.
+
+    Scene-specific repair notes ("Scene 2 (cam_a) continuity fix: ...", "Scene 3 check reminder: ...")
+    describe one branch's plot. Feeding them to the director would fight a rewrite that changes that plot,
+    so they stay in the file for display but are not used when planning a new branch.
+    """
+    return [r for r in load_rules() if not re.match(r"^\s*Scene\s+\d+\b", r)]
 
 
 @log_function_call

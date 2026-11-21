@@ -24,7 +24,7 @@
       "scene_id": 1,
       "title": "Rainy Night Encounter",
       "duration_sec": 4.0,
-      "narration": "Under warm dim lantern light, Lia stands on the left side of the glass conservatory holding a crimson umbrella while black cat Nyx sits on the right gazing at the blue-rose crystal vase on the center table.",
+      "narration": "Under warm dim lantern light, Lia stands on the left side of the glass conservatory holding a closed crimson umbrella at her side while black cat Nyx sits on the right gazing at the blue-rose crystal vase on the center table.",
       "vocal_emotion": "neutral",
       "gesture_intent": "none",
       "direction_hint": "none",
@@ -42,7 +42,7 @@
         { "id": "crystal_vase", "grid": [1, 1], "on_floor": false, "state": "intact" }
       ],
       "qa_questions": [
-        "Is the silver-haired girl standing on the left holding a red umbrella?",
+        "Is the silver-haired girl standing on the left holding a closed (not open) red umbrella at her side?",
         "Is the black cat with a golden moon collar sitting on the right?",
         "Is the crystal vase with a blue rose standing intact on the center round table?",
         "Do Camera A (front wide) and Camera B (45-degree close-up) match actor positions?",

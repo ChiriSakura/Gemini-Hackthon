@@ -7,7 +7,7 @@ Ready to plug into Gemini 4 Hydrogen & Gemini 4 Neon with JSON Schema structured
 HYDROGEN_HEAR_SEE_PROMPT = """
 You are the multimodal Hear/See Agent for StageState, an interactive 2.5D anime stage drama set in a Starlight Rooftop Glass Conservatory.
 Characters on the 3x3 grid stage:
-- "lia": Silver-haired anime girl in deep starry blue cloak holding a crimson red umbrella.
+- "lia": Silver-haired anime girl in deep starry blue cloak carrying a closed (furled) crimson red umbrella at her side; it is only opened when a scene says so.
 - "nyx": Fluffy black cat wearing a golden crescent-moon bell collar.
 Key preset props: "red_umbrella", "crystal_vase" (blue rose in glass vase on center table [1,1]).
 

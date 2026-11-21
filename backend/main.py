@@ -32,12 +32,12 @@ from backend.director.hydrogen_judge import (
     parse_director_input,
 )
 from backend.director.neon_director import plan_scenes
-from backend.director.rule_memory import add_rule, load_rules
+from backend.director.rule_memory import add_rule, load_general_rules, load_rules
 from backend.director.state_tree import get_branch, list_branches, save_branch
 from backend.logger import log_function_call
 from backend.media.prop_maker import create_prop
 from backend.media.video_renderer import get_render_progress, render_branch_scenes, render_scene_media
-from backend.schemas import BranchState, Scene, StagePropState
+from backend.schemas import BranchState, Scene, SceneMedia, StagePropState
 
 app = FastAPI(title="StageState Director API", version="0.2.0")
 
@@ -61,9 +61,12 @@ def health_check() -> dict:
     return {
         "status": "ok",
         "demo_mode": config.DEMO_MODE,
+        # `live` is False when no model key is configured or demo mode is on: every answer is canned.
+        "live": bool(config.GEMINI_API_KEY) and not config.DEMO_MODE,
         "models": {
             "director": config.MODEL_DIRECTOR,
             "judge": config.MODEL_JUDGE,
+            "decision": config.MODEL_DECISION if config.USE_DECISIONS_API else None,
             "video": config.MODEL_VIDEO,
             "image": config.MODEL_IMAGE,
         },
@@ -184,7 +187,7 @@ async def api_director_fork(
         base_scenes=parent.scenes,
         parent_branch_id=parent.branch_id,
         props_registry=updated_registry,
-        learned_rules=load_rules(),
+        learned_rules=load_general_rules(),
     )
     old_by_id = {s.scene_id: s for s in parent.scenes}
     affected_ids = set(await filter_affected_scenes(parsed.instruction, parent.scenes, parsed.target_scene_id))
@@ -205,6 +208,8 @@ async def api_director_fork(
         if scene.scene_id in affected_ids or state_changed:
             scene.needs_rerender = True
             scene.reused_from_branch = None
+            # A rewritten scene has no clip or QA of its own yet; never inherit the parent's.
+            scene.media = SceneMedia()
             final_scenes.append(scene)
         else:
             reused = old_s.model_copy(deep=True)
