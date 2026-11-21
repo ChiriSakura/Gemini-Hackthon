@@ -23,7 +23,7 @@ def _seed_default_branch() -> BranchState:
     else:
         branch = BranchState(
             branch_id="branch_v1",
-            branch_label="BE · 雨夜惊逃与碎花瓶",
+            branch_label="BE · Rainy Escape & Shattered Vase",
             props_registry={},
             scenes=[],
         )

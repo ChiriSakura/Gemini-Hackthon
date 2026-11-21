@@ -2,33 +2,39 @@
   "worker": "worker-2 (P3)",
   "branch": "feat/w2-frontend",
   "pull_main_first": true,
-  "batch_deadline": "15:25",
+  "batch_deadline": "16:15",
   "owned_paths": ["frontend/**", "tasks/status_P3.json"],
-  "note": "W2-T2E..T3C merged cleanly into main! Pull main (also gets eval tables & latest backend), then knock out this T3.5/T4 demo-hardening batch.",
+  "note": "Master merged f4afe49 (all W2-T3D..T4B passed!) and already completed all Master-side English fixes you noted (README.md, shared/mock_branch_1/2.json, backend/main.py, backend/director/*.py + prompts.py). Pull main first, then tackle these 5 new Code-Review & T5 Polish tasks.",
   "parallel_tasks": [
     {
-      "task_id": "W2-T3D",
+      "task_id": "W2-CR1",
       "priority": "P0",
-      "title": "Multimodal Cue Pills (Vocal Emotion, Gesture Intent & Tail-Frame Environment Notes)",
-      "details": "In DualCameraStage or ClapperboardQA, render compact subtle pills for the active scene's `vocal_emotion`, `gesture_intent`, and `environment_notes` (e.g. '🎙️ gentle_whisper · 🤲 beckon_soothe · 👁️ glass_conservatory_clean_floor') so judges immediately see raw audio/video signals driving the stage."
+      "title": "Fix Three.js r170 Actor Facing Flip (`scale.x = -w` Ignored) & Cache-Hit Prop Rescaling",
+      "details": "In `frontend/src/stage/ThreeStageManager.ts`: (1) Three.js r170 `sprite_vert` uses `length(modelMatrix[0].xyz)`, which ignores negative `sprite.scale.x = -w` so Lia and Nyx NEVER flip left/right! Fix actor facing cleanly (e.g., maintain normal + horizontally mirrored `THREE.Texture` via `repeat.x = -1; offset.x = 1` on a cloned texture, or switch actor cards to double-sided `PlaneGeometry` `THREE.Mesh`) so `facing: 'left' | 'right'` visibly flips characters on stage; (2) In `applyPropTexture()`, when `this.textureCache.get(effectiveUrl)` hits cache, it returns early without updating `ent.baseScale = this.fitScaleToBox(img.width, img.height, maxPropW, maxPropH)` — fix it so props transitioning between held (`0.30`) and table (`0.38`) rescale immediately."
     },
     {
-      "task_id": "W2-T3E",
+      "task_id": "W2-CR2",
       "priority": "P0",
-      "title": "'Play Full 1->4 Story' auto-sequence playback button",
-      "details": "Add a '▶ Play 1→4' button in DualCameraStage / StoryBranchTree that auto-advances scenes 1→4 every 4s (works seamlessly in both 2.5D Preview and AI Render + Auto-Cut A/B modes) for effortless live demo & 1-min video recording."
+      "title": "Fix `handleForceRewrite` Target Stale-State Bug & Send `scene_id` in `createStageProp`",
+      "details": "In `frontend/src/App.tsx`: `handleForceRewrite` calls `handleSubmitFork` without passing `pendingConflict.targetSceneId` and `pendingConflict.parentBranchId`; update `handleSubmitFork` to accept `{ targetSceneIdOverride, parentBranchIdOverride }` and pass `pendingConflict.targetSceneId` / `pendingConflict.parentBranchId` from `handleForceRewrite` so switching scenes/branches before clicking 'Force Rewrite Anyway' always targets the original conflict point. Also in `frontend/src/api/stageClient.ts` & `App.tsx`: include `scene_id` in `createStageProp()` FormData so backend `branch.scenes` stays synced."
     },
     {
-      "task_id": "W2-T3F",
-      "priority": "P1",
-      "title": "Lightweight collapsible 'Eval & Failure Curve' modal (non-dashboard)",
-      "details": "Keep the main screen 100% stage-focused, and add a tiny top-bar button '📊 Eval' that opens a clean modal showing our real benchmark results: Stateless Baseline (0.564, 29.16s) vs StageState (0.951, 8.19s), 1->4 actor & 2->8 scene curves, and 66.7% rerender savings."
+      "task_id": "W2-CR3",
+      "priority": "P0",
+      "title": "Vite Offline Fallback for Static `/assets/actors/*` & `/assets/props/*` + Align Eval Modal Numbers",
+      "details": "In `frontend/vite.config.ts`: add a Vite proxy `bypass(req)` handler on `/assets` so when a local file exists under `frontend/public` (such as `/assets/actors/lia.png`, `/assets/actors/nyx.png`, `/assets/props/crystal_vase.png`, `/assets/props/crystal_vase_broken.png`), Vite serves it directly instead of returning 500 when FastAPI is offline. Also update `frontend/src/components/EvalModal.tsx` planning latency text to `6.90s – 9.65s` matching `eval/stress_report.json`."
     },
     {
-      "task_id": "W2-T4A",
+      "task_id": "W2-T5A",
       "priority": "P1",
-      "title": "End-to-end browser verification against live FastAPI + zero console errors",
-      "details": "Run `npm run build` and test against `uvicorn backend.main:app` (Play Branch 1 cached MP4s, trigger rewrite, test Play 1->4, test Clean Capture mode), logging pass status in tasks/status_P3.json."
+      "title": "Cam A / Cam B Tag Badges in ClapperboardQA Breakdown",
+      "details": "In `frontend/src/components/ClapperboardQA.tsx`: cleanly render `[CAM A]` and `[CAM B]` badges on QA verification items when prefixed by P2's combined dual-camera QA output (while keeping Clean Mode clutter-free and 100% English)."
+    },
+    {
+      "task_id": "W2-T5B",
+      "priority": "P1",
+      "title": "Final Pre-Pitch Visual Verification & `tsc && vite build` Check",
+      "details": "After fixing CR1..CR3 + T5A, verify `npx tsc --noEmit && npm run build`, confirm 0 CJK UI strings, confirm actor flip (`left` vs `right`) & held/table prop rescaling both work in 2.5D stage, and record checks in `tasks/status_P3.json`."
     }
   ]
 }

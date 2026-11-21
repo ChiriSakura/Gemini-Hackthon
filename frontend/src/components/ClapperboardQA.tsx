@@ -1,15 +1,16 @@
 /**
- * Minimal Clapperboard QA Strip + Rule Memory Pill & Stage Prop Tray.
+ * Minimal Clapperboard QA Strip + Rule Memory Pill & Interactive Stage Prop Tray.
  *
  * Feature & Use Cases:
  * - Displays `judge()` confidence score, selected take (#1 or #2), auto-retry
- *   count, per-question pass/fail status pills, and tail-frame `environment_notes`.
- * - Displays a subtle Rule Memory count chip (`N rules active`) fetched from
- *   `GET /api/director/rules` with hover tooltip details.
- * - Displays a compact stage prop tray showing registered transparent props.
+ *   count, per-question pass/fail status pills, and active continuity rules.
+ * - Displays an interactive Stage Prop Tray with crisp thumbnails (automatically
+ *   switching to `/assets/props/crystal_vase_broken.png` when broken) and live
+ *   per-scene state badges (`intact` / `broken` / `held` / `glowing`).
  */
 import React from 'react';
 import type { PropRegistryItem, Scene } from '../types/schema';
+import { getPropNameEn } from '../utils/displayLocale';
 
 interface ClapperboardQAProps {
   scene: Scene;
@@ -27,16 +28,23 @@ export const ClapperboardQA: React.FC<ClapperboardQAProps> = ({
   const scorePct = Math.round((media.qa_score ?? 0) * 100);
   const propEntries = Object.entries(propsRegistry);
 
+  const resolveLivePropState = (propId: string, fallbackState: string): string => {
+    const heldByActor = scene.actors.some((a) => a.holding_prop === propId);
+    if (heldByActor) return 'held';
+    const stageProp = scene.stage_props.find((p) => p.id === propId);
+    return stageProp?.state ?? fallbackState;
+  };
+
   return (
     <div className="clapperboard-strip">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <span style={{ fontWeight: 700, fontSize: '0.84rem', color: '#fde68a' }}>
-          🎬 场记板 · Take #{media.selected_candidate_index + 1}
+        <span style={{ fontWeight: 700, fontSize: '0.82rem', color: '#fde68a' }}>
+          🎬 Clapperboard · Take #{media.selected_candidate_index + 1}
         </span>
         <span className="qa-pill pass">judge() {scorePct}%</span>
-        <span className="qa-pill">重拍 {media.qa_retries} 次</span>
+        <span className="qa-pill">Retries: {media.qa_retries}</span>
         {media.fallback_to_preview && (
-          <span className="qa-pill fail">已降级 (2.5D Preview)</span>
+          <span className="qa-pill fail">Degraded (2.5D Preview)</span>
         )}
         <span
           className="qa-pill"
@@ -66,36 +74,52 @@ export const ClapperboardQA: React.FC<ClapperboardQAProps> = ({
             ))}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        {propEntries.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-              道具栏:
-            </span>
-            {propEntries.map(([id, item]) => (
+      {propEntries.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+            Props:
+          </span>
+          {propEntries.map(([id, item]) => {
+            const label = getPropNameEn(id, item);
+            const liveState = resolveLivePropState(id, item.state);
+            const thumbUrl =
+              id === 'crystal_vase' && liveState === 'broken'
+                ? '/assets/props/crystal_vase_broken.png'
+                : item.image_url;
+            const stateClass =
+              liveState === 'broken'
+                ? 'fail'
+                : liveState === 'glowing' || liveState === 'intact'
+                  ? 'pass'
+                  : '';
+
+            return (
               <span
                 key={id}
-                className="qa-pill"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                title={`${item.name} (${item.origin})`}
+                className={`qa-pill ${stateClass}`}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                title={`${label} · state=${liveState} · origin=${item.origin}`}
               >
                 <img
-                  src={item.image_url}
-                  alt={item.name}
-                  style={{ width: 16, height: 16, objectFit: 'contain' }}
+                  src={thumbUrl}
+                  alt={label}
+                  style={{ width: 18, height: 18, objectFit: 'contain' }}
                   onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).style.display = 'none';
+                    const img = e.currentTarget as HTMLImageElement;
+                    if (img.src.includes('crystal_vase_broken')) {
+                      img.src = item.image_url;
+                    } else {
+                      img.style.display = 'none';
+                    }
                   }}
                 />
-                {item.name}
+                <span>{label}</span>
+                <span className="prop-state-tag">{liveState}</span>
               </span>
-            ))}
-          </div>
-        )}
-        <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)' }}>
-          环境: <code>{scene.environment_notes || 'clean_stage'}</code>
+            );
+          })}
         </div>
-      </div>
+      )}
     </div>
   );
 };

@@ -1,25 +1,25 @@
 {
   "branch_id": "branch_v2",
-  "branch_label": "HE · 星雪下的信任与共伞（改写第 2 幕）",
+  "branch_label": "HE · Trust & Shared Umbrella Under Starlight Snow (Fork S2)",
   "parent_branch_id": "branch_v1",
   "forked_from_scene": 2,
-  "rewrite_summary": "评委温柔招手+举起桌面实物：「第2幕她把红伞放下，轻轻递出这个星光礼物安抚黑猫，黑猫没有撞翻花瓶！」",
+  "rewrite_summary": "Director gently beckons while holding a physical keepsake: 'In Scene 2, Lia sets her umbrella down and offers this glowing starlight charm to soothe Nyx, so the vase stays intact!'",
   "contradiction_warning": null,
   "props_registry": {
     "red_umbrella": {
-      "name": "亮红复古长柄伞",
+      "name": "Crimson Vintage Umbrella",
       "image_url": "/assets/actors/lia.png",
       "state": "held",
       "origin": "preset"
     },
     "crystal_vase": {
-      "name": "蓝玫瑰水晶花瓶",
+      "name": "Blue Rose Crystal Vase",
       "image_url": "/assets/props/crystal_vase.png",
       "state": "intact",
       "origin": "preset"
     },
     "star_token": {
-      "name": "现场星光信物",
+      "name": "Starlight Keepsake",
       "image_url": "/assets/props/star_token.png",
       "state": "glowing",
       "origin": "camera_physical"
@@ -28,9 +28,9 @@
   "scenes": [
     {
       "scene_id": 1,
-      "title": "雨夜初遇（复用缓存）",
+      "title": "Rainy Night Encounter (Reused)",
       "duration_sec": 4.0,
-      "narration": "暖微光下，莉亚撑着红伞站在玻璃花房左侧，星月黑猫诺克斯蹲在右侧好奇望着中央圆桌上的蓝玫瑰水晶花瓶。",
+      "narration": "Under warm dim lantern light, Lia stands on the left side of the glass conservatory holding a crimson umbrella while black cat Nyx sits on the right gazing at the blue-rose crystal vase on the center table.",
       "vocal_emotion": "neutral",
       "gesture_intent": "none",
       "direction_hint": "none",
@@ -41,8 +41,8 @@
       "needs_rerender": false,
       "reused_from_branch": "branch_v1",
       "actors": [
-        { "id": "lia", "name": "莉亚", "asset_url": "/assets/actors/lia.png", "grid": [0, 1], "facing": "right", "action": "stand", "holding_prop": "red_umbrella" },
-        { "id": "nyx", "name": "诺克斯", "asset_url": "/assets/actors/nyx.png", "grid": [2, 1], "facing": "left", "action": "sit", "holding_prop": null }
+        { "id": "lia", "name": "Lia", "asset_url": "/assets/actors/lia.png", "grid": [0, 1], "facing": "right", "action": "stand", "holding_prop": "red_umbrella" },
+        { "id": "nyx", "name": "Nyx", "asset_url": "/assets/actors/nyx.png", "grid": [2, 1], "facing": "left", "action": "sit", "holding_prop": null }
       ],
       "stage_props": [
         { "id": "crystal_vase", "grid": [1, 1], "on_floor": false, "state": "intact" }
@@ -65,9 +65,9 @@
     },
     {
       "scene_id": 2,
-      "title": "抛伞递星光礼",
+      "title": "Umbrella Set Down & Starlight Gift",
       "duration_sec": 4.0,
-      "narration": "莉亚温柔地把红伞轻放地面，半蹲下递出评委实物转绘的星光信物，黑猫好奇凑近嗅闻，圆桌上的水晶花瓶完好无损！",
+      "narration": "Lia gently sets her red umbrella down, kneels halfway, and offers the glowing Starlight Keepsake transformed from the live prop; Nyx steps closer to sniff it curiously while the crystal vase stays completely intact!",
       "vocal_emotion": "gentle_whisper",
       "gesture_intent": "beckon_soothe",
       "direction_hint": "center",
@@ -78,8 +78,8 @@
       "needs_rerender": true,
       "reused_from_branch": null,
       "actors": [
-        { "id": "lia", "name": "莉亚", "asset_url": "/assets/actors/lia.png", "grid": [0.75, 1.15], "facing": "right", "action": "kneel", "holding_prop": "star_token" },
-        { "id": "nyx", "name": "诺克斯", "asset_url": "/assets/actors/nyx.png", "grid": [1.35, 1.15], "facing": "left", "action": "sit", "holding_prop": null }
+        { "id": "lia", "name": "Lia", "asset_url": "/assets/actors/lia.png", "grid": [0.75, 1.15], "facing": "right", "action": "kneel", "holding_prop": "star_token" },
+        { "id": "nyx", "name": "Nyx", "asset_url": "/assets/actors/nyx.png", "grid": [1.35, 1.15], "facing": "left", "action": "sit", "holding_prop": null }
       ],
       "stage_props": [
         { "id": "red_umbrella", "grid": [0.2, 1.2], "on_floor": true, "state": "intact" },
@@ -107,9 +107,9 @@
     },
     {
       "scene_id": 3,
-      "title": "因果反转 · 守护信物",
+      "title": "Causal Reversal · Guarding the Keepsake",
       "duration_sec": 4.0,
-      "narration": "地面干干净净毫无碎玻璃，黑猫亲昵地凑近并守护着星光信物，依偎在莉亚的星空斗篷旁。",
+      "narration": "The conservatory floor is spotless with zero broken glass; Nyx affectionately nuzzles closer beside Lia's starry cloak while guarding the glowing Starlight Keepsake.",
       "vocal_emotion": "joyful",
       "gesture_intent": "none",
       "direction_hint": "center",
@@ -120,8 +120,8 @@
       "needs_rerender": true,
       "reused_from_branch": null,
       "actors": [
-        { "id": "lia", "name": "莉亚", "asset_url": "/assets/actors/lia.png", "grid": [0.85, 1.15], "facing": "right", "action": "kneel", "holding_prop": null },
-        { "id": "nyx", "name": "诺克斯", "asset_url": "/assets/actors/nyx.png", "grid": [1.18, 1.2], "facing": "left", "action": "nuzzle", "holding_prop": "star_token" }
+        { "id": "lia", "name": "Lia", "asset_url": "/assets/actors/lia.png", "grid": [0.85, 1.15], "facing": "right", "action": "kneel", "holding_prop": null },
+        { "id": "nyx", "name": "Nyx", "asset_url": "/assets/actors/nyx.png", "grid": [1.18, 1.2], "facing": "left", "action": "nuzzle", "holding_prop": "star_token" }
       ],
       "stage_props": [
         { "id": "red_umbrella", "grid": [0.2, 1.2], "on_floor": true, "state": "intact" },
@@ -148,9 +148,9 @@
     },
     {
       "scene_id": 4,
-      "title": "HE · 星雪共伞",
+      "title": "HE · Shared Umbrella in Golden Snow",
       "duration_sec": 4.0,
-      "narration": "灯光转为暖金星光与漫天初雪！莉亚重新撑起红伞半蹲护住黑猫，B 机位 45° 特写少女含笑抚猫，星光信物在手间闪耀。",
+      "narration": "Lighting blooms into warm golden starlight and gentle falling snow! Lia opens the red umbrella again to shelter Nyx beside her, as Camera B captures her smiling softly with the glowing keepsake between them.",
       "vocal_emotion": "joyful",
       "gesture_intent": "none",
       "direction_hint": "center",
@@ -161,8 +161,8 @@
       "needs_rerender": true,
       "reused_from_branch": null,
       "actors": [
-        { "id": "lia", "name": "莉亚", "asset_url": "/assets/actors/lia.png", "grid": [0.95, 1.15], "facing": "right", "action": "shared_umbrella", "holding_prop": "red_umbrella" },
-        { "id": "nyx", "name": "诺克斯", "asset_url": "/assets/actors/nyx.png", "grid": [1.22, 1.2], "facing": "left", "action": "nuzzle", "holding_prop": "star_token" }
+        { "id": "lia", "name": "Lia", "asset_url": "/assets/actors/lia.png", "grid": [0.95, 1.15], "facing": "right", "action": "shared_umbrella", "holding_prop": "red_umbrella" },
+        { "id": "nyx", "name": "Nyx", "asset_url": "/assets/actors/nyx.png", "grid": [1.22, 1.2], "facing": "left", "action": "nuzzle", "holding_prop": "star_token" }
       ],
       "stage_props": [
         { "id": "crystal_vase", "grid": [1, 1], "on_floor": false, "state": "intact" },

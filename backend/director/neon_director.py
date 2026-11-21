@@ -60,9 +60,9 @@ async def plan_scenes(
                 copy_s.gesture_intent = parsed_input.gesture_intent
                 copy_s.direction_hint = parsed_input.direction_hint
                 if copy_s.scene_id == k:
-                    copy_s.narration = f"[改写第 {k} 幕] {parsed_input.instruction}"
+                    copy_s.narration = f"[Rewritten Scene {k}] {parsed_input.instruction}"
                 else:
-                    copy_s.narration = f"[因果延续] {copy_s.narration}"
+                    copy_s.narration = f"[Causal Continuation] {copy_s.narration}"
                 updated.append(copy_s)
         log_genai_call(
             config.MODEL_DIRECTOR,

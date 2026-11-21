@@ -1,16 +1,23 @@
 {
   "agent": "P3_frontend",
   "branch": "feat/w2-frontend",
-  "current_milestone": "T3",
-  "status": "t3_batch_completed_ready_for_merge",
+  "current_milestone": "T4",
+  "status": "all_7_queue_tasks_completed_ready_for_master_merge",
   "capture_stream_mode": "webm_with_png_fallback",
   "completed_items": [
-    "T0-T2: Full 2.5D Three.js dual-camera stage, captureStream .webm + PNG fallback, conflict UI, pixel-art toggle, single-viewport layout, and clean capture mode",
-    "W2-T2E: Added dedicated '📷 举实物造道具' webcam snapshot prop capture panel wired to POST /api/media/create-prop + live Stage Prop Tray in ClapperboardQA",
-    "W2-T3A: Upgraded StoryBranchTree nodes with crisp 'Reused (0s)' vs 'Re-rendered' badges + wired GET /api/director/rules to display Rule Memory pill ('N rules active') in ClapperboardQA",
-    "W2-T3B: Added 'Auto-Cut A/B' 2s smart camera switching toggle in DualCameraStage + automatic crystal_vase_broken.png texture swap with graceful tilted fallback in ThreeStageManager",
-    "W2-T3C: Verified all 8 cached Branch 1 MP4 assets and upgraded side-by-side comparison to support parallel BE vs HE video playback"
+    "W2-T3D: Multimodal cue pills (lighting, vocal_emotion, gesture_intent, environment_notes) rendered in DualCameraStage",
+    "W2-T3E: One-click '▶ Play 1→4' auto-sequence playback (4s/scene) + native audio Sound On/Off toggle",
+    "W2-T3F: Collapsible '📊 Eval' modal with real Stateless Baseline vs StageState, 1->4 actor & 2->8 scene curves, 66.7% savings, and 14/14 dual-take metrics",
+    "W2-T3G: Interactive Prop Tray thumbnails in ClapperboardQA with live per-scene state pills (intact/broken/held/glowing) and automatic crystal_vase_broken.png swap",
+    "W2-T3H: 4-step live pipeline progress indicator (Hydrogen Parse -> Neon Causal Sim -> 2.5D Preview Upload -> Omni Flash Dual-Take + Decision-1 QA)",
+    "W2-T4A: Safe keyboard shortcuts (Space=Play 1->4, 1-4=Jump Scene, Tab=2.5D/AI Render, C=Clean Capture Mode, Esc=Close Modal)",
+    "W2-T4B: 100% English-first UI verified (0 CJK UI strings), conservatory arched backdrop + actor contact shadows, `tsc && vite build` clean, 16/16 cached MP4 paths verified on disk"
+  ],
+  "notes_for_master": [
+    "Frontend UI is now 100% English-first (with displayLocale fallback for CJK seed JSONs).",
+    "Suggested English cleanup on Master/P1 owned files for NYC judges: README.md line 1 title, shared/mock_branch_1.json & mock_branch_2.json, backend/assets/branches/branch_v1.json & branch_v2_cached.json, and a few CJK fallback strings in backend/main.py & backend/director/*.py (plus instructing Neon in prompts.py to output English titles/narrations).",
+    "P2 backend/media/ has 0 CJK strings and all 16 cached MP4 links resolve cleanly."
   ],
   "blockers": [],
-  "last_updated": "2026-11-21T12:54:00-05:00"
+  "last_updated": "2026-11-21T13:11:30-05:00"
 }

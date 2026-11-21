@@ -2,33 +2,57 @@
   "worker": "worker-1 (P2)",
   "branch": "feat/w1-media",
   "pull_main_first": true,
-  "batch_deadline": "15:25",
+  "batch_deadline": "16:00",
   "owned_paths": ["backend/media/**", "backend/assets/**", "tasks/status_P2.json"],
-  "note": "ALL 6 prior tasks (W1-T2A..T3B + SI-metric physics) merged cleanly into main! Pull main and execute this T3.5/T4 eval & hardening batch.",
+  "note": "Master fixed backend/main.py, director fallbacks, shared mocks & README.md, and merged both W1 & W2. Pull main first, then fix the P0 code-review items (W1-CR1..CR3) + complete remaining T3/T4 tasks below.",
   "parallel_tasks": [
     {
-      "task_id": "W1-T3C",
+      "task_id": "W1-CR1",
       "priority": "P0",
-      "title": "Measure Cross-Camera Consistency Rate (cam_a vs cam_b) via Decisions API",
-      "details": "Write a helper script in backend/media/ to feed each scene's cam_a + cam_b MP4 (or tail PNGs) from branch_v1 and branch_v2_cached into models/gemini-decision-1, verifying actor presence, left/right grid layout, umbrella/vase states across both angles. Save summary to backend/assets/eval_dual_cam_stats.json."
+      "title": "Fix prop_maker.py Slug Collision, Model Alias, and .webm Frame Extraction",
+      "details": "In `backend/media/prop_maker.py`: (1) Add `'gemini-3.1-flash-image': 'gemini-nano-banana-2.1'` to `_IMAGE_MODEL_ALIASES` (keep existing `gemini-3.1-flash-image-preview` too); (2) Fix `_slugify(name)` so non-ASCII or duplicate names generate a short deterministic hash suffix (`prop_<sha1[:6]>` when empty or `<slug>_<hash4>`) instead of always overwriting `custom_prop.png`; (3) Add optional `frame_timestamp_sec: Optional[float] = None` to `create_prop()` and pass it to `_extract_image_from_bytes()`, fixing OpenCV `.webm` capture when `CAP_PROP_FRAME_COUNT <= 0` (use `CAP_PROP_POS_MSEC` if timestamp given or decode frames to pick actual midpoint instead of defaulting to frame 0)."
     },
     {
-      "task_id": "W1-T3D",
+      "task_id": "W1-CR2",
       "priority": "P0",
-      "title": "Multi-prop simultaneous stress test (star_token + red_umbrella + crystal_vase)",
-      "details": "Test one live Omni Flash 360p 4s scene with 3 simultaneous props (Lia holding star_token, red_umbrella on floor, crystal_vase intact on table) and record judge() pass score & latency in tasks/status_P2.json."
+      "title": "Combine Cam A + Cam B QA Items & Enforce 2.5D Anchoring in cache_branch_v1.py",
+      "details": "In `backend/media/video_renderer.py`: inside `render_scene_media()`, combine BOTH Cam A (`[CAM A] ...`) and Cam B (`[CAM B] ...`) `JudgeItem`s into `SceneMedia.qa_result` so ClapperboardQA shows dual-camera breakdown rather than dropping Cam B. Also in `backend/media/cache_branch_v1.py`: replace/remove any `prev_tail_a/b` tail-frame chaining and anchor cached renders on each scene's own 2.5D preview start frame (per AGENTS.md Rule 3.7)."
     },
     {
-      "task_id": "W1-T3E",
-      "priority": "P1",
-      "title": "Prepare 20-clip Decisions API calibration dataset (14 real + 6 negative/edge checks)",
-      "details": "Export `backend/assets/calibration_20_clips.json` listing 20 clip+question pairs (including mismatched-prompt negative checks against existing MP4s so judge() sees both true positives and true negatives) with predicted P(true) + confidence and a `human_label` field for quick accuracy calculation."
+      "task_id": "W1-CR3",
+      "priority": "P0",
+      "title": "Translate Cached Branches to Natural English & Preserve Real Judge Details",
+      "details": "Update `backend/assets/branches/branch_v1.json` and `backend/assets/branches/branch_v2_cached.json` so `branch_label`, `rewrite_summary`, `props_registry.*.name`, `actors.*.name` (`Lia` / `Nyx`), `title`, and `narration` are 100% natural English matching `shared/mock_branch_1.json` & `mock_branch_2.json`, and ensure all `qa_result.items[].reason` fields contain real `Decision-1 P(true)=...` scores (never generic `'Fallback check.'`)."
     },
     {
-      "task_id": "W1-T4A",
+      "task_id": "W1-T3F",
+      "priority": "P0",
+      "title": "5-Prop Diversity Showcase via create_prop() (Chroma-Key & Halo Benchmark)",
+      "details": "Run `create_prop()` on 5 diverse stage props (e.g., origami crane, brass pocket watch, crystal shield, glowing quill, star lantern), save under `backend/assets/props/showcase_*.png`, and verify opaque-pixel green-spill count == 0, tight alpha bounding box, RGBA mode, and average latency in `tasks/status_P2.json`."
+    },
+    {
+      "task_id": "W1-T3G",
+      "priority": "P0",
+      "title": "Pre-cache 3rd Fallback Branch (`branch_v3_starlight_cached.json` with `star_token`)",
+      "details": "Render Scenes 2..4 of a 100% English twist branch (`branch_v3_starlight_cached`) that introduces `star_token` in Scene 2 and carries it through Scene 4 (reusing Scene 1 from `branch_v1`), saving H.264 MP4s + tail PNGs + `backend/assets/branches/branch_v3_starlight_cached.json`."
+    },
+    {
+      "task_id": "W1-T3H",
       "priority": "P1",
-      "title": "Post-merge full media smoke suite verification",
-      "details": "After merging origin/main, run `python -m backend.media.test_media_smoke` and verify `branch_v1` (8 MP4s) and `branch_v2_cached` (6 MP4s) all return 200 OK and pass judge()."
+      "title": "720p vs 360p Omni Flash Latency & Cost Tradeoff Benchmark",
+      "details": "Render 1 single 4s clip of Scene 4 at `720p` and compare wall-clock latency, file size, and cost ($0.07/s vs $0.02/s) against `360p`. Record comparison in `tasks/status_P2.json`."
+    },
+    {
+      "task_id": "W1-T4B",
+      "priority": "P0",
+      "title": "Generate Side-by-Side BE vs HE Demo Comparison Video (`demo_comparison_be_vs_he.mp4`)",
+      "details": "Create `backend/media/build_demo_reel.py` to stitch cached Scene 1..4 H.264 MP4s from `branch_v1` (BE) vs `branch_v2_cached` (HE) side-by-side into `backend/assets/finals/demo_comparison_be_vs_he.mp4` (using Unicode-safe temp-dir OpenCV / ffmpeg H.264 encoding), with clear English labels (`Scene 1 Shared`, `Branch 1 BE`, `Branch 2 HE`)."
+    },
+    {
+      "task_id": "W1-T4C",
+      "priority": "P1",
+      "title": "Measure Multi-Scene Prop Persistence & PNG Tight-Crop / Halo Audit",
+      "details": "Audit all prop PNGs (`backend/assets/props/*.png`) for tight bottom-flush alpha crop, `width/height` aspect ratios, and 0 green halo pixels; measure multi-scene prop persistence across `branch_v3_starlight_cached` via `models/gemini-decision-1` into `backend/assets/eval_prop_persistence.json`; verify all cached branches load cleanly in `test_media_smoke.py` (HTTP 200 on all MP4/PNG URLs)."
     }
   ]
 }
