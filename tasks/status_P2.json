@@ -2,8 +2,8 @@
   "agent": "P2_media",
   "contributor": "ChiriSakura",
   "branch": "feat/w1-media",
-  "current_milestone": "T7",
-  "status": "all_t6_and_t7_tasks_completed_and_audited",
+  "current_milestone": "V2_INFINITE_SCULPTURE_READY",
+  "status": "all_v2_tasks_w1_v2_01_to_08_completed_and_verified",
   "omni_flash_latency_sec": 18.64,
   "omni_flash_total_with_io_sec": 22.65,
   "omni_flash_dual_take_parallel_sec": 25.47,
@@ -150,8 +150,25 @@
     "W1-T7C: Extended test_media_smoke.py HTTP 200 assertions to submission MP4s/charts, storyboard strip, and all desk props",
     "W1-T7D: Added test_english_enforced.py verifying ASCII prop slugification, bilingual SI height estimation, English prompt rules, and 0 CJK leakage",
     "W1-T7E: Muxed ambient stereo AAC track into eval_dashboard_12s.mp4 -> uniform H.264 + AAC across all 28 preflight MP4s",
-    "W1-T7F: Exported consolidated Devpost/pitch metric summary -> backend/assets/metrics_summary_for_submission.json"
+    "W1-T7F: Exported consolidated Devpost/pitch metric summary -> backend/assets/metrics_summary_for_submission.json",
+    "W1-V2-01: Raised prop_maker.py .webm decode window to 1200 frames (30s), added _detect_throw_peak_frame_idx() + detect_throw_peak kwarg + height_m + R-18 explicit degraded_fallback/mock_placeholder state flags",
+    "W1-V2-02: Added fast_live_mode=True (single-take + single Decisions check for 16-19s live turnaround) & sculpture end-freeze tableau prompt in video_renderer.py",
+    "W1-V2-03: Generated empty glass-conservatory stage refs (conservatory_cam_a.png + 45-deg level conservatory_cam_b.png) + isolated RGBA props (red_umbrella_closed/open.png, wooden_chair.png) + R-40 dark-border trim helper",
+    "W1-V2-04: Disabled QA-retry add_rule() pollution (R-14), raised CROSS_CAM_THRESHOLD=0.80 w/ single-condition checks (R-13), mildened phrasing & surfaced [content_blocked] QA reasons (R-39)",
+    "W1-V2-05: Regenerated dynamic R-06 eval_charts_board.png, eval_dashboard_12s.mp4 & synced build_press_kit.py + TTS narrated video + voiceover script (80.9% -> 87.2% -> 97.9%, 0.95 calib)",
+    "W1-V2-06: Confirmed zero stray branch_v5.json (R-34) & audited 14/14 RGBA props with 0 green halo pixels",
+    "W1-V2-07: Added regression test suite test_v2_infinite_sculpture.py (30s >150-frame throw peak, fast_live_mode + sculpture freeze, /api/director/extend Scene 5+)",
+    "W1-V2-08: Passed full P2 battery (test_v2_infinite_sculpture, test_webm_prop, test_english_enforced, test_failover_rehearsal, test_media_smoke, audit_props 14/14, preflight_check 29/29 MP4s w/ audio)"
   ],
+  "w1_v2_summary": {
+    "props_audited_zero_halo": "14/14",
+    "preflight_mp4s_h264_and_audio": "29/29",
+    "cached_blueprints_total": 26,
+    "stage_room_refs": ["backend/assets/stages/conservatory_cam_a.png", "backend/assets/stages/conservatory_cam_b.png"],
+    "isolated_stage_props": ["red_umbrella_closed.png", "red_umbrella_open.png", "wooden_chair.png"],
+    "webm_throw_peak_max_frames": 1200,
+    "cross_cam_threshold": 0.8
+  },
   "blockers": [],
-  "last_updated": "2026-11-21T14:17:30-05:00"
+  "last_updated": "2026-11-21T15:09:00-05:00"
 }

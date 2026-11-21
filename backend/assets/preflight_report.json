@@ -1,6 +1,6 @@
 {
   "preflight_passed": true,
-  "elapsed_sec": 2.01,
+  "elapsed_sec": 7.04,
   "api_checks": {
     "health_200": true,
     "branches_200": true,
@@ -356,19 +356,19 @@
       },
       {
         "file": "submission/pitch_submission_1min_narrated.mp4",
-        "bytes": 6493474,
+        "bytes": 6520703,
         "fourcc": "h264",
         "is_h264": true,
         "resolution": "1280x720",
         "fps": 24.0,
-        "frames": 1308,
-        "duration_sec": 54.5,
+        "frames": 1332,
+        "duration_sec": 55.5,
         "has_audio": true
       }
     ]
   },
   "props_summary": {
-    "total_props": 11,
+    "total_props": 14,
     "all_rgba_200": true,
     "files": [
       {
@@ -383,6 +383,20 @@
         "mode": "RGBA",
         "has_transparency": true,
         "resolution": "512x324",
+        "http_200": true
+      },
+      {
+        "file": "red_umbrella_closed.png",
+        "mode": "RGBA",
+        "has_transparency": true,
+        "resolution": "134x512",
+        "http_200": true
+      },
+      {
+        "file": "red_umbrella_open.png",
+        "mode": "RGBA",
+        "has_transparency": true,
+        "resolution": "512x439",
         "http_200": true
       },
       {
@@ -446,6 +460,13 @@
         "mode": "RGBA",
         "has_transparency": true,
         "resolution": "508x487",
+        "http_200": true
+      },
+      {
+        "file": "wooden_chair.png",
+        "mode": "RGBA",
+        "has_transparency": true,
+        "resolution": "328x512",
         "http_200": true
       }
     ]

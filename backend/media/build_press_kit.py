@@ -102,10 +102,10 @@ VOICEOVER_SEGMENTS: list[dict] = [
         "target_sec": 11.0,
         "fixed_duration": False,
         "style": "brisk, authoritative systems architect, crisp pace, no long pauses",
-        "text": "Hydrogen hears emotion and gestures. Decisions API checks every clip in under one second, and Best-of-Two Omni Flash hits one hundred percent QA.",
+        "text": "Hydrogen hears emotion and gestures. Decisions API checks every clip in under one second with ninety-five percent calibration, lifting QA from eighty-one to ninety-eight percent.",
         "captions": [
             "Gemini 4 Hydrogen hears vocal emotion, gestures & physical props.",
-            "Decisions API (<1s noul/choice/score) + Best-of-2 Omni Flash = 100% QA.",
+            "Decisions API (<1s, 0.95 calib) + Best-of-2 retries lift QA 80.9% -> 97.9%.",
         ],
     },
     {
@@ -273,7 +273,7 @@ def build_architecture_diagram(output_png: Optional[Path] = None) -> dict:
         638, 634, 1252, 846, (244, 114, 182), "models/gemini-decision-1 (v1beta)", "Sub-Second Decisions API Trifecta",
         [
             "choice: 5-way intent routing — 100% accuracy (1.31s)",
-            "noul: Contradiction + QA gate — 95–100% calib (0.9–1.5s)",
+            "noul: Contradiction + QA gate — 95.0% 20-clip calib (0.9–1.5s)",
             "score: Direct .mp4 clip alignment — 1.000 AUC (0.66s)",
             "66.7% localized rewrite savings via dependency filter",
         ],
@@ -293,7 +293,7 @@ def build_architecture_diagram(output_png: Optional[Path] = None) -> dict:
         [
             "Parallel Cam A + Cam B x 2 takes (360p, 4s)",
             "Native 48kHz stereo AAC audio (100% mood sync)",
-            "Best-of-2 lifts pass rate 81% -> 100% (17.1s)",
+            "80.9% 1-take -> 87.2% Dual -> 97.9% Repaired",
             "71.4% cheaper than 720p ($0.02/s vs $0.07/s)",
         ],
     )

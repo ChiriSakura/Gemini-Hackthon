@@ -33,7 +33,6 @@ from google.genai import types
 from backend import config
 from backend.director.genai_client import build_decision_input, create_decision
 from backend.director.hydrogen_judge import judge, score_clip_alignment, write_repair_constraint
-from backend.director.rule_memory import add_rule
 from backend.logger import log_function_call, log_genai_call
 from backend.media.prop_maker import estimate_prop_height_m
 from backend.schemas import BranchState, JudgeItem, JudgeResult, Scene, SceneMedia
@@ -52,7 +51,7 @@ ARTIFACT_FREE_QA_QUESTION = (
     "Is this a clean full-bleed nighttime anime frame with NO black borders, NO coordinate axes or numbers, "
     "NO duplicate umbrellas or duplicate star tokens, and consistent nighttime atmosphere?"
 )
-CROSS_CAM_THRESHOLD = 0.65
+CROSS_CAM_THRESHOLD = 0.80
 EVAL_STATS_PATH = config.ASSETS_DIR / "eval_media_stats.jsonl"
 
 # In-memory cache mapping (resolved_path, mtime_ns, size) -> (file_uri, mime_type, uploaded_at).
@@ -382,6 +381,62 @@ def _describe_prop_with_scale(prop_id: str, state: str = "intact", on_floor: boo
     return f"ONE single {prop_id.replace('_', ' ')} ({size_cue}, ~{h_m:.2f}m tall / ~{table_pct}% of table height, {loc}, state={state})"
 
 
+def _trim_dark_borders_sync(img_path: Path) -> tuple[Path, bool]:
+    """
+    Crop dark letterboxing/pillarboxing border bars (R-40: up to 6% per edge when border luminance < 16)
+    into a clean temporary PNG so start-frame anchoring never seeds black corner frames.
+    """
+    raw_bytes = img_path.read_bytes()
+    arr = np.frombuffer(raw_bytes, dtype=np.uint8)
+    bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    if bgr is None or bgr.size == 0:
+        return img_path, False
+    h, w = bgr.shape[:2]
+    if h < 64 or w < 64:
+        return img_path, False
+    gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+    max_y = max(1, int(round(h * 0.06)))
+    max_x = max(1, int(round(w * 0.06)))
+
+    top = 0
+    while top < max_y and float(np.median(gray[top, :])) < 16.0:
+        top += 1
+    bot = 0
+    while bot < max_y and float(np.median(gray[h - 1 - bot, :])) < 16.0:
+        bot += 1
+    left = 0
+    while left < max_x and float(np.median(gray[:, left])) < 16.0:
+        left += 1
+    right = 0
+    while right < max_x and float(np.median(gray[:, w - 1 - right])) < 16.0:
+        right += 1
+
+    if top + bot + left + right == 0:
+        return img_path, False
+    cropped = bgr[top : h - bot, left : w - right]
+    if cropped.size == 0:
+        return img_path, False
+    resized = cv2.resize(cropped, (w, h), interpolation=cv2.INTER_CUBIC)
+    out_tmp = config.PREVIEWS_DIR / f"{img_path.stem}_cropped_{uuid.uuid4().hex[:6]}.png"
+    if _write_png_safe(out_tmp, resized):
+        return out_tmp, True
+    return img_path, False
+
+
+def _milden_safety_phrasing(text: str) -> str:
+    """Soften false-positive safety trigger phrases (R-39) while preserving exact narrative meaning."""
+    replacements = (
+        ("crashing onto", "tipping onto"),
+        ("shattering", "scattering"),
+        ("shattered", "broken"),
+        ("violence", "commotion"),
+    )
+    out = text
+    for src, dst in replacements:
+        out = out.replace(src, dst).replace(src.capitalize(), dst.capitalize())
+    return out
+
+
 def _resolve_clean_actor_ref(path: Path, scene: Optional[Scene] = None) -> Path:
     """
     Swap raw standee references for cleaner Omni Flash equivalents:
@@ -407,13 +462,11 @@ def _select_scene_ref_images(
     scene: Scene,
     reference_images: list[str],
     max_refs: int,
+    cam_id: Optional[str] = None,
 ) -> list[Path]:
     """
-    Prioritize and prune reference images to ONLY actors and props active in `scene`.
-
-    Prevents irrelevant registry props (e.g. an umbrella or star token from another branch)
-    from wasting Omni Flash's 5-image reference budget or triggering hallucinated duplicate props,
-    while guaranteeing live custom props referenced by `scene` ALWAYS get a reference slot.
+    Prioritize and prune reference images to ONLY actors and props active in `scene`,
+    plus isolated umbrella/chair refs and the fixed empty-conservatory stage room ref (`cam_a`/`cam_b`).
     """
     active_actor_ids = {a.id.lower() for a in scene.actors}
     active_prop_ids = {p.id.lower() for p in scene.stage_props}
@@ -421,12 +474,33 @@ def _select_scene_ref_images(
         if a.holding_prop:
             active_prop_ids.add(a.holding_prop.lower())
 
+    # Inject fixed isolated red_umbrella & wooden_chair assets when referenced in scene/notes.
+    expanded_refs = list(reference_images)
+    if "red_umbrella" in active_prop_ids:
+        umb_name = "red_umbrella_open.png" if _umbrella_is_open(scene) else "red_umbrella_closed.png"
+        umb_path = config.PROPS_DIR / umb_name
+        if umb_path.is_file():
+            expanded_refs.append(str(umb_path))
+    notes_blob = f"{scene.narration} {scene.environment_notes}".lower()
+    if "wooden_chair" in active_prop_ids or "chair" in notes_blob:
+        chair_path = config.PROPS_DIR / "wooden_chair.png"
+        if chair_path.is_file():
+            active_prop_ids.add("wooden_chair")
+            expanded_refs.append(str(chair_path))
+
     prioritized_actors: list[Path] = []
     prioritized_props: list[Path] = []
+    stage_refs: list[Path] = []
     companion_refs: list[Path] = []
     seen_paths: set[str] = set()
 
-    for ref in reference_images:
+    if cam_id in {"cam_a", "cam_b"}:
+        room_ref = config.ASSETS_DIR / "stages" / f"conservatory_{cam_id}.png"
+        if room_ref.is_file():
+            seen_paths.add(str(room_ref.resolve()))
+            stage_refs.append(room_ref)
+
+    for ref in expanded_refs:
         raw_p = _resolve_asset_to_local_path(ref)
         if not raw_p:
             continue
@@ -443,22 +517,24 @@ def _select_scene_ref_images(
                 continue
             seen_paths.add(resolved_key)
             prioritized_actors.append(p)
-        elif stem in active_prop_ids or (stem == "crystal_vase_broken" and "crystal_vase" in active_prop_ids):
+        elif (
+            stem in active_prop_ids
+            or (stem == "crystal_vase_broken" and "crystal_vase" in active_prop_ids)
+            or (stem in {"red_umbrella_open", "red_umbrella_closed"} and "red_umbrella" in active_prop_ids)
+        ):
             seen_paths.add(resolved_key)
             prioritized_props.append(p)
         elif parent_name in {"tails", "previews"}:
-            # Companion camera tail frames or scene anchor frames pass through cleanly.
             seen_paths.add(resolved_key)
             companion_refs.append(p)
-        elif parent_name in {"props", "actors"}:
-            # Skip props/actors not present in this scene so Omni Flash never hallucinates them.
+        elif parent_name in {"props", "actors", "stages"}:
             continue
         else:
             seen_paths.add(resolved_key)
             companion_refs.append(p)
 
-    # Active actors first, then active scene props (live custom props prioritized), then companion frames.
-    selected = prioritized_actors + prioritized_props + companion_refs
+    # Actors first, then active props, then fixed room ref, then companion frames.
+    selected = prioritized_actors + prioritized_props + stage_refs + companion_refs
     return selected[:max_refs]
 
 
@@ -469,12 +545,13 @@ def _build_shot_prompt(
     has_preview_video: bool,
     extra_constraint: str = "",
 ) -> str:
-    """Build a natural-language Omni Flash prompt enforcing camera angle, nighttime continuity, and SI scale."""
+    """Build a natural-language Omni Flash prompt enforcing camera angle, room lock, sculpture freeze, and SI scale."""
     if cam_id == "cam_a":
         cam_desc = (
             "Camera A WIDE ESTABLISHING front-center full-stage shot (IGNORE any mention of Camera B or close-up in narration): "
             "pull the camera back to show the entire conservatory floor, all three arched glass walls, the central 0.75m round "
-            "cafe table ALWAYS clearly visible in the middle, and full bodies of all characters from head to shoes"
+            "cafe table ALWAYS clearly visible in the middle, and full bodies of all characters from head to shoes, "
+            "filling the whole frame edge to edge from the very first frame with no black borders or bars"
         )
     else:
         cam_desc = (
@@ -507,7 +584,6 @@ def _build_shot_prompt(
             )
         actor_phrases.append(desc)
 
-    # Deduplicate props already described on an actor so Omni Flash never draws 2 umbrellas or 2 stars.
     prop_phrases: list[str] = []
     seen_props: set[str] = set()
     for p in scene.stage_props:
@@ -517,23 +593,31 @@ def _build_shot_prompt(
         blocking = _grid_to_blocking(p.grid)
         prop_phrases.append(f"{_describe_prop_with_scale(p.id, state=p.state, on_floor=p.on_floor)} ({blocking})")
 
+    safe_narration = _milden_safety_phrasing(scene.narration)
     parts = [
         config.STYLE_ANCHOR_PROMPT,
         "Full-bleed borderless anime cinema frame inside a nighttime rooftop glass conservatory — NO black borders, NO coordinate axes, NO tick marks, NO numbers, NO text or captions.",
         f"{cam_desc}.",
-        f"Story action: {scene.narration}",
+        f"Story action: {safe_narration}",
         f"Time & lighting: {lighting_desc}.",
         f"Audio & SFX mood: {scene.audio_mood or scene.vocal_emotion}.",
     ]
+    room_ref_exists = (config.ASSETS_DIR / "stages" / f"conservatory_{cam_id}.png").is_file()
+    if room_ref_exists:
+        parts.append(
+            "Room architecture lock: glass window arches, wall lanterns, floor tiles, and center table layout MUST match the empty conservatory room reference image identically across scenes and cameras."
+        )
     if actor_phrases:
         parts.append("Characters: " + "; ".join(actor_phrases) + ".")
     if prop_phrases:
         parts.append("Stage props: " + "; ".join(prop_phrases) + ".")
     if scene.environment_notes:
-        clean_notes = scene.environment_notes.replace("warm_sunlight_streaming", "warm_night_lantern_glow").replace("lush_trees_outside", "dark_night_trees_outside")
+        clean_notes = _milden_safety_phrasing(
+            scene.environment_notes.replace("warm_sunlight_streaming", "warm_night_lantern_glow").replace("lush_trees_outside", "dark_night_trees_outside")
+        )
         parts.append(f"Persistent scene details: {clean_notes}.")
     if scene.camera_shake:
-        parts.append("Include a subtle dramatic camera shake on impact.")
+        parts.append("Include a gentle camera tremor at the moment of surprise.")
     if extra_constraint:
         parts.append(f"Strict visual constraints: {extra_constraint}.")
     if has_first_frame:
@@ -542,6 +626,12 @@ def _build_shot_prompt(
         parts.append("Transform the stage motion from the preview video into rich anime cinema style while preserving exact character placement.")
     else:
         parts.append("Match character and prop designs strictly to the provided reference images, with ZERO extra unintended characters.")
+
+    if getattr(scene, "end_freeze_mode", "none") == "sculpture":
+        parts.append(
+            "Final beat tableau freeze: during the final 0.5 seconds, all characters, pets, clothes, and props come to a poised, "
+            "completely motionless frozen-sculpture pose holding grounded feet and clear gaze for seamless stage freeze."
+        )
 
     parts.append(
         "Physical scale & gravity: Lia is a 1.62m teenage girl, Nyx is a small realistic 0.30m sitting domestic black cat "
@@ -610,6 +700,7 @@ async def _run_candidate_take(
     uploaded_preview: Optional[tuple[str, str]],
     extra_constraint: str,
     job_uid: str = "",
+    fast_live_mode: bool = False,
 ) -> tuple[Optional[Path], Optional[Path], JudgeResult, float]:
     """Generate one candidate take (60s timeout guard), extract tail frame, and score via Decisions API."""
     uid_part = f"_{job_uid}" if job_uid else f"_{uuid.uuid4().hex[:6]}"
@@ -676,11 +767,18 @@ async def _run_candidate_take(
         )
     except Exception as exc:
         elapsed = round(time.perf_counter() - t0, 2)
-        err_msg = f"{type(exc).__name__}: {exc}"
+        raw_err = f"{type(exc).__name__}: {exc}"
+        lower_err = raw_err.lower()
+        is_blocked = any(tok in lower_err for tok in ("content_blocked", "safety", "blocked", "moderation"))
+        err_msg = (
+            f"[content_blocked] Safety filter blocked generation; retrying softer phrasing ({raw_err})"
+            if is_blocked
+            else raw_err
+        )
         log_genai_call(
             model_id,
             {"prompt": prompt},
-            {"cam_id": cam_id, "take_idx": take_idx, "attempt": attempt, "timeout_sec": PER_TAKE_TIMEOUT_SEC},
+            {"cam_id": cam_id, "take_idx": take_idx, "attempt": attempt, "timeout_sec": PER_TAKE_TIMEOUT_SEC, "content_blocked": is_blocked},
             {"error": err_msg, "elapsed_sec": elapsed},
         )
         questions = list(scene.qa_questions or [f"Does Camera {cam_id} match: {scene.narration}?"])
@@ -688,12 +786,17 @@ async def _run_candidate_take(
         return None, None, JudgeResult(overall_score=0.0, all_passed=False, items=failed_items), 0.0
 
     questions = list(scene.qa_questions or [f"Does Camera {cam_id} match: {scene.narration}?"])
-    if PHYSICAL_QA_QUESTION not in questions:
-        questions.append(PHYSICAL_QA_QUESTION)
-    if ARTIFACT_FREE_QA_QUESTION not in questions:
-        questions.append(ARTIFACT_FREE_QA_QUESTION)
+    if not fast_live_mode:
+        if PHYSICAL_QA_QUESTION not in questions:
+            questions.append(PHYSICAL_QA_QUESTION)
+        if ARTIFACT_FREE_QA_QUESTION not in questions:
+            questions.append(ARTIFACT_FREE_QA_QUESTION)
 
     media_paths = [str(out_video)]
+    if fast_live_mode:
+        qa_res = await judge(questions, context_text=prompt, media_paths=media_paths)
+        return out_video, tail_path, qa_res, qa_res.overall_score
+
     target_desc = f"{cam_id}: {scene.narration}. Lighting={scene.lighting}."
     qa_res, align_score = await asyncio.gather(
         judge(questions, context_text=prompt, media_paths=media_paths),
@@ -712,12 +815,12 @@ async def render_single_camera_shot(
     preview_path: Optional[str] = None,
     extra_constraint: str = "",
     overwrite_canonical: bool = False,
+    fast_live_mode: bool = False,
 ) -> tuple[str, Optional[str], JudgeResult, int, int]:
     """
-    Generate 2 parallel Omni Flash candidates for one scene + camera, score via `judge()` +
-    `score_clip_alignment()`, retry up to `config.MAX_QA_RETRIES` with corrective constraints
-    on failure (distilling successful fixes into `rule_memory`), log 1-take vs 2-take metrics,
-    and return `(final_url, tail_frame_url, judge_result, selected_idx, retries)`.
+    Generate parallel Omni Flash candidates (1 take when `fast_live_mode=True` for 10-20s turnaround,
+    else 2 takes) for one scene + camera, score via `judge()`, retry on failure without polluting
+    `rule_memory`, log 1-take vs 2-take metrics, and return `(final_url, tail_frame_url, judge_result, selected_idx, retries)`.
     """
     model_id = _resolve_video_model()
     prompt = _build_shot_prompt(
@@ -765,8 +868,14 @@ async def render_single_camera_shot(
             local_preview_img = local_preview_any
 
     start_frame_path = local_preview_img or local_prev_tail
+    trimmed_start_artifact: Optional[Path] = None
+    if start_frame_path is not None and start_frame_path.is_file():
+        start_frame_path, was_trimmed = await asyncio.to_thread(_trim_dark_borders_sync, start_frame_path)
+        if was_trimmed:
+            trimmed_start_artifact = start_frame_path
+
     max_refs = 5 if start_frame_path else 6
-    local_refs = _select_scene_ref_images(scene, reference_images, max_refs=max_refs)
+    local_refs = _select_scene_ref_images(scene, reference_images, max_refs=max_refs, cam_id=cam_id)
 
     uploaded_prev_tail = await _get_or_upload_uri(start_frame_path, use_cache=False) if start_frame_path else None
     uploaded_refs = list(await asyncio.gather(*(_get_or_upload_uri(p, use_cache=True) for p in local_refs)))
@@ -782,16 +891,20 @@ async def render_single_camera_shot(
     best_idx = 0
     first_take0_score: Optional[float] = None
     first_take1_score: Optional[float] = None
-    last_repair_note: str = ""
     temp_artifacts: list[Path] = []
     if extracted_preview_img is not None:
         temp_artifacts.append(extracted_preview_img)
+    if trimmed_start_artifact is not None:
+        temp_artifacts.append(trimmed_start_artifact)
 
     canonical_video = config.FINALS_DIR / f"scene_{scene.scene_id}_{cam_id}{run_tag}.mp4"
     canonical_tail = config.TAILS_DIR / f"scene_{scene.scene_id}_{cam_id}{run_tag}_tail.png"
 
+    max_retries = 0 if fast_live_mode else config.MAX_QA_RETRIES
+    takes_per_attempt = 1 if fast_live_mode else config.DUAL_TAKE_COUNT
+
     try:
-        for attempt in range(config.MAX_QA_RETRIES + 1):
+        for attempt in range(max_retries + 1):
             takes = await asyncio.gather(
                 *(
                     _run_candidate_take(
@@ -805,8 +918,9 @@ async def render_single_camera_shot(
                         uploaded_preview=uploaded_preview,
                         extra_constraint=current_constraint,
                         job_uid=job_uid,
+                        fast_live_mode=fast_live_mode,
                     )
-                    for idx in range(config.DUAL_TAKE_COUNT)
+                    for idx in range(takes_per_attempt)
                 )
             )
             for v_path, t_path, _, _ in takes:
@@ -841,17 +955,15 @@ async def render_single_camera_shot(
                 best_video, best_tail, best_qa, best_combined = cand_video, cand_tail, cand_qa, cand_combined
                 best_idx = winner_idx
 
-            if best_qa.overall_score >= config.QA_PASS_THRESHOLD or attempt >= config.MAX_QA_RETRIES:
+            if best_qa.overall_score >= config.QA_PASS_THRESHOLD or attempt >= max_retries:
                 break
 
             retries += 1
             repair_note = await write_repair_constraint(scene, cand_qa)
-            last_repair_note = repair_note
             current_constraint = f"{current_constraint} {repair_note}".strip()
 
         assert best_qa is not None
-        if retries > 0 and best_qa.overall_score >= config.QA_PASS_THRESHOLD and last_repair_note:
-            add_rule(f"Scene {scene.scene_id} ({cam_id}) continuity fix: {last_repair_note}")
+        # R-14: Keep global rule_memory clean (do NOT auto-write per-scene failure repairs into timeline rules).
 
         _append_eval_media_stat(
             {
@@ -890,28 +1002,43 @@ async def _check_cross_camera_consistency(
     cam_a_tail_url: Optional[str],
     cam_b_tail_url: Optional[str],
 ) -> Optional[JudgeItem]:
-    """Fast (~0.9s) Decisions API check comparing Camera A & Camera B tail frames for spatial/prop consistency."""
+    """Fast (~0.9s) single-condition Decisions API checks comparing Cam A & Cam B tail frames (R-13)."""
     if config.DEMO_MODE or not config.GEMINI_API_KEY or not config.USE_DECISIONS_API:
         return None
     path_a = _resolve_asset_to_local_path(cam_a_tail_url)
     path_b = _resolve_asset_to_local_path(cam_b_tail_url)
     if not path_a or not path_b:
         return None
-    question = (
-        "Do Camera A (wide front view, first image) and Camera B (45-deg side close-up, second image) "
-        f"consistently depict the same scene ({scene.lighting} nighttime mood, same characters, same vase intact/broken state)?"
-    )
+    vase_broken = any(p.id == "crystal_vase" and p.state == "broken" for p in scene.stage_props)
+    vase_expect = "broken shards on the floor" if vase_broken else "intact on the center table"
+    q_map = {
+        "room": {
+            "type": "noul",
+            "instructions": f"Do Image 1 (Cam A) and Image 2 (Cam B) depict matching {scene.lighting} conservatory architecture and lighting?",
+        },
+        "actors": {
+            "type": "noul",
+            "instructions": "Do Lia and the small black cat stay in matching pose and relative sides of the round table in both images?",
+        },
+        "vase": {
+            "type": "noul",
+            "instructions": f"Does the crystal vase appear {vase_expect} in both Image 1 and Image 2?",
+        },
+    }
     try:
         payload = build_decision_input(f"Cross-camera check for Scene {scene.scene_id}: {scene.narration}", [path_a, path_b])
-        res = await create_decision(payload, {"dual_cam": {"type": "noul", "instructions": question}})
-        ans = (getattr(res, "answers", None) or {}).get("dual_cam")
-        p_true = float(getattr(ans, "noul", 0.5)) if ans is not None else 0.5
-        conf = float(getattr(ans, "confidence", max(p_true, 1.0 - p_true))) if ans is not None else 0.5
+        res = await create_decision(payload, q_map)
+        answers = getattr(res, "answers", None) or {}
+        probs = [float(getattr(answers.get(k), "noul", 0.5)) if answers.get(k) is not None else 0.5 for k in q_map]
+        all_ok = all(p >= 0.5 for p in probs)
+        min_p = min(probs)
+        avg_p = sum(probs) / len(probs)
+        conf = max(avg_p, 1.0 - min_p)
         return JudgeItem(
-            question="[Dual-Cam] Camera A & Camera B spatial, prop, and nighttime lighting consistency",
-            passed=p_true >= 0.5,
+            question="[Dual-Cam] Camera A & Camera B room, actor, and vase consistency",
+            passed=all_ok,
             confidence=round(conf, 3),
-            reason=f"Cross-Cam Decision-1 P(true)={p_true:.2f}",
+            reason=f"Cross-Cam Decision-1 P(room={probs[0]:.2f}, actors={probs[1]:.2f}, vase={probs[2]:.2f})",
         )
     except Exception:
         return None
@@ -971,8 +1098,9 @@ async def render_scene_media(
     prev_tail_b: Optional[str] = None,
     tail_inspector: Optional[Callable[[int, str], Awaitable[str]]] = None,
     overwrite_canonical: bool = False,
+    fast_live_mode: bool = False,
 ) -> SceneMedia:
-    """Concurrently render Camera A and Camera B, run cross-camera consistency QA, and update tail notes."""
+    """Concurrently render Camera A and Camera B (1-take ~16-19s when `fast_live_mode=True`), run cross-camera QA, and update tail notes."""
     preview_a = cam_a_preview_path or scene.media.cam_a_preview_url
     preview_b = cam_b_preview_path or scene.media.cam_b_preview_url
 
@@ -984,6 +1112,7 @@ async def render_scene_media(
             reference_images,
             preview_path=preview_a,
             overwrite_canonical=overwrite_canonical,
+            fast_live_mode=fast_live_mode,
         ),
         render_single_camera_shot(
             scene,
@@ -992,13 +1121,14 @@ async def render_scene_media(
             reference_images,
             preview_path=preview_b,
             overwrite_canonical=overwrite_canonical,
+            fast_live_mode=fast_live_mode,
         ),
     )
 
-    cross_item = await _check_cross_camera_consistency(scene, res_a[1], res_b[1])
-    # If cameras contradict each other, retry ONLY the weaker camera once conditioned on the
+    cross_item = None if fast_live_mode else await _check_cross_camera_consistency(scene, res_a[1], res_b[1])
+    # If cameras contradict each other (standard quality mode), retry ONLY the weaker camera once conditioned on the
     # stronger camera's tail frame as a visual lighting/prop consistency reference (with regression guard).
-    if cross_item is not None and not cross_item.passed and cross_item.confidence >= CROSS_CAM_THRESHOLD:
+    if (not fast_live_mode) and cross_item is not None and not cross_item.passed and cross_item.confidence >= CROSS_CAM_THRESHOLD:
         if res_b[2].overall_score <= res_a[2].overall_score:
             conditioned_refs = list(reference_images) + ([res_a[1]] if res_a[1] else [])
             cand_b = await render_single_camera_shot(
@@ -1065,6 +1195,7 @@ async def render_scene_media(
 async def render_branch_scenes(
     branch: BranchState,
     tail_inspector: Optional[Callable[[int, str], Awaitable[str]]] = None,
+    fast_live_mode: bool = False,
 ) -> BranchState:
     """Concurrently render all scenes with `needs_rerender=True` in `branch` anchored on 2.5D previews."""
     ref_images = [
@@ -1091,6 +1222,7 @@ async def render_branch_scenes(
             cam_a_preview_path=scene.media.cam_a_preview_url,
             cam_b_preview_path=scene.media.cam_b_preview_url,
             tail_inspector=tail_inspector,
+            fast_live_mode=fast_live_mode,
         )
         _update_render_progress(
             branch.branch_id,
