@@ -21,7 +21,7 @@ Analyze ALL non-text cues carefully — DO NOT rely only on transcript:
    - "show_physical_prop" if holding up a real physical object (cup, paper star, badge, sketch, etc.) toward the camera to turn into a stage prop.
    - "none" otherwise.
 3. If a physical object is held up or tossed/thrown toward the camera, set has_physical_prop=true, give a concise prop_name & prop_description, and output prop_frame_timestamp_sec where the object is clearest.
-4. If the director's instruction asks to introduce/give/throw a brand-new physical object onto the stage (e.g., "give her a magic lantern", "throw in a shield") AND no physical clip has already supplied it, set needs_prop_prompt=true and provide a short prop_prompt_hint (e.g., "Hold up & toss a physical object to serve as the shield!"). Otherwise set needs_prop_prompt=false.
+4. If the director's instruction asks to introduce/give/throw a brand-new real-world item onto the stage (e.g., drink, snack, laptop, mug, toy, shield) AND no physical clip has already supplied it, set needs_prop_prompt=true and provide a short prop_prompt_hint (e.g., "Hold up or toss your item toward the camera!"). Otherwise set needs_prop_prompt=false.
 5. Identify target_scene_id (default 2 if unspecified; may be any positive integer >= 1 for unbounded scene extension) and clean English rewrite/continuation instruction.
 6. Always output `instruction`, `prop_name`, `prop_description`, and `prop_prompt_hint` in natural, idiomatic English even if audio/text input contains accents or mixed languages.
 
@@ -73,6 +73,23 @@ Your job:
 5. Always write `title` and `narration` in natural, idiomatic English for stage performers and English-speaking judges.
 
 Return strict JSON matching the root schema in shared/schema.json.
+""".strip()
+
+
+NEON_EXTEND_SCENE_PROMPT = """
+You are Gemini 4 Neon, directing StageState's freeform interactive anime stage (`Scene N+1`).
+Characters on stage:
+- "lia": Silver-haired anime girl in deep starry blue cloak (umbrella furled at her side unless narration asks to open it).
+- "nyx": Fluffy black cat wearing a golden crescent-moon bell collar.
+
+Your job:
+1. Follow the user's spontaneous voice/text instruction freely—NO preset BE/HE endings or forced drama clichés.
+2. Generate ONLY ONE next Scene inheriting physical object permanence from `previous_sculpture_scene`.
+3. Whenever a physical object was just tossed or handed from the camera (`entry_motion="throw_arc"` or new prop in `props_registry`), set Lia's `action` to `"catch_from_camera"` so she reaches forward toward the viewer/camera to catch and interact with the 2D-styled item!
+4. Keep `end_freeze_mode="sculpture"` and write natural, playful English `title` and `narration`.
+5. Generate 3 crisp single-condition yes/no `qa_questions`.
+
+Return strict JSON for `Scene`.
 """.strip()
 
 

@@ -5,55 +5,49 @@
   "batch_deadline": "16:25",
   "feature_freeze": false,
   "owned_paths": ["backend/media/**", "backend/assets/**", "tasks/status_P2.json"],
-  "note": "RE-OPENED FROM FREEZE FOR ARCHITECTURE UPGRADE + ISSUES.md FIXES! Master just merged d882633 + updated schemas.py/shared/schema.json/main.py/neon_director.py/state_tree.py for Design_Infinite_Sculpture.md (unbounded scenes >=1, extend_single_scene <3s solving R-41, /api/director/perceive, /api/director/extend, R-38 branch locking, fast_live_mode & detect_throw_peak wiring). Pull origin/main FIRST, then execute these 9 high-priority V2 tasks!",
+  "note": "PRODUCT FOCUS UPDATE (15:02): User wants minimalist spontaneous creation — NO overdesign or forced BE/HE drama! Keep cached files valid for tests, while focusing P2 upgrades cleanly on: (1) recognizing & cutting out everyday thrown items (drinks/soda cans, snack bags, laptops, mugs) in 30s webm, (2) rendering `"catch_from_camera"` (protagonist reaches toward the camera front to grab/catch the incoming prop and interact with it), (3) 10-20s `fast_live_mode`, and (4) fixed room refs + R-06/R-14/R-18/R-39/R-40 fixes. Pull origin/main FIRST!",
   "parallel_tasks": [
     {
       "task_id": "W1-V2-01",
       "priority": "P0",
-      "title": "Prop Maker 30s Throw-In Decoding (1200 Frames) + Motion Peak Frame Detector + Clean Degraded Flag (Design §4.B.1 & R-18/R-19)",
-      "details": "In `backend/media/prop_maker.py`: (1) Raise `_extract_image_from_bytes()` sequential `.webm` decode cap from 150 frames to `1200` frames (up to 30s @ 30fps) so 30s live throw-in recordings work end-to-end; (2) Implement `_detect_throw_peak_frame_idx()` scanning center-region frame diffs to pick the crispest high-clarity frame right as the physical object slows/centers in frame; (3) Add `detect_throw_peak: bool = True` kwarg to `create_prop()` (already wired in Master's `main.py` via inspect.signature!) and flag placeholder fallbacks explicitly (`origin` / status note) instead of silently faking success (R-18)."
+      "title": "30s Throw-In Decoding (1200 Frames) + Everyday Object Motion Peak Detector (`drink`, `snack`, `laptop`) + Degraded Flag",
+      "details": "In `backend/media/prop_maker.py`: (1) Raise `_extract_image_from_bytes()` sequential `.webm` decode cap from 150 frames to `1200` frames (up to 30s @ 30fps) so 30s self-view camera captures work end-to-end; (2) Implement `_detect_throw_peak_frame_idx()` scanning center-region frame diffs + Laplacian sharpness to grab the crispest frame when the user tosses/holds up an everyday item (`soda can / drink`, `snack bag`, `laptop`, `mug`); (3) Support `detect_throw_peak: bool = True` in `create_prop()`, refine SI height table for snacks/drinks/laptops (~0.13m–0.32m), and mark degraded status on failures instead of silent yellow blocks (R-18)."
     },
     {
       "task_id": "W1-V2-02",
       "priority": "P0",
-      "title": "Video Renderer Live Fast Mode (10–20s Unfreeze) + Sculpture End-Freeze Framing (Design §4.B.2)",
-      "details": "In `backend/media/video_renderer.py`: (1) Add `fast_live_mode: bool = False` to `render_scene_media()` and `render_branch_scenes()` (already wired in Master's `main.py`!): when `fast_live_mode=True`, run single-take Omni Flash (`DUAL_TAKE_COUNT=1` equivalent) + single quick Decisions API QA verify (~0.8s) so live open-ended continuation finishes inside 16–19s; (2) When `scene.end_freeze_mode == 'sculpture'`, append crisp end-of-clip stillness cues to `_build_shot_prompt()` so characters & props settle into a clean tableau pose matching the frontend's ending sculpture freeze."
+      "title": "Video Renderer `catch_from_camera` Grab Prompting + `fast_live_mode` (10–20s) + Sculpture End-Freeze",
+      "details": "In `backend/media/video_renderer.py`: (1) Add explicit visual choreography in `_build_shot_prompt()` whenever any actor has `action == 'catch_from_camera'` or any prop has `entry_motion == 'throw_arc'`: 'The silver-haired anime girl turns slightly toward the viewer, reaches forward gracefully toward the camera lens to catch/grab the flying item out of mid-air, and interacts with it naturally!'; (2) Add `fast_live_mode: bool = False` in `render_scene_media()` / `render_branch_scenes()` (single-take + single quick Decisions QA ~0.8s -> 16–19s live turnaround); (3) Append end-of-shot stillness tableau cues when `scene.end_freeze_mode == 'sculpture'`."
     },
     {
       "task_id": "W1-V2-03",
       "priority": "P0",
       "title": "Fixed Empty Room Reference Images (R-09, R-10), Separate Umbrella/Chair Assets, & Black-Border Crop (R-37, R-40)",
-      "details": "To solve cross-camera room drift (R-09, R-10): (1) Generate two clean empty glass-conservatory room reference PNGs (`backend/assets/stages/conservatory_cam_a.png` wide front + `conservatory_cam_b.png` generated from `cam_a` at level 45-degree side angle) plus isolated prop PNGs (`red_umbrella_closed.png`, `red_umbrella_open.png`, `wooden_chair.png` under `backend/assets/props/`); (2) Inject `conservatory_cam_a/b.png` into `_select_scene_ref_images()` & prompt ('room layout, windows, table MUST match reference'); (3) Keep Cam A's 'fills the whole frame edge to edge from the very first frame' line intact alongside d882633's level Cam B prompt AND trim 1-2% dark border pixels from extracted `start_frame` PNGs before passing to Omni Flash (R-40)."
+      "details": "To eliminate cross-camera room drift: (1) Generate fixed empty conservatory room refs (`backend/assets/stages/conservatory_cam_a.png` + `conservatory_cam_b.png` generated from A at level 45-degree side angle) plus isolated PNGs (`red_umbrella_closed.png`, `red_umbrella_open.png`, `wooden_chair.png`); (2) Inject `conservatory_cam_a/b.png` cleanly in `_select_scene_ref_images()` & prompt; (3) Restore Cam A full-frame edge-to-edge guard alongside level Cam B AND crop 1-2% dark border pixels from extracted `start_frame` PNGs (R-40)."
     },
     {
       "task_id": "W1-V2-04",
       "priority": "P0",
-      "title": "Stop Rule Memory Pollution in Renderer (R-14), Harden Cross-Cam QA Threshold (R-13), & Milden S2 Moderation Trigger (R-39)",
-      "details": "In `backend/media/video_renderer.py`: (1) Disable `add_rule()` auto-writes during QA retries (fixes R-14 timeline contamination); (2) Raise cross-camera threshold to `0.80` with single-condition yes/no verification checks (R-13); (3) Audit Scene 2 / `_build_shot_prompt()` phrasing to avoid Omni Flash `content_blocked` false positives and surface crisp `content_blocked` failure messages on QA items (R-39)."
+      "title": "Disable Rule Pollution in Renderer (R-14), Cross-Cam Threshold 0.80 (R-13), & Friendly Prompt Guard (`R-39`)",
+      "details": "In `backend/media/video_renderer.py`: (1) Disable `add_rule()` writes during QA retries (fixes R-14); (2) Raise cross-camera threshold to `0.80` with single-condition yes/no checks (R-13); (3) Soften Scene 2/default phrasing and surface clear `content_blocked` error message when safety filter blocks (R-39)."
     },
     {
       "task_id": "W1-V2-05",
       "priority": "P0",
-      "title": "Regenerate R-06 Dynamic Submission Eval Board, 12s Outro Video & Sync Voiceover Script (`R-06` in ISSUES.md)",
-      "details": "Per worker-2's `ISSUES.md` R-06 note: run `python -m backend.media.build_submission_assets` on P2 (which has `imageio_ffmpeg`) so `eval_charts_board.png` and `eval_dashboard_12s.mp4` reflect live computed stats, AND synchronize `backend/media/build_press_kit.py` + `pitch_voiceover_script.json` to match exact verified percentages (81.1% single-take, 88.7% dual-take, 98.1% post-repair, 0.95 calibration)."
+      "title": "Sync `build_press_kit.py` TTS Voiceover Numbers with R-06 Live Metrics (`ISSUES.md` R-06)",
+      "details": "Confirm `eval_charts_board.png` and `eval_dashboard_12s.mp4` (`e921f58`) match live computed numbers cleanly, and update `backend/media/build_press_kit.py` + `pitch_voiceover_script.json` so narrated voiceover numbers match verified stats (single-take 81.1%, dual-take 88.7%, post-repair 98.1%)."
     },
     {
       "task_id": "W1-V2-06",
       "priority": "P1",
-      "title": "Re-Audit All Cached Branch MP4s & Clean Any Stray `branch_v5.json` (`R-34` / `R-36` Check)",
-      "details": "Ensure any accidental mock `branch_v5.json` (`R-34`) is absent from git, verify all cached `branch_v1`..`branch_v4` JSON & MP4 clips load cleanly with zero missing URLs, and re-run `audit_props` (including new `red_umbrella_*` & `wooden_chair.png` zero-halo checks)."
+      "title": "Add Regression Tests for 30s Throw-Peak (Drink/Snack/Laptop), `catch_from_camera` Prompt, & `fast_live_mode`",
+      "details": "Write/extend automated tests in `backend/media/` verifying: (1) 30s `.webm` motion-peak extraction (`1200`-frame cap), (2) `_build_shot_prompt()` injects the forward camera grab instruction for `action='catch_from_camera'`, and (3) `fast_live_mode=True` executes single-take cleanly."
     },
     {
       "task_id": "W1-V2-07",
-      "priority": "P1",
-      "title": "Add Regression Tests for 30s Throw-Peak Extraction, Fast Live Mode & Unbounded Scene 5+",
-      "details": "Write/extend automated tests in `backend/media/` verifying: (1) 30s `.webm` simulation (`1200`-frame window + `_detect_throw_peak_frame_idx`), (2) `fast_live_mode=True` single-take + sculpture tail framing, and (3) `/api/director/extend` appending Scene 5+ past the old 4-scene cap cleanly."
-    },
-    {
-      "task_id": "W1-V2-08",
       "priority": "P0",
       "title": "Run Full P2 Verification Battery (`test_media_smoke`, `preflight_check`, `audit_props`, `test_webm_prop`)",
-      "details": "Run all P2 verification scripts after finishing V2-01..07, mark resolved `B-` / `R-*` items in `ISSUES.md`, and update `tasks/status_P2.json` ready for Master merge."
+      "details": "Remove any untracked temporary `branch_v5.json` (`R-34`), run all verification scripts cleanly, update `ISSUES.md` resolved status rows (`B-`), and update `tasks/status_P2.json`."
     }
   ]
 }

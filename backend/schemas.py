@@ -66,7 +66,17 @@ class ActorState(BaseModel):
     grid: list[float] = Field(min_length=2, max_length=2)
     facing: Literal["left", "right", "front", "center"] = "front"
     action: Literal[
-        "stand", "walk", "kneel", "reach", "sit", "jump", "crouch", "flee", "nuzzle", "shared_umbrella"
+        "stand",
+        "walk",
+        "kneel",
+        "reach",
+        "sit",
+        "jump",
+        "crouch",
+        "flee",
+        "nuzzle",
+        "shared_umbrella",
+        "catch_from_camera",
     ] = "stand"
     holding_prop: Optional[str] = None
     height_m: Optional[float] = Field(default=None, ge=0.05, le=3.0)
