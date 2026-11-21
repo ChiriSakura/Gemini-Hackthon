@@ -462,14 +462,14 @@
       "scene_id": 4,
       "title": "BE · Left Alone in the Rain",
       "duration_sec": 4.0,
-      "narration": "Heavy rain pours down as Nyx turns and flees into the right-corner storm shadows; Camera B closes in at 45 degrees on Lia standing alone under her red umbrella beside broken glass.",
+      "narration": "Nyx turns and slips away into the right-corner shadows while Lia stands alone beside the broken vase, holding her closed red umbrella at her side and looking down sadly; the rain keeps falling outside the glass.",
       "vocal_emotion": "sad_soft",
       "gesture_intent": "none",
       "direction_hint": "none",
       "lighting": "cold_blue",
       "camera_shake": false,
       "audio_mood": "heavy_rainstorm_fading_footsteps_sad_cello",
-      "environment_notes": "fallen_glass_vase large_water_puddle water_splash_droplets broken_glass_shards wet_herringbone_floor empty_round_table warm_wall_lanterns nighttime_glass_conservatory",
+      "environment_notes": "overturned_glass_vase large_water_puddle small_glass_shard empty_round_table closed_red_umbrella warm_wall_lanterns herringbone_wood_floor potted_corner_ferns night_glass_conservatory",
       "needs_rerender": false,
       "reused_from_branch": null,
       "end_freeze_mode": "sculpture",
@@ -516,82 +516,69 @@
         }
       ],
       "qa_questions": [
-        "Is the silver-haired girl alone under her red umbrella looking wistfully down?",
-        "Is the crystal vase still broken on the floor (object permanence)?",
-        "Is the black cat fleeing toward the far right rainy corner?",
-        "Do Camera A and Camera B stay spatially consistent?"
+        "Is the silver-haired girl standing alone holding a closed red umbrella at her side?",
+        "Is the broken crystal vase lying on the floor near the round table?",
+        "Is the black cat moving away toward the right corner or already out of sight?"
       ],
       "media": {
         "cam_a_preview_url": null,
         "cam_b_preview_url": null,
-        "cam_a_final_url": "/assets/finals/scene_4_cam_a_0d2977_sync.mp4",
-        "cam_b_final_url": "/assets/finals/scene_4_cam_b_0d2977_sync.mp4",
-        "cam_a_tail_frame_url": "/assets/tails/scene_4_cam_a_0d2977_sync_tail.png",
-        "cam_b_tail_frame_url": "/assets/tails/scene_4_cam_b_0d2977_sync_tail.png",
+        "cam_a_final_url": "/assets/finals/scene_4_cam_a_23da89_sync.mp4",
+        "cam_b_final_url": "/assets/finals/scene_4_cam_b_23da89_sync.mp4",
+        "cam_a_tail_frame_url": "/assets/tails/scene_4_cam_a_23da89_sync_tail.png",
+        "cam_b_tail_frame_url": "/assets/tails/scene_4_cam_b_23da89_sync_tail.png",
         "qa_result": {
-          "overall_score": 0.657,
+          "overall_score": 0.754,
           "all_passed": false,
           "items": [
             {
-              "question": "[CAM A] Is the silver-haired girl alone under her red umbrella looking wistfully down?",
+              "question": "[CAM A] Is the silver-haired girl standing alone holding a closed red umbrella at her side?",
               "passed": true,
-              "confidence": 0.731,
-              "reason": "Decision-1 P(true)=0.73"
+              "confidence": 0.903,
+              "reason": "Decision-1 P(true)=0.90"
             },
             {
-              "question": "[CAM A] Is the crystal vase still broken on the floor (object permanence)?",
+              "question": "[CAM A] Is the broken crystal vase lying on the floor near the round table?",
               "passed": true,
-              "confidence": 0.852,
-              "reason": "Decision-1 P(true)=0.85"
+              "confidence": 0.898,
+              "reason": "Decision-1 P(true)=0.90"
             },
             {
-              "question": "[CAM A] Is the black cat fleeing toward the far right rainy corner?",
-              "passed": false,
-              "confidence": 0.559,
-              "reason": "Decision-1 P(true)=0.44 [LOW_CONFIDENCE: escalate]"
-            },
-            {
-              "question": "[CAM A] Do Camera A and Camera B stay spatially consistent?",
-              "passed": false,
-              "confidence": 0.53,
-              "reason": "Decision-1 P(true)=0.47 [LOW_CONFIDENCE: escalate]"
-            },
-            {
-              "question": "[CAM B] Is the silver-haired girl alone under her red umbrella looking wistfully down?",
+              "question": "[CAM A] Is the black cat moving away toward the right corner or already out of sight?",
               "passed": true,
-              "confidence": 0.771,
-              "reason": "Decision-1 P(true)=0.77"
+              "confidence": 0.684,
+              "reason": "Decision-1 P(true)=0.68 [LOW_CONFIDENCE: escalate]"
             },
             {
-              "question": "[CAM B] Is the crystal vase still broken on the floor (object permanence)?",
+              "question": "[CAM B] Is the silver-haired girl standing alone holding a closed red umbrella at her side?",
               "passed": true,
-              "confidence": 0.861,
-              "reason": "Decision-1 P(true)=0.86"
+              "confidence": 0.881,
+              "reason": "Decision-1 P(true)=0.88"
             },
             {
-              "question": "[CAM B] Is the black cat fleeing toward the far right rainy corner?",
+              "question": "[CAM B] Is the broken crystal vase lying on the floor near the round table?",
               "passed": true,
-              "confidence": 0.6,
-              "reason": "Decision-1 P(true)=0.60 [LOW_CONFIDENCE: escalate]"
+              "confidence": 0.883,
+              "reason": "Decision-1 P(true)=0.88"
             },
             {
-              "question": "[CAM B] Do Camera A and Camera B stay spatially consistent?",
-              "passed": false,
-              "confidence": 0.607,
-              "reason": "Decision-1 P(true)=0.39 [LOW_CONFIDENCE: escalate]"
+              "question": "[CAM B] Is the black cat moving away toward the right corner or already out of sight?",
+              "passed": true,
+              "confidence": 0.755,
+              "reason": "Decision-1 P(true)=0.76"
             },
             {
               "question": "[Dual-Cam] Camera A & Camera B room, actor, and vase consistency",
               "passed": false,
-              "confidence": 0.208,
-              "reason": "Cross-Cam Decision-1 (thresh=0.80) P(room=0.87, actors=0.82, vase=0.79)"
+              "confidence": 0.725,
+              "reason": "Cross-Cam Decision-1 (thresh=0.80) P(room=0.54, actors=0.82, vase=0.27)"
             }
           ]
         },
-        "qa_score": 0.639,
+        "qa_score": 0.834,
         "qa_retries": 0,
         "selected_candidate_index": 0,
-        "fallback_to_preview": true
+        "fallback_to_preview": false
       }
     }
   ]

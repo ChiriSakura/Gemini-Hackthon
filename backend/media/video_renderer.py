@@ -1866,7 +1866,9 @@ async def _render_split_screen_pair(
         "the center table, the same handedness, and the same body/head facing direction relative to the room in both panels — "
         "never mirror positions across the table or swap which hand holds an object between panels. "
         "Every movement happens at exactly the same instant in both panels: the same characters do the same action "
-        "with the same timing, only seen from the two camera positions. Both cameras are locked on tripods: no pan, "
+        "with the same timing, only seen from the two camera positions. The world is one and the same in both panels: "
+        "anything opened, closed, picked up, put down, broken or spilled looks identical in both, and every object "
+        "lies in the same place on the floor. Both cameras are locked on tripods: no pan, "
         "no orbit, no zoom, no cut. Keep the black bars and the vertical split exactly where they are for the whole clip. "
         f"Action in the scene: {_milden_safety_phrasing(scene.narration)} "
         f"{extra_prop_rule}"
@@ -2186,7 +2188,8 @@ async def render_scene_media(
         qa_score=avg_score,
         qa_retries=max(res_a[4], res_b[4]),
         selected_candidate_index=int(res_a[3]),
-        fallback_to_preview=(not both_have_video) or (avg_score < config.QA_PASS_THRESHOLD),
+        # A pair rendered in one generation always has both clips; a low judge score is reported, not hidden.
+        fallback_to_preview=(not both_have_video) or (split_pair is None and avg_score < config.QA_PASS_THRESHOLD),
     )
     if (not fast_live_mode) and tail_inspector and media.cam_a_tail_frame_url:
         local_tail = _resolve_asset_to_local_path(media.cam_a_tail_frame_url)
