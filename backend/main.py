@@ -837,6 +837,13 @@ async def api_media_render_scene(
             pid: ((getattr(p, "appearance_summary", "") or "").strip() or p.name)
             for pid, p in branch.props_registry.items()
         }
+        # Both cameras continue from the previous scene's last frames; look them up when the caller did not send them.
+        if not (prev_tail_frame_url and prev_tail_cam_b_url):
+            prev_scene = next((s for s in branch.scenes if s.scene_id == target.scene_id - 1), None)
+            if prev_scene is not None:
+                prev_tail_frame_url = prev_tail_frame_url or prev_scene.media.cam_a_tail_frame_url
+                prev_tail_cam_b_url = prev_tail_cam_b_url or prev_scene.media.cam_b_tail_frame_url
+
         # R-15: Enforce hard per-scene timeout with graceful 2.5D preview fallback + live SSE progress updates
         publish_scene_progress(branch_id, target.scene_id, "rendering", branch_status="running")
         try:
