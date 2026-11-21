@@ -1,11 +1,25 @@
 {
   "agent": "P2_media",
-  "branch": "feat/p2-media",
-  "current_milestone": "T0",
-  "status": "waiting_for_claim",
-  "omni_flash_latency_sec": null,
+  "branch": "feat/w1-media",
+  "current_milestone": "T1",
+  "status": "t1_completed_ready_for_t2",
+  "omni_flash_latency_sec": 18.64,
+  "omni_flash_total_with_io_sec": 22.65,
+  "omni_flash_dual_take_parallel_sec": 25.47,
+  "keep_4_scenes": true,
   "decisions_api_available": false,
-  "completed_items": [],
-  "blockers": [],
-  "last_updated": "2026-11-21T12:10:00-05:00"
+  "verified_model_ids": {
+    "video": "gemini-omni-flash-preview",
+    "image": "gemini-nano-banana-2.1"
+  },
+  "completed_items": [
+    "T0: Verified live model list (gemini-omni-flash-preview, gemini-nano-banana-2.1; gemini-decision-1 unavailable)",
+    "T0: Benchmarked Omni Flash 360p 4s using shared/assets/lia.png + nyx.png (gen=18.64s, total=22.65s < 40s threshold -> keep 4 scenes)",
+    "T1: Implemented backend/media/prop_maker.py (create_prop via gemini-nano-banana-2.1 + OpenCV chroma-green keying + .webm frame extraction, live tested)",
+    "T1: Implemented backend/media/video_renderer.py (concurrent Dual-Take Best-of-2 via asyncio.gather, File URI caching, OpenCV tail-frame extraction, judge() scoring & repair retries, live tested)"
+  ],
+  "blockers": [
+    "Note for P1: backend/config.py default strings ('omni-flash', 'gemini-3.1-flash-image-preview') are not in models.list(). P2 maps them safely to 'gemini-omni-flash-preview' and 'gemini-nano-banana-2.1', and recommends updating config.py defaults on main."
+  ],
+  "last_updated": "2026-11-21T12:34:00-05:00"
 }
