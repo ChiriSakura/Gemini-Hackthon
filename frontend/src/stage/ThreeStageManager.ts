@@ -992,6 +992,8 @@ export class ThreeStageManager {
           const regState = propsRegistry[actor.holding_prop]?.state;
           const umbrellaOpen =
             isUmbrella && (regState === 'open' || actor.action === 'shared_umbrella');
+          // Lia's own sprite already shows the closed umbrella in her hand; adding the prop too drew it twice.
+          if (isUmbrella && !umbrellaOpen && actor.id === 'lia') continue;
           propsToPlace.push({
             id: actor.holding_prop,
             grid: [
