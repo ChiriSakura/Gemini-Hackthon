@@ -77,6 +77,9 @@ class ActorState(BaseModel):
         "nuzzle",
         "shared_umbrella",
         "catch_from_camera",
+        "drink",
+        "eat",
+        "hold_up",
     ] = "stand"
     holding_prop: Optional[str] = None
     height_m: Optional[float] = Field(default=None, ge=0.05, le=3.0)

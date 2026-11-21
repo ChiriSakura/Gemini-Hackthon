@@ -44,6 +44,9 @@ MODEL_DECISION: str = os.getenv("MODEL_DECISION", "models/gemini-decision-1")
 MODEL_VIDEO: str = os.getenv("MODEL_VIDEO", "gemini-omni-flash-preview")
 MODEL_IMAGE: str = os.getenv("MODEL_IMAGE", "gemini-3.1-flash-image")
 USE_DECISIONS_API: bool = os.getenv("USE_DECISIONS_API", "true").lower() == "true"
+# Derive Camera B's first and last frames from Camera A's rendered clip (same instant, +45 degree orbit),
+# then interpolate between them, so both cameras show the same room, poses and sizes.
+CAM_B_KEYFRAMES_FROM_A: bool = os.getenv("CAM_B_KEYFRAMES_FROM_A", "true").lower() == "true"
 
 # Stage & Video Defaults (tuned for 5-hour hackathon live demo speed)
 DEFAULT_SCENE_COUNT: int = int(os.getenv("DEFAULT_SCENE_COUNT", "4"))

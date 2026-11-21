@@ -17,6 +17,7 @@ Feature & Use Cases:
 """
 
 import asyncio
+import base64
 import json
 import re
 import shutil
@@ -34,7 +35,7 @@ from backend import config
 from backend.director.genai_client import build_decision_input, create_decision
 from backend.director.hydrogen_judge import judge, score_clip_alignment, write_repair_constraint
 from backend.logger import log_function_call, log_genai_call
-from backend.media.prop_maker import estimate_prop_height_m
+from backend.media.prop_maker import _resolve_image_model, estimate_prop_height_m
 from backend.schemas import BranchState, JudgeItem, JudgeResult, Scene, SceneMedia
 
 _VIDEO_MODEL_ALIASES = {
@@ -387,12 +388,13 @@ def _describe_prop_with_scale(
         if opened:
             return "ONE single open crimson red long-handle umbrella (~0.86m canopy)"
         return (
-            "ONE single CLOSED, furled crimson red long-handle umbrella (~0.86m) held at her side with the tip pointing "
-            "down, NOT open, no canopy above her head"
+            "ONE single CLOSED, furled crimson red long-handle umbrella (~0.86m) held upright at her side like a walking "
+            "cane: curved handle at the top in her hand, tip straight down touching the floor, NOT open, NOT raised, "
+            "NOT pointing forward, no canopy above her head"
         )
     if prop_id == "crystal_vase":
         return (
-            "shattered clear crystal vase shards and scattered blue rose petals lying flat on the wet floor"
+            "shattered clear crystal vase shards and scattered blue rose petals lying flat on the dry wooden floor"
             if state == "broken" or on_floor
             else "ONE single intact clear crystal vase (~0.32m tall, ~42% of table height) holding ONE glowing blue rose resting squarely on the center round table"
         )
@@ -585,6 +587,55 @@ def _select_scene_ref_images(
     return selected[:max_refs]
 
 
+_ACTION_PHRASES = {
+    "drink": "lifting the held object to her lips and clearly drinking from it",
+    "eat": "bringing the held snack to her mouth and clearly eating it",
+    "hold_up": "holding the object up in front of her chest and looking at it",
+}
+
+
+def _action_phrase(action: str) -> str:
+    """Spell out prop-use actions so the video model animates them instead of a neutral pose."""
+    return _ACTION_PHRASES.get(action, action)
+
+
+def _size_word(height_m: float) -> str:
+    if height_m < 0.12:
+        return "smaller than Lia's hand"
+    if height_m < 0.24:
+        return "about as long as Lia's hand"
+    if height_m < 0.45:
+        return "about as long as Lia's forearm"
+    if height_m < 0.80:
+        return "about up to Lia's hip"
+    return "close to Lia's own height"
+
+
+def _build_size_chart(scene: Scene) -> str:
+    """One sentence fixing every on-stage height relative to Lia, shared by both cameras."""
+    parts = [
+        "Lia is 1.55 m tall",
+        "Nyx the cat is 0.30 m tall at the head, clearly below Lia's knee",
+        "the round table top is 0.75 m high, about Lia's hip",
+    ]
+    seen: set[str] = set()
+    prop_ids = [a.holding_prop for a in scene.actors if a.holding_prop] + [p.id for p in scene.stage_props]
+    for pid in prop_ids:
+        if not pid or pid in seen:
+            continue
+        seen.add(pid)
+        if pid == "crystal_vase":
+            parts.append("the crystal vase is 0.32 m tall, about as long as Lia's forearm")
+            continue
+        if pid == "red_umbrella":
+            parts.append("the red umbrella is 0.86 m long, a little over half of Lia's height")
+            continue
+        label = re.sub(r"_[0-9a-f]{4,8}$", "", pid).replace("_", " ")
+        height = float(estimate_prop_height_m(label))
+        parts.append(f"the {label} is {height:.2f} m tall, {_size_word(height)}")
+    return "Relative size chart (identical in every shot and in both cameras): " + "; ".join(parts) + "."
+
+
 def _build_shot_prompt(
     scene: Scene,
     cam_id: str,
@@ -630,7 +681,7 @@ def _build_shot_prompt(
     actor_phrases: list[str] = []
     for a in scene.actors:
         blocking = _grid_to_blocking(a.grid)
-        desc = f"{a.name} ({'silver-haired anime girl in starry midnight-blue cloak' if a.id == 'lia' else 'small realistic black cat with golden moon collar'}) positioned {blocking}, facing {a.facing}, performing {a.action}"
+        desc = f"{a.name} ({'silver-haired anime girl in starry midnight-blue cloak' if a.id == 'lia' else 'small realistic black cat with golden moon collar'}) positioned {blocking}, facing {a.facing}, performing {_action_phrase(a.action)}"
         if a.holding_prop:
             held_prop_ids.add(a.holding_prop)
             desc += (
@@ -658,6 +709,11 @@ def _build_shot_prompt(
         "Full-bleed borderless anime cinema frame inside a nighttime rooftop glass conservatory — NO black borders, NO coordinate axes, NO tick marks, NO numbers, NO text or captions.",
         f"{cam_desc}.",
         f"PRIMARY PHYSICAL ACTION TO ANIMATE VISIBLY (highest priority — characters MUST perform this exact action clearly throughout the shot): {safe_narration}",
+        _build_size_chart(scene),
+        (
+            "All weather stays OUTSIDE the glass. The room interior is completely dry and calm: no rain, mist, fog, wind, "
+            "lightning, snow, water drops or puddles indoors, and the wooden floor is dry."
+        ),
         f"Time & lighting: {lighting_desc}.",
         f"Audio & SFX mood: {scene.audio_mood or scene.vocal_emotion}.",
     ]
@@ -1198,6 +1254,289 @@ def _merge_dual_cam_qa(
     )
 
 
+def _extract_frame_at_sync(video_path: Path, t_sec: float, out_path: Path) -> Optional[Path]:
+    """Save the frame at `t_sec` of `video_path` as PNG."""
+    cap = cv2.VideoCapture(str(video_path))
+    try:
+        fps = cap.get(cv2.CAP_PROP_FPS) or 24.0
+        cap.set(cv2.CAP_PROP_POS_FRAMES, max(0, int(round(t_sec * fps))))
+        ok, frame = cap.read()
+        if not ok or frame is None:
+            return None
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        return out_path if _write_png_safe(out_path, frame) else None
+    finally:
+        cap.release()
+
+
+_CAM_B_POS = (3.25, 3.55)  # world x, z of Camera B in the stage blueprint (about 45 degrees right of Camera A)
+_FACING_VEC = {"right": (1.0, 0.0), "left": (-1.0, 0.0), "front": (0.0, 1.0), "back": (0.0, -1.0)}
+
+
+def _cam_b_blocking(scene: Scene) -> str:
+    """Describe, from stage geometry, where each actor lands in Camera B's frame and which side of them it sees."""
+    import math
+
+    fx, fz = -_CAM_B_POS[0], -_CAM_B_POS[1]
+    norm = math.hypot(fx, fz)
+    fx, fz = fx / norm, fz / norm
+    rx, rz = -fz, fx  # camera right vector
+    rows = []
+    for actor in scene.actors:
+        wx, wz = (actor.grid[0] - 1) * 2.1, (actor.grid[1] - 1) * 1.7
+        side = wx * rx + wz * rz
+        depth = (wx - _CAM_B_POS[0]) * fx + (wz - _CAM_B_POS[1]) * fz
+        tx, tz = _CAM_B_POS[0] - wx, _CAM_B_POS[1] - wz
+        vx, vz = _FACING_VEC.get(str(actor.facing), (0.0, 1.0))
+        cosang = (tx * vx + tz * vz) / (math.hypot(tx, tz) or 1.0)
+        ang = math.degrees(math.acos(max(-1.0, min(1.0, cosang))))
+        if ang < 30:
+            view = "seen from the front"
+        elif ang < 75:
+            view = "seen in three-quarter front view"
+        elif ang < 105:
+            view = "seen in side profile"
+        elif ang < 150:
+            view = "seen in three-quarter back view"
+        else:
+            view = "seen from behind"
+        where = "left of the table" if side < -0.4 else ("right of the table" if side > 0.4 else "near the table")
+        dist = "close to the camera" if depth < 4.2 else "further from the camera"
+        rows.append((side, f"{actor.name} is {where}, {dist}, {view}"))
+    rows.sort(key=lambda r: r[0])
+    if not rows:
+        return ""
+    return "In Camera B's frame, from left to right: " + "; ".join(r[1] for r in rows) + "."
+
+
+def _derive_cam_b_keyframe_sync(
+    cam_a_frame: Path, out_path: Path, size_chart: str, layout_b: Optional[Path] = None, blocking: str = ""
+) -> Path:
+    """Ask the image model to re-shoot one Camera A frame from Camera B's position (+45 degree orbit)."""
+    client = genai.Client(api_key=config.GEMINI_API_KEY, http_options=types.HttpOptions(timeout=45_000))
+    prompt = (
+        "Image 1 is a frame from Camera A, the front wide shot of an anime stage scene. "
+        "Redraw the EXACT SAME instant as seen by Camera B. Camera B stands 45 degrees to the right of Camera A on a "
+        "circle around the central round table, a little lower and closer, and looks back at the table. "
+        "The result must be a clearly different viewpoint from Image 1: the floor boards and the back wall now run "
+        "diagonally, the right-hand glass wall of Image 1 is now straight ahead in the background, whatever stood on "
+        "the right side of the stage is now nearest to the camera, and whatever stood on the left is further away. "
+        "Everything in the 3D scene stays identical: the same room (same arched glass walls, lanterns, floor and furniture), "
+        "the same characters with the same poses, clothes and held objects, the same props on the same floor spots, "
+        "the same lighting and weather. Do not add, remove, duplicate or resize anything. "
+        "Each character keeps the same body and face direction RELATIVE TO THE ROOM: whoever faces the table, a window or "
+        "another character in Image 1 still faces that same thing here, so we now see them from 45 degrees further "
+        "round. Never turn a character to face the new camera. "
+        f"{blocking} {size_chart} "
+        "The camera is on a tripod and perfectly level: wall posts and window frames are exactly vertical, no tilt. "
+        "The picture fills the whole 16:9 frame, anime cel-shaded like Image 1, "
+        "with no borders, no text and no inset."
+    )
+    parts: list[dict] = [
+        {"type": "image", "data": base64.b64encode(cam_a_frame.read_bytes()).decode("ascii"), "mime_type": "image/png"}
+    ]
+    if layout_b and layout_b.is_file():
+        parts.append(
+            {"type": "image", "data": base64.b64encode(layout_b.read_bytes()).decode("ascii"), "mime_type": "image/png"}
+        )
+        prompt += (
+            " Image 2 is a plain grey geometric layout sketch taken from Camera B's exact position. Copy its camera "
+            "angle, its floor and wall perspective, and where the table and each character sit in the frame and how "
+            "large they are. Ignore its flat grey look and its flat cut-out figures: all appearance, poses and "
+            "lighting come from Image 1."
+        )
+    parts.append({"type": "text", "text": prompt})
+    interaction = client.interactions.create(
+        model=_resolve_image_model(),
+        input=parts,
+        response_format={"type": "image", "aspect_ratio": "16:9"},
+    )
+    output_image = getattr(interaction, "output_image", None)
+    data = getattr(output_image, "data", None) if output_image else None
+    if not data:
+        raise RuntimeError("image model returned no Camera B keyframe")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_bytes(data if isinstance(data, bytes) else base64.b64decode(data))
+    return out_path
+
+
+CAM_B_SAME_VIEW_THRESHOLD = 0.6
+
+
+def _same_view_score(cam_a_frame: Path, cam_b_frame: Path) -> float:
+    """
+    How much Camera B's frame is just a crop or zoom of Camera A's frame (0 = different view, 1 = same view).
+
+    A real 45 degree orbit changes the whole layout, so no scaled copy of B matches anywhere inside A.
+    """
+    img_a = cv2.imread(str(cam_a_frame), cv2.IMREAD_GRAYSCALE)
+    img_b = cv2.imread(str(cam_b_frame), cv2.IMREAD_GRAYSCALE)
+    if img_a is None or img_b is None:
+        return 0.0
+    img_a = cv2.resize(img_a, (320, 180))
+    img_b = cv2.resize(img_b, (320, 180))
+    best = 0.0
+    for scale in (1.0, 0.9, 0.8, 0.7, 0.6, 0.5):
+        template = cv2.resize(img_b, (int(320 * scale), int(180 * scale)))
+        best = max(best, float(cv2.matchTemplate(img_a, template, cv2.TM_CCOEFF_NORMED).max()))
+    return round(best, 3)
+
+
+def _derive_rotated_cam_b_keyframe_sync(
+    cam_a_frame: Path, out_path: Path, size_chart: str, layout_b: Optional[Path], blocking: str, attempts: int = 3
+) -> float:
+    """Derive Camera B's keyframe, redrawing when the result is only a crop of Camera A. Returns the same-view score kept."""
+    best_score = 2.0
+    best_bytes: Optional[bytes] = None
+    for attempt in range(attempts):
+        trial = out_path.with_name(f"{out_path.stem}_try{attempt}.png")
+        try:
+            _derive_cam_b_keyframe_sync(cam_a_frame, trial, size_chart, layout_b, blocking)
+        except Exception:
+            continue
+        score = _same_view_score(cam_a_frame, trial)
+        if score < best_score:
+            best_score, best_bytes = score, trial.read_bytes()
+        trial.unlink(missing_ok=True)
+        if score < CAM_B_SAME_VIEW_THRESHOLD:
+            break
+    if best_bytes is None:
+        raise RuntimeError("image model returned no Camera B keyframe")
+    out_path.write_bytes(best_bytes)
+    return best_score
+
+
+def _update_cam_b_keyframe_sync(cam_b_first: Path, cam_a_last: Path, out_path: Path, size_chart: str) -> Path:
+    """Make Camera B's last frame by editing its first frame: same viewpoint and room, state taken from Camera A's last frame."""
+    client = genai.Client(api_key=config.GEMINI_API_KEY, http_options=types.HttpOptions(timeout=45_000))
+    prompt = (
+        "Image 1 is Camera B's view of an anime stage scene at the start of a shot. Image 2 is Camera A's front view "
+        "of the same scene at the END of the shot. Edit Image 1 so it shows the end of the shot: move and re-pose the "
+        "characters and props so their positions on the floor, poses, expressions and held objects match Image 2. "
+        "Keep Image 1's camera viewpoint, framing, room, furniture, lighting and every object's size EXACTLY as they are; "
+        "the camera does not move. Do not copy Image 2's viewpoint. Do not add or remove anything that Image 2 does not "
+        f"add or remove. {size_chart} Full 16:9 frame, no borders, no text."
+    )
+    parts = [
+        {"type": "image", "data": base64.b64encode(cam_b_first.read_bytes()).decode("ascii"), "mime_type": "image/png"},
+        {"type": "image", "data": base64.b64encode(cam_a_last.read_bytes()).decode("ascii"), "mime_type": "image/png"},
+        {"type": "text", "text": prompt},
+    ]
+    interaction = client.interactions.create(
+        model=_resolve_image_model(),
+        input=parts,
+        response_format={"type": "image", "aspect_ratio": "16:9"},
+    )
+    output_image = getattr(interaction, "output_image", None)
+    data = getattr(output_image, "data", None) if output_image else None
+    if not data:
+        raise RuntimeError("image model returned no Camera B end keyframe")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_bytes(data if isinstance(data, bytes) else base64.b64decode(data))
+    return out_path
+
+
+async def _render_cam_b_from_keyframes(
+    scene: Scene,
+    cam_a_final_url: str,
+    cam_a_tail_url: Optional[str],
+) -> Optional[tuple[str, Optional[str], JudgeResult, int, int]]:
+    """
+    Render Camera B as an interpolation between two keyframes derived from Camera A's own clip.
+
+    Camera B's first and last frames are Camera A's first and last frames re-shot from a +45 degree orbit,
+    so room, poses, props and relative sizes follow Camera A at both ends of the shot.
+    Returns None when any step fails so the caller can fall back to the reference-image path.
+    """
+    cam_a_video = _resolve_asset_to_local_path(cam_a_final_url)
+    if not cam_a_video or not cam_a_video.is_file():
+        return None
+    stem_b = cam_a_video.stem.replace("cam_a", "cam_b") + "_kf"
+    a_first = config.TAILS_DIR / f"{cam_a_video.stem}_first.png"
+    a_last = _resolve_asset_to_local_path(cam_a_tail_url) if cam_a_tail_url else None
+    if not a_last or not a_last.is_file():
+        a_last = await asyncio.to_thread(_extract_tail_frame_sync, cam_a_video, config.TAILS_DIR / f"{cam_a_video.stem}_last.png")
+    a_first_ok = await asyncio.to_thread(_extract_frame_at_sync, cam_a_video, 0.3, a_first)
+    if not a_first_ok or not a_last:
+        return None
+
+    size_chart = _build_size_chart(scene)
+    layout_b: Optional[Path] = None
+    try:
+        from backend.media.stage_blueprint import render_scene_blueprint
+
+        layout_b = await asyncio.to_thread(
+            render_scene_blueprint, scene, "cam_b", config.TAILS_DIR / f"{stem_b}_layout.png"
+        )
+    except Exception:
+        layout_b = None  # the keyframe still works from the text description alone
+    b_first = config.TAILS_DIR / f"{stem_b}_first.png"
+    b_last = config.TAILS_DIR / f"{stem_b}_last.png"
+    t0 = time.perf_counter()
+    same_view = await asyncio.to_thread(
+        _derive_rotated_cam_b_keyframe_sync, a_first, b_first, size_chart, layout_b, _cam_b_blocking(scene)
+    )
+    if same_view >= CAM_B_SAME_VIEW_THRESHOLD:
+        return None  # never got a real orbit: let the caller use the reference-image path instead
+    # The end keyframe is an edit of the start keyframe, so Camera B keeps one fixed viewpoint for the whole shot.
+    await asyncio.to_thread(_update_cam_b_keyframe_sync, b_first, a_last, b_last, size_chart)
+    keyframe_sec = round(time.perf_counter() - t0, 2)
+
+    up_first, up_last = await asyncio.gather(
+        _get_or_upload_uri(b_first, use_cache=False),
+        _get_or_upload_uri(b_last, use_cache=False),
+    )
+    narration = _milden_safety_phrasing(scene.narration)
+    prompt = (
+        "Camera B shot: a level three-quarter side view, 45 degrees to the right of the main camera, medium close-up. "
+        "Image 1 is the exact first frame and Image 2 is the exact last frame of this shot: animate smoothly from "
+        "Image 1 to Image 2 with natural motion. The camera is locked on a tripod: no pan, no orbit, no zoom, no cuts. "
+        f"Action to show: {narration} "
+        "Keep the room, the characters, the props, their positions and their sizes exactly as drawn in the two images; "
+        "do not add or remove anything. "
+        f"{size_chart} "
+        "Anime cel-shaded style, nighttime glass conservatory, full frame with no borders or text."
+    )
+    input_parts = [
+        {"type": "image", "uri": up_first[0], "mime_type": up_first[1]},
+        {"type": "image", "uri": up_last[0], "mime_type": up_last[1]},
+        {"type": "text", "text": prompt},
+    ]
+    duration_int = max(3, min(10, int(round(scene.duration_sec or config.VIDEO_DURATION_SEC))))
+    out_video = config.FINALS_DIR / f"{stem_b}.mp4"
+    out_tail = config.TAILS_DIR / f"{stem_b}_tail.png"
+    t1 = time.perf_counter()
+    await asyncio.wait_for(
+        asyncio.to_thread(
+            _generate_omni_take_sync,
+            _resolve_video_model(),
+            input_parts,
+            duration_int,
+            config.VIDEO_RESOLUTION,
+            config.VIDEO_ASPECT_RATIO,
+            out_video,
+        ),
+        timeout=PER_TAKE_TIMEOUT_SEC,
+    )
+    video_sec = round(time.perf_counter() - t1, 2)
+    tail_path = await asyncio.to_thread(_extract_tail_frame_sync, out_video, out_tail)
+    questions = list(scene.qa_questions) or [f"Does Camera B show: {scene.narration}?"]
+    qa_res = await judge(questions, context_text=prompt, media_paths=[str(out_video)])
+    log_genai_call(
+        model=_resolve_video_model(),
+        prompt={"mode": "cam_b_from_cam_a_keyframes", "scene_id": scene.scene_id},
+        config={"keyframe_sec": keyframe_sec, "video_sec": video_sec, "same_view_score": same_view},
+        output={"video": out_video.name, "qa": qa_res.overall_score},
+    )
+    return (
+        f"/assets/finals/{out_video.name}",
+        f"/assets/tails/{out_tail.name}" if tail_path else None,
+        qa_res,
+        0,
+        0,
+    )
+
+
 @log_function_call
 async def render_scene_media(
     scene: Scene,
@@ -1240,7 +1579,20 @@ async def render_scene_media(
             "+45-degree clockwise camera orbit to the front-right around the central table."
         )
 
-    res_b = await render_single_camera_shot(
+    res_b_keyframed = None
+    if config.CAM_B_KEYFRAMES_FROM_A and not fast_live_mode and res_a[0]:
+        try:
+            res_b_keyframed = await _render_cam_b_from_keyframes(scene, res_a[0], res_a[1])
+        except Exception as exc:  # any failure falls back to the reference-image path below
+            log_genai_call(
+                model=_resolve_video_model(),
+                prompt={"mode": "cam_b_from_cam_a_keyframes", "scene_id": scene.scene_id},
+                config={},
+                output={"fallback": f"{type(exc).__name__}: {str(exc)[:200]}"},
+            )
+            res_b_keyframed = None
+
+    res_b = res_b_keyframed or await render_single_camera_shot(
         scene,
         "cam_b",
         prev_tail_b,
@@ -1255,7 +1607,9 @@ async def render_scene_media(
     cross_item = None if fast_live_mode else await _check_cross_camera_consistency(scene, res_a[1], res_b[1])
     # If cameras contradict each other (< CROSS_CAM_THRESHOLD=0.80 on any check in standard quality mode),
     # retry ONLY the weaker camera once conditioned on the stronger camera's tail frame (with regression guard).
-    if (not fast_live_mode) and cross_item is not None and not cross_item.passed:
+    # A Camera B clip derived from Camera A's own frames is already pinned to A at both ends;
+    # re-rendering it independently here would throw that away, so the retry only applies to the old path.
+    if (not fast_live_mode) and res_b_keyframed is None and cross_item is not None and not cross_item.passed:
         if res_b[2].overall_score <= res_a[2].overall_score:
             conditioned_refs = list(reference_images) + ([res_a[1]] if res_a[1] else [])
             cand_b = await render_single_camera_shot(

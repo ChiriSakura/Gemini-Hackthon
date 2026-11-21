@@ -439,7 +439,8 @@ async def api_director_extend(
         end_freeze_mode=end_freeze_mode,
     )
     if thrown_prop_id:
-        if not any(p.id == thrown_prop_id for p in next_scene.stage_props):
+        held_by_actor = any(a.holding_prop == thrown_prop_id for a in next_scene.actors)
+        if not held_by_actor and not any(p.id == thrown_prop_id for p in next_scene.stage_props):
             next_scene.stage_props.append(
                 StagePropState(
                     id=thrown_prop_id,
@@ -658,7 +659,8 @@ async def api_media_render_scene(
                     fast_live_mode=fast_live_mode,
                     prop_descriptions=prop_descriptions,
                 ),
-                timeout=95.0,
+                # Camera B waits for Camera A when it is derived from A's frames, so allow the extra pass.
+                timeout=200.0 if (config.CAM_B_KEYFRAMES_FROM_A and not fast_live_mode) else 95.0,
             )
         except asyncio.TimeoutError:
             rendered_media = SceneMedia(
