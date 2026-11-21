@@ -168,13 +168,46 @@ def run_product_hardening_tests() -> None:
         # 8. Split-screen 1-pass dual-cam composition & bundled-ffmpeg panel crop (Unicode path safe)
         open_a = config.ASSETS_DIR / "stages" / "opening_cam_a.png"
         open_b = config.ASSETS_DIR / "stages" / "opening_cam_b.png"
+        room_a = config.ASSETS_DIR / "stages" / "conservatory_cam_a.png"
+        room_b = config.ASSETS_DIR / "stages" / "conservatory_cam_b.png"
         assert open_a.is_file() and open_b.is_file(), "Missing opening_cam_a/b.png"
+        assert room_a.is_file() and room_b.is_file(), "Missing conservatory_cam_a/b.png"
+        open_score = _same_view_score(open_a, open_b)
+        room_score = _same_view_score(room_a, room_b)
+        assert open_score < CAM_B_SAME_VIEW_THRESHOLD, f"opening A/B too similar: {open_score}"
+        assert room_score < CAM_B_SAME_VIEW_THRESHOLD, f"conservatory A/B too similar: {room_score}"
         split_png = _compose_split_frame_sync(open_a, open_b, Path(tmpdir) / "split_双机位.png")
         assert split_png.is_file() and split_png.stat().st_size > 50_000
         sample_mp4 = config.FINALS_DIR / "scene_1_cam_a_f0a5fb.mp4"
         cropped_left = _crop_split_panel_sync(sample_mp4, False, Path(tmpdir) / "panel_a.mp4")
         cropped_right = _crop_split_panel_sync(sample_mp4, True, Path(tmpdir) / "panel_b.mp4")
         assert is_browser_h264(cropped_left) and is_browser_h264(cropped_right)
+
+        # 9. Camera-directive narration sanitizer prevents divergent left/right panel actions
+        from backend.media.video_renderer import _strip_camera_directives
+
+        dirty_nar = (
+            "Heavy rain pours down as Nyx flees right; Camera B closes in at 45 degrees on "
+            "Lia standing alone beside broken glass in Camera B."
+        )
+        cleaned_nar = _strip_camera_directives(dirty_nar)
+        assert "camera b" not in cleaned_nar.lower() and "camera a" not in cleaned_nar.lower(), cleaned_nar
+        assert "Lia standing alone beside broken glass" in cleaned_nar, cleaned_nar
+
+        # 10. 3D-first dual-camera epipolar projection guide & 1280x720 paired split layout
+        from backend.media.stage_blueprint import compute_dual_cam_epipolar_guide, render_dual_cam_split_guide
+
+        epipolar = compute_dual_cam_epipolar_guide(drink_scene)
+        assert len(epipolar["actors"]) == 2 and "Exact 3D dual-camera geometric projection" in epipolar["prompt_summary"]
+        nyx_row = next(a for a in epipolar["actors"] if a["id"] == "nyx")
+        lia_row = next(a for a in epipolar["actors"] if a["id"] == "lia")
+        assert nyx_row["cam_b"]["depth_m"] < lia_row["cam_b"]["depth_m"], epipolar
+        guide_png = render_dual_cam_split_guide(drink_scene, Path(tmpdir) / "guide_3d_split.png")
+        assert guide_png.is_file()
+        from backend.media.video_renderer import _read_bgr_safe
+
+        guide_img = _read_bgr_safe(guide_png)
+        assert guide_img is not None and guide_img.shape == (720, 1280, 3), getattr(guide_img, "shape", None)
 
     phases: list[str] = []
     prev_demo = config.DEMO_MODE

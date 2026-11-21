@@ -27,7 +27,8 @@ export interface PreviewExportResult {
 }
 
 interface SpriteEntity {
-  sprite: THREE.Sprite;
+  sprite: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
+  crossCard?: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
   shadow?: THREE.Mesh;
   haloRing?: THREE.Mesh;
   diffHighlighted?: boolean;
@@ -35,12 +36,32 @@ interface SpriteEntity {
   targetPos: THREE.Vector3;
   action: string;
   facing: string;
+  worldYaw: number;
   assetUrl?: string;
   appliedFlipped?: boolean;
   broken?: boolean;
   currentTextureUrl?: string;
   usingBrokenAsset?: boolean;
   heightM?: number | null;
+}
+
+/**
+ * Compute a rigid 3D world-space yaw (radians around Y) from a scene actor's facing direction.
+ * Unlike camera-facing `THREE.Sprite` billboards, world-locked standee planes never rotate
+ * toward Camera A or Camera B, so both views strictly obey rigid 3D viewpoint projection.
+ */
+function facingToWorldYaw(facing: string): number {
+  switch (facing) {
+    case 'right':
+      return 0.24;
+    case 'left':
+      return -0.24;
+    case 'back':
+      return Math.PI;
+    case 'front':
+    default:
+      return 0;
+  }
 }
 
 interface PropFlightState {
@@ -282,6 +303,7 @@ export class ThreeStageManager {
   private fallbackChairTexture: THREE.CanvasTexture | null = null;
   private actorEntities = new Map<string, SpriteEntity>();
   private propEntities = new Map<string, SpriteEntity>();
+  private standeeGeometry: THREE.PlaneGeometry;
   private activePropFlights = new Map<string, PropFlightState>();
   private seenThrownPropKeys = new Set<string>();
   private cameraGrabState: { actorId: string; startedAt: number; durationSec: number } | null = null;
@@ -458,6 +480,10 @@ export class ThreeStageManager {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color('#090d18');
     this.scene.fog = new THREE.FogExp2('#090d18', 0.055);
+
+    // Bottom-center anchored 3D standee card (pivot at y = 0) shared across world-locked actors & props
+    this.standeeGeometry = new THREE.PlaneGeometry(1, 1);
+    this.standeeGeometry.translate(0, 0.5, 0);
 
     this.cameraA = new THREE.PerspectiveCamera(44, 16 / 9, 0.1, 50);
     this.cameraA.position.set(0, 2.75, 6.2);
@@ -862,9 +888,10 @@ export class ThreeStageManager {
       const floorY = 0.015;
 
       let entity = this.actorEntities.get(actor.id);
+      const actorYaw = facingToWorldYaw(actor.facing);
       if (!entity) {
         const spriteRef: { entity?: SpriteEntity } = {};
-        const mat = new THREE.SpriteMaterial({
+        const mat = new THREE.MeshBasicMaterial({
           map: this.loadSpriteTexture(actor.asset_url, undefined, (iw, ih) => {
             const fitted = this.fitScaleToBox(iw, ih, maxW, maxH);
             const loadedBase = this.textureCache.get(actor.asset_url);
@@ -881,10 +908,14 @@ export class ThreeStageManager {
             }
           }),
           transparent: true,
+          alphaTest: 0.12,
+          side: THREE.DoubleSide,
         });
-        const sprite = new THREE.Sprite(mat);
-        sprite.center.set(0.5, 0);
+        // World-locked 3D standee plane: never billboards toward Camera A or Camera B
+        const sprite = new THREE.Mesh(this.standeeGeometry, mat);
         sprite.position.set(x, floorY, z);
+        sprite.rotation.order = 'YXZ';
+        sprite.rotation.y = actorYaw;
         sprite.scale.set(maxW, maxH, 1);
         this.scene.add(sprite);
 
@@ -928,6 +959,7 @@ export class ThreeStageManager {
           targetPos: new THREE.Vector3(x, floorY, z),
           action: actor.action,
           facing: actor.facing,
+          worldYaw: actorYaw,
           assetUrl: actor.asset_url,
           heightM: actor.height_m ?? null,
         };
@@ -935,10 +967,10 @@ export class ThreeStageManager {
         this.actorEntities.set(actor.id, entity);
         this.syncActorFacingTexture(entity);
       } else {
-        entity.sprite.center.set(0.5, 0);
         entity.targetPos.set(x, floorY, z);
         entity.action = actor.action;
         entity.facing = actor.facing;
+        entity.worldYaw = actorYaw;
         entity.assetUrl = actor.asset_url;
         entity.heightM = actor.height_m ?? null;
         entity.diffHighlighted = changedFromBaseline;
@@ -953,10 +985,10 @@ export class ThreeStageManager {
       sumPos.add(new THREE.Vector3(entity.targetPos.x, maxH * 0.45, entity.targetPos.z));
     }
 
-    if (sceneData.actors.length > 0) {
-      sumPos.divideScalar(sceneData.actors.length);
-      this.cameraBTarget.set(sumPos.x, 0.92, sumPos.z);
-    }
+    // Lock Camera B's target to the shared stage center (0, 0.9, 0) matching Camera A and `stage_blueprint.py`
+    // so both views observe the exact same world coordinates purely from a +45 deg camera orbit.
+    void sumPos;
+    this.cameraBTarget.set(0, 0.9, 0);
 
     // Hide unused actors
     for (const [id, ent] of this.actorEntities.entries()) {
@@ -1109,7 +1141,8 @@ export class ThreeStageManager {
             ? this.fitScaleToBox(img.width, img.height, maxPropW, maxPropH)
             : [maxPropW, maxPropH];
         ent.baseScale = fitted;
-        ent.sprite.scale.set(fitted[0], fitted[1], 1);
+        // Keep Z scale equal to X scale so the orthogonal 90-deg crossCard keeps identical width.
+        ent.sprite.scale.set(fitted[0], fitted[1], fitted[0]);
       };
 
       const applyPropTexture = (ent: SpriteEntity, targetUrl: string, fallbackUrl: string) => {
@@ -1137,7 +1170,7 @@ export class ThreeStageManager {
           if (effectiveUrl.includes('crystal_vase_broken')) {
             ent.usingBrokenAsset = true;
             ent.sprite.material.opacity = 1.0;
-            ent.sprite.material.rotation = 0;
+            ent.sprite.rotation.z = 0;
           }
           return;
         }
@@ -1157,7 +1190,7 @@ export class ThreeStageManager {
               if (effectiveUrl.includes('crystal_vase_broken')) {
                 ent.usingBrokenAsset = true;
                 ent.sprite.material.opacity = 1.0;
-                ent.sprite.material.rotation = 0;
+                ent.sprite.rotation.z = 0;
               }
             }
           },
@@ -1182,7 +1215,7 @@ export class ThreeStageManager {
               ent.sprite.material.map = fbTex;
               ent.sprite.material.needsUpdate = true;
               ent.sprite.material.opacity = isBroken ? 0.55 : 1.0;
-              ent.sprite.material.rotation = isBroken ? 0.65 : 0;
+              ent.sprite.rotation.z = isBroken ? 0.65 : 0;
             } else {
               const proceduralFb = this.getFallbackPropTexture(prop.id, prop.state);
               this.textureCache.set(effectiveUrl, proceduralFb);
@@ -1198,28 +1231,36 @@ export class ThreeStageManager {
       };
 
       if (!entity) {
-        const mat = new THREE.SpriteMaterial({
+        const mat = new THREE.MeshBasicMaterial({
           map: this.getFallbackPropTexture(prop.id, prop.state),
           transparent: true,
+          alphaTest: 0.12,
+          side: THREE.DoubleSide,
         });
-        const sprite = new THREE.Sprite(mat);
-        sprite.center.set(0.5, 0);
+        // World-locked 3D crossed double-card prop standee: stays rigid in 3D space (no billboarding)
+        // and preserves solid volume from both Camera A (0 deg) and Camera B (+45 deg) or 360 deg orbit.
+        const sprite = new THREE.Mesh(this.standeeGeometry, mat);
         sprite.position.set(x, y, z);
-        sprite.scale.set(maxPropW, maxPropH, 1);
+        sprite.rotation.order = 'YXZ';
+        sprite.scale.set(maxPropW, maxPropH, maxPropW);
+        const crossCard = new THREE.Mesh(this.standeeGeometry, mat);
+        crossCard.rotation.y = Math.PI / 2;
+        sprite.add(crossCard);
         this.scene.add(sprite);
         entity = {
           sprite,
+          crossCard,
           baseScale: [maxPropW, maxPropH],
           targetPos: new THREE.Vector3(x, y, z),
           action: prop.state,
           facing: 'front',
+          worldYaw: 0,
           broken: isBroken,
           heightM: regItem?.height_m ?? null,
         };
         this.propEntities.set(prop.id, entity);
         applyPropTexture(entity, preferredUrl, baseImageUrl);
       } else {
-        entity.sprite.center.set(0.5, 0);
         entity.targetPos.set(x, y, z);
         entity.action = prop.state;
         entity.broken = isBroken;
@@ -1229,10 +1270,10 @@ export class ThreeStageManager {
 
       if (isBroken && !entity.usingBrokenAsset) {
         entity.sprite.material.opacity = 0.55;
-        entity.sprite.material.rotation = 0.65;
+        entity.sprite.rotation.z = 0.65;
       } else {
         entity.sprite.material.opacity = 1.0;
-        entity.sprite.material.rotation = 0;
+        entity.sprite.rotation.z = 0;
       }
 
       // W2-V2-03: Auto-trigger 3D parabolic throw-in arc once per scene for thrown props
@@ -1472,7 +1513,7 @@ export class ThreeStageManager {
         const swell = 1 + grabSurge * 0.16;
         scaleW = w * swell;
         scaleY = scaleY * swell;
-        ent.sprite.material.rotation = -grabSurge * 0.07;
+        ent.sprite.rotation.z = -grabSurge * 0.07;
         showCatchRipple = true;
         this.catchRippleMesh.position.set(
           ent.sprite.position.x,
@@ -1484,8 +1525,10 @@ export class ThreeStageManager {
         (this.catchRippleMesh.material as THREE.MeshBasicMaterial).opacity =
           0.35 + grabSurge * 0.55;
       } else {
-        ent.sprite.material.rotation = 0;
+        ent.sprite.rotation.z = 0;
       }
+      // Smoothly converge rigid world-space facing yaw (independent of which camera renders)
+      ent.sprite.rotation.y += (ent.worldYaw - ent.sprite.rotation.y) * lerpFactor;
 
       ent.sprite.position.y = ent.targetPos.y + Math.max(0, offsetY);
       // Keep positive scale.x in Three.js r170 (horizontal flip handled via UV-mirrored texture)
@@ -1520,11 +1563,15 @@ export class ThreeStageManager {
         const arcY = 4 * flight.peakHeight * t * (1 - t);
         ent.sprite.position.set(px, baseY + arcY, pz);
         const airScale = 1 + (1 - t) * 0.42;
-        ent.sprite.scale.set(ent.baseScale[0] * airScale, ent.baseScale[1] * airScale, 1);
-        ent.sprite.material.rotation = (1 - t) * Math.PI * 2.0;
+        ent.sprite.scale.set(
+          ent.baseScale[0] * airScale,
+          ent.baseScale[1] * airScale,
+          ent.baseScale[0] * airScale,
+        );
+        ent.sprite.rotation.z = (1 - t) * Math.PI * 2.0;
         if (rawT >= 1) {
           this.activePropFlights.delete(propId);
-          ent.sprite.material.rotation = ent.broken && !ent.usingBrokenAsset ? 0.65 : 0;
+          ent.sprite.rotation.z = ent.broken && !ent.usingBrokenAsset ? 0.65 : 0;
         }
         continue;
       }
@@ -1534,12 +1581,12 @@ export class ThreeStageManager {
       }
       if (ent.action === 'glowing' && !frozen) {
         const pulse = 1 + Math.sin(elapsed * 4) * 0.08;
-        ent.sprite.scale.set(ent.baseScale[0] * pulse, ent.baseScale[1] * pulse, 1);
+        ent.sprite.scale.set(ent.baseScale[0] * pulse, ent.baseScale[1] * pulse, ent.baseScale[0] * pulse);
         ent.sprite.position.y = ent.targetPos.y + Math.sin(elapsed * 2.6) * 0.05;
       } else {
         const sx = ent.sprite.scale.x + (ent.baseScale[0] - ent.sprite.scale.x) * lerpFactor;
         const sy = ent.sprite.scale.y + (ent.baseScale[1] - ent.sprite.scale.y) * lerpFactor;
-        ent.sprite.scale.set(sx, sy, 1);
+        ent.sprite.scale.set(sx, sy, sx);
         ent.sprite.position.y = ent.targetPos.y;
       }
     }
