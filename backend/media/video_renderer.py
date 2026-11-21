@@ -189,6 +189,11 @@ def _build_shot_prompt(
         parts.append("Transform the stage motion from the preview video into rich 2.5D anime style while preserving exact spatial layout.")
     else:
         parts.append("Match character and prop appearances strictly to the provided reference images, with no extra unintended characters.")
+    parts.append(
+        "Start immediately with crisp visible stage lighting; NO fade-in from black and NO text or title cards. "
+        "Each character holds at most ONE prop matching their state (if holding red_umbrella, Lia holds exactly ONE single open red umbrella, never a duplicate umbrella). "
+        "Maintain strict left/center/right spatial placement and camera consistency."
+    )
     return " ".join(parts)
 
 
@@ -373,6 +378,7 @@ async def render_single_camera_shot(
     best_tail: Optional[Path] = None
     best_qa: Optional[JudgeResult] = None
     best_idx = 0
+    temp_artifacts: list[Path] = []
 
     for attempt in range(config.MAX_QA_RETRIES + 1):
         takes = await asyncio.gather(
@@ -391,6 +397,11 @@ async def render_single_camera_shot(
                 for idx in range(config.DUAL_TAKE_COUNT)
             )
         )
+        for v_path, t_path, _ in takes:
+            if v_path:
+                temp_artifacts.append(v_path)
+            if t_path:
+                temp_artifacts.append(t_path)
 
         # Pick the candidate with highest judge() overall_score.
         winner_idx, winner = max(enumerate(takes), key=lambda pair: pair[1][2].overall_score)
@@ -416,6 +427,11 @@ async def render_single_camera_shot(
     if best_tail and best_tail.is_file():
         shutil.copy2(best_tail, canonical_tail)
         tail_url = f"/assets/tails/{canonical_tail.name}"
+
+    # Remove intermediate take files so backend/assets/ keeps only canonical winners.
+    for artifact in temp_artifacts:
+        if artifact not in {canonical_video, canonical_tail}:
+            artifact.unlink(missing_ok=True)
 
     return final_url or "", tail_url, best_qa, best_idx, retries
 
