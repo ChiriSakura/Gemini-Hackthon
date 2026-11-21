@@ -201,6 +201,50 @@ def _extract_tail_frame_sync(video_path: Path, tail_path: Path) -> Optional[Path
         cap.release()
 
 
+def _prepare_preview_media_sync(
+    preview_video: Path,
+    target_duration_sec: int,
+) -> tuple[Optional[Path], Optional[Path]]:
+    """
+    Extract a crisp start-frame PNG from a `.webm`/`.mp4` preview and decide whether the
+    raw video matches `target_duration_sec` closely enough for Omni Flash video-edit mode.
+
+    Browser `MediaRecorder` `.webm` clips frequently vary by +/-0.1s..0.3s, which triggers
+    Omni Flash 400 `Edited video duration does not match config duration`. Extracting the
+    start frame safely anchors spatial layout without risking a 400 failure.
+    """
+    cap = cv2.VideoCapture(str(preview_video))
+    if not cap.isOpened():
+        return None, None
+    try:
+        fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
+        frame_count = float(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0.0)
+        start_img_path: Optional[Path] = None
+
+        # Grab first non-black frame within first 10 frames.
+        for _ in range(10):
+            ok, frame = cap.read()
+            if not ok or frame is None:
+                break
+            if float(np.mean(frame)) > 4.0 or start_img_path is None:
+                candidate = config.PREVIEWS_DIR / f"{preview_video.stem}_extracted_start.png"
+                candidate.parent.mkdir(parents=True, exist_ok=True)
+                cv2.imwrite(str(candidate), frame)
+                start_img_path = candidate
+                if float(np.mean(frame)) > 4.0:
+                    break
+
+        use_raw_video = False
+        if preview_video.suffix.lower() == ".mp4" and fps > 1.0 and frame_count > 1.0:
+            duration_est = frame_count / fps
+            if abs(duration_est - float(target_duration_sec)) <= 0.05:
+                use_raw_video = True
+
+        return start_img_path, (preview_video if use_raw_video else None)
+    finally:
+        cap.release()
+
+
 def _build_shot_prompt(
     scene: Scene,
     cam_id: str,
@@ -346,18 +390,37 @@ async def _run_candidate_take(
     duration_int = max(3, min(10, int(round(scene.duration_sec or config.VIDEO_DURATION_SEC))))
     t0 = time.perf_counter()
     try:
-        meta = await asyncio.wait_for(
-            asyncio.to_thread(
-                _generate_omni_take_sync,
-                model_id,
-                input_parts,
-                duration_int,
-                config.VIDEO_RESOLUTION,
-                config.VIDEO_ASPECT_RATIO,
-                out_video,
-            ),
-            timeout=PER_TAKE_TIMEOUT_SEC,
-        )
+        try:
+            meta = await asyncio.wait_for(
+                asyncio.to_thread(
+                    _generate_omni_take_sync,
+                    model_id,
+                    input_parts,
+                    duration_int,
+                    config.VIDEO_RESOLUTION,
+                    config.VIDEO_ASPECT_RATIO,
+                    out_video,
+                ),
+                timeout=PER_TAKE_TIMEOUT_SEC,
+            )
+        except Exception as first_exc:
+            # If video-edit mode rejects preview duration/format (400), retry once with image-start anchor only.
+            if uploaded_preview is not None and ("400" in str(first_exc) or "duration" in str(first_exc).lower()):
+                fallback_parts = [p for p in input_parts if p.get("type") != "video"]
+                meta = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        _generate_omni_take_sync,
+                        model_id,
+                        fallback_parts,
+                        duration_int,
+                        config.VIDEO_RESOLUTION,
+                        config.VIDEO_ASPECT_RATIO,
+                        out_video,
+                    ),
+                    timeout=PER_TAKE_TIMEOUT_SEC,
+                )
+            else:
+                raise
         elapsed = round(time.perf_counter() - t0, 2)
         tail_path = await asyncio.to_thread(_extract_tail_frame_sync, out_video, out_tail)
         log_genai_call(
@@ -401,12 +464,13 @@ async def render_single_camera_shot(
     reference_images: list[str],
     preview_path: Optional[str] = None,
     extra_constraint: str = "",
+    overwrite_canonical: bool = False,
 ) -> tuple[str, Optional[str], JudgeResult, int, int]:
     """
     Generate 2 parallel Omni Flash candidates for one scene + camera, score via `judge()` +
     `score_clip_alignment()`, retry up to `config.MAX_QA_RETRIES` with corrective constraints
-    on failure, log 1-take vs 2-take metrics, and return
-    `(final_url, tail_frame_url, judge_result, selected_idx, retries)`.
+    on failure (distilling successful fixes into `rule_memory`), log 1-take vs 2-take metrics,
+    and return `(final_url, tail_frame_url, judge_result, selected_idx, retries)`.
     """
     model_id = _resolve_video_model()
     prompt = _build_shot_prompt(
@@ -416,6 +480,7 @@ async def render_single_camera_shot(
         has_preview_video=bool(preview_path),
         extra_constraint=extra_constraint,
     )
+    run_tag = "" if overwrite_canonical else f"_{uuid.uuid4().hex[:6]}"
 
     if config.DEMO_MODE or not config.GEMINI_API_KEY:
         log_genai_call(
@@ -432,18 +497,23 @@ async def render_single_camera_shot(
         if qa_res.overall_score < config.QA_PASS_THRESHOLD and retries < config.MAX_QA_RETRIES:
             _ = await write_repair_constraint(scene, qa_res)
             retries += 1
-        final_url = f"/assets/finals/scene_{scene.scene_id}_{cam_id}.mp4"
-        tail_url = f"/assets/tails/scene_{scene.scene_id}_{cam_id}_tail.png"
+        final_url = f"/assets/finals/scene_{scene.scene_id}_{cam_id}{run_tag}.mp4"
+        tail_url = f"/assets/tails/scene_{scene.scene_id}_{cam_id}{run_tag}_tail.png"
         return final_url, tail_url, qa_res, 0, retries
 
     # Resolve & upload reference assets (capped at 6 total images including start frame).
+    duration_int = max(3, min(10, int(round(scene.duration_sec or config.VIDEO_DURATION_SEC))))
     local_prev_tail = _resolve_asset_to_local_path(prev_tail_path)
     local_preview_any = _resolve_asset_to_local_path(preview_path)
     local_preview_img: Optional[Path] = None
     local_preview: Optional[Path] = None
+    extracted_preview_img: Optional[Path] = None
     if local_preview_any:
         if local_preview_any.suffix.lower() in {".mp4", ".webm"}:
-            local_preview = local_preview_any
+            local_preview_img, local_preview = await asyncio.to_thread(
+                _prepare_preview_media_sync, local_preview_any, duration_int
+            )
+            extracted_preview_img = local_preview_img
         elif local_preview_any.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}:
             local_preview_img = local_preview_any
 
@@ -472,7 +542,10 @@ async def render_single_camera_shot(
     best_idx = 0
     first_take0_score: Optional[float] = None
     first_take1_score: Optional[float] = None
+    last_repair_note: str = ""
     temp_artifacts: list[Path] = []
+    if extracted_preview_img is not None:
+        temp_artifacts.append(extracted_preview_img)
 
     for attempt in range(config.MAX_QA_RETRIES + 1):
         takes = await asyncio.gather(
@@ -514,9 +587,13 @@ async def render_single_camera_shot(
 
         retries += 1
         repair_note = await write_repair_constraint(scene, best_qa)
+        last_repair_note = repair_note
         current_constraint = f"{current_constraint} {repair_note}".strip()
 
     assert best_qa is not None
+    if retries > 0 and best_qa.overall_score >= config.QA_PASS_THRESHOLD and last_repair_note:
+        add_rule(f"Scene {scene.scene_id} ({cam_id}) continuity fix: {last_repair_note}")
+
     _append_eval_media_stat(
         {
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -533,8 +610,8 @@ async def render_single_camera_shot(
         }
     )
 
-    canonical_video = config.FINALS_DIR / f"scene_{scene.scene_id}_{cam_id}.mp4"
-    canonical_tail = config.TAILS_DIR / f"scene_{scene.scene_id}_{cam_id}_tail.png"
+    canonical_video = config.FINALS_DIR / f"scene_{scene.scene_id}_{cam_id}{run_tag}.mp4"
+    canonical_tail = config.TAILS_DIR / f"scene_{scene.scene_id}_{cam_id}{run_tag}_tail.png"
 
     final_url: Optional[str] = None
     tail_url: Optional[str] = None
@@ -561,14 +638,29 @@ async def render_scene_media(
     prev_tail_a: Optional[str] = None,
     prev_tail_b: Optional[str] = None,
     tail_inspector: Optional[Callable[[int, str], Awaitable[str]]] = None,
+    overwrite_canonical: bool = False,
 ) -> SceneMedia:
     """Concurrently render Camera A and Camera B for a single scene and update tail-frame notes."""
     preview_a = cam_a_preview_path or scene.media.cam_a_preview_url
     preview_b = cam_b_preview_path or scene.media.cam_b_preview_url
 
     res_a, res_b = await asyncio.gather(
-        render_single_camera_shot(scene, "cam_a", prev_tail_a, reference_images, preview_path=preview_a),
-        render_single_camera_shot(scene, "cam_b", prev_tail_b, reference_images, preview_path=preview_b),
+        render_single_camera_shot(
+            scene,
+            "cam_a",
+            prev_tail_a,
+            reference_images,
+            preview_path=preview_a,
+            overwrite_canonical=overwrite_canonical,
+        ),
+        render_single_camera_shot(
+            scene,
+            "cam_b",
+            prev_tail_b,
+            reference_images,
+            preview_path=preview_b,
+            overwrite_canonical=overwrite_canonical,
+        ),
     )
 
     avg_score = round((res_a[2].overall_score + res_b[2].overall_score) / 2, 3)
