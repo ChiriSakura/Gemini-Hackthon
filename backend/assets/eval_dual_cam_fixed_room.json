@@ -1,0 +1,156 @@
+{
+  "task_id": "W1-V2-B1",
+  "timestamp": "2026-11-21T15:18:41",
+  "pipeline_config": {
+    "cross_cam_threshold": 0.8,
+    "cam_a_refs": [
+      "lia_clean_ref.png",
+      "nyx.png",
+      "conservatory_cam_a.png",
+      "crystal_vase.png",
+      "red_umbrella_closed.png",
+      "wooden_chair.png"
+    ],
+    "cam_b_refs": [
+      "lia_clean_ref.png",
+      "nyx.png",
+      "conservatory_cam_b.png",
+      "crystal_vase.png",
+      "red_umbrella_closed.png",
+      "wooden_chair.png"
+    ],
+    "fixed_room_refs_used": [
+      "conservatory_cam_a.png",
+      "conservatory_cam_b.png"
+    ],
+    "isolated_props_used": [
+      "red_umbrella_closed.png",
+      "wooden_chair.png"
+    ]
+  },
+  "render_result": {
+    "wall_clock_sec": 37.03,
+    "qa_score": 0.917,
+    "qa_retries": 0,
+    "fallback_to_preview": false,
+    "cam_a_url": "/assets/finals/scene_2_fixed_room_cam_a.mp4",
+    "cam_b_url": "/assets/finals/scene_2_fixed_room_cam_b.mp4",
+    "cam_a_tail_url": "/assets/tails/scene_2_fixed_room_cam_a_tail.png",
+    "cam_b_tail_url": "/assets/tails/scene_2_fixed_room_cam_b_tail.png",
+    "cam_a_h264": true,
+    "cam_b_h264": true,
+    "renderer_qa_items": [
+      {
+        "question": "[CAM A] Is the crystal vase intact on the central round wooden table?",
+        "passed": true,
+        "confidence": 0.965,
+        "reason": "Decision-1 P(true)=0.96"
+      },
+      {
+        "question": "[CAM A] Is Lia's crimson umbrella closed and furled rather than open?",
+        "passed": true,
+        "confidence": 0.949,
+        "reason": "Decision-1 P(true)=0.95"
+      },
+      {
+        "question": "[CAM A] Is there a wooden chair resting cleanly on the conservatory floor?",
+        "passed": true,
+        "confidence": 0.932,
+        "reason": "Decision-1 P(true)=0.93"
+      },
+      {
+        "question": "[CAM A] Is the black cat realistically small (below the girl's knee height) with all characters and props resting naturally on surfaces without floating?",
+        "passed": true,
+        "confidence": 0.919,
+        "reason": "Decision-1 P(true)=0.92"
+      },
+      {
+        "question": "[CAM A] Is this a clean full-bleed nighttime anime frame with NO black borders, NO coordinate axes or numbers, NO duplicate umbrellas or duplicate star tokens, and consistent nighttime atmosphere?",
+        "passed": true,
+        "confidence": 0.921,
+        "reason": "Decision-1 P(true)=0.92"
+      },
+      {
+        "question": "[CAM B] Is the crystal vase intact on the central round wooden table?",
+        "passed": true,
+        "confidence": 0.925,
+        "reason": "Decision-1 P(true)=0.92"
+      },
+      {
+        "question": "[CAM B] Is Lia's crimson umbrella closed and furled rather than open?",
+        "passed": true,
+        "confidence": 0.927,
+        "reason": "Decision-1 P(true)=0.93"
+      },
+      {
+        "question": "[CAM B] Is there a wooden chair resting cleanly on the conservatory floor?",
+        "passed": true,
+        "confidence": 0.884,
+        "reason": "Decision-1 P(true)=0.88"
+      },
+      {
+        "question": "[CAM B] Is the black cat realistically small (below the girl's knee height) with all characters and props resting naturally on surfaces without floating?",
+        "passed": true,
+        "confidence": 0.882,
+        "reason": "Decision-1 P(true)=0.88"
+      },
+      {
+        "question": "[CAM B] Is this a clean full-bleed nighttime anime frame with NO black borders, NO coordinate axes or numbers, NO duplicate umbrellas or duplicate star tokens, and consistent nighttime atmosphere?",
+        "passed": true,
+        "confidence": 0.869,
+        "reason": "Decision-1 P(true)=0.87"
+      },
+      {
+        "question": "[Dual-Cam] Camera A & Camera B room, actor, and vase consistency",
+        "passed": true,
+        "confidence": 0.897,
+        "reason": "Cross-Cam Decision-1 (thresh=0.80) P(room=0.88, actors=0.89, vase=0.92)"
+      }
+    ]
+  },
+  "fixed_room_5_criteria_eval": {
+    "eval_latency_sec": 0.69,
+    "checks": {
+      "room_architecture": {
+        "p_true": 0.8875,
+        "passed_0_5": true,
+        "passed_0_80": true
+      },
+      "actors_present": {
+        "p_true": 0.8877,
+        "passed_0_5": true,
+        "passed_0_80": true
+      },
+      "left_right_blocking": {
+        "p_true": 0.8431,
+        "passed_0_5": true,
+        "passed_0_80": true
+      },
+      "prop_states": {
+        "p_true": 0.8746,
+        "passed_0_5": true,
+        "passed_0_80": true
+      },
+      "lighting_mood": {
+        "p_true": 0.8839,
+        "passed_0_5": true,
+        "passed_0_80": true
+      }
+    },
+    "passed_0_5_count": 5,
+    "passed_0_80_count": 5,
+    "total_checks": 5,
+    "consistency_rate_0_5": 1.0,
+    "consistency_rate_0_80": 1.0,
+    "mean_p_true": 0.8754
+  },
+  "before_vs_after_comparison": {
+    "before_baseline_file": "backend/assets/eval_dual_cam_stats.json",
+    "before_cross_camera_consistency_rate": 0.929,
+    "before_all_consistent_scene_rate": 0.714,
+    "after_consistency_rate_0_5": 1.0,
+    "after_consistency_rate_0_80": 1.0,
+    "after_mean_p_true": 0.8754,
+    "after_room_architecture_p_true": 0.8875
+  }
+}

@@ -11,14 +11,16 @@
       "image_url": "/assets/actors/lia.png",
       "state": "held",
       "origin": "preset",
-      "height_m": null
+      "height_m": null,
+      "appearance_summary": ""
     },
     "crystal_vase": {
       "name": "Blue Rose Crystal Vase",
       "image_url": "/assets/props/crystal_vase.png",
       "state": "broken",
       "origin": "preset",
-      "height_m": null
+      "height_m": null,
+      "appearance_summary": ""
     }
   },
   "scenes": [
