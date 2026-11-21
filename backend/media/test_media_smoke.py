@@ -48,6 +48,9 @@ def run_smoke_tests() -> None:
         "/assets/showcase_storyboard_strip.png",
         "/assets/finals/demo_comparison_be_vs_he.mp4",
         "/assets/finals/pitch_demo_reel_1min.mp4",
+        "/assets/submission/hook_10s_dualcam_twist.mp4",
+        "/assets/submission/eval_dashboard_12s.mp4",
+        "/assets/submission/eval_charts_board.png",
     ):
         resp = client.get(asset_url)
         assert resp.status_code == 200, f"Static asset missing: {asset_url} -> {resp.status_code}"

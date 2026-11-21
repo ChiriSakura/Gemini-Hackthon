@@ -430,16 +430,24 @@ def render_scene_blueprint(scene: Scene, cam_id: str, output_path: Path) -> Path
 
 @log_function_call
 def render_all_cached_blueprints() -> dict:
-    """Pre-render all 14 dual-camera 2.5D blueprint frames for `branch_v1` and `branch_v2_cached`."""
+    """Pre-render dual-camera 2.5D blueprint frames across branch_v1, v2, v3, and v4."""
     t0 = time.perf_counter()
     b1 = get_branch("branch_v1")
     b2 = get_branch("branch_v2_cached")
     assert b1 is not None and b2 is not None
 
-    generated: list[dict] = []
     targets: list[tuple[str, Scene]] = [("branch_v1", s) for s in b1.scenes] + [
         ("branch_v2", s) for s in b2.scenes if s.scene_id >= 2
     ]
+    for bid, prefix in (
+        ("branch_v3_starlight_cached", "branch_v3"),
+        ("branch_v4_umbrella_shield_cached", "branch_v4"),
+    ):
+        extra = get_branch(bid)
+        if extra is not None:
+            targets.extend((prefix, s) for s in extra.scenes if s.scene_id >= 2)
+
+    generated: list[dict] = []
     for prefix, scene in targets:
         for cam_id in ("cam_a", "cam_b"):
             out = config.PREVIEWS_DIR / f"blueprint_{prefix}_s{scene.scene_id}_{cam_id}.png"
@@ -588,6 +596,15 @@ if __name__ == "__main__":
 
     bp_report = render_all_cached_blueprints()
     out: dict = {"blueprints": bp_report}
+    eb_path = config.ASSETS_DIR / "eval_blueprint_anchoring.json"
     if args.ab_bench:
         out["ab_benchmark"] = asyncio.run(run_blueprint_anchoring_ab_benchmark())
+    if eb_path.is_file():
+        existing = json.loads(eb_path.read_text(encoding="utf-8"))
+    else:
+        existing = {}
+    existing["cached_blueprints_total"] = bp_report["total_blueprints"]
+    existing["cached_blueprints_branches"] = sorted({f["branch"] for f in bp_report["files"]})
+    existing["cached_blueprints_elapsed_sec"] = bp_report["elapsed_sec"]
+    eb_path.write_text(json.dumps(existing, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(out, ensure_ascii=False, indent=2))

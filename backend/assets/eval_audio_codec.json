@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-21T13:39:53",
+  "generated_at": "2026-11-21T14:16:42",
   "branches_audited": [
     "branch_v1",
     "branch_v2_cached",
@@ -545,5 +545,37 @@
     "audio_stream": "aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 94 kb/s (default)",
     "container_duration_sec": 50.0,
     "scene_spec_passed": false
-  }
+  },
+  "submission_videos": [
+    {
+      "file": "eval_dashboard_12s.mp4",
+      "bytes": 392707,
+      "width": 1280,
+      "height": 720,
+      "fps": 24.0,
+      "frame_count": 288,
+      "duration_sec": 12.0,
+      "is_browser_h264": true,
+      "has_audio_stream": true,
+      "video_stream": "h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 1280x720, 195 kb/s, 24 fps, 24 tbr, 12288 tbn (default)",
+      "audio_stream": "aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 59 kb/s (default)",
+      "container_duration_sec": 12.0,
+      "scene_spec_passed": false
+    },
+    {
+      "file": "hook_10s_dualcam_twist.mp4",
+      "bytes": 2110049,
+      "width": 1280,
+      "height": 720,
+      "fps": 24.0,
+      "frame_count": 240,
+      "duration_sec": 10.0,
+      "is_browser_h264": true,
+      "has_audio_stream": true,
+      "video_stream": "h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 1280x720, 1581 kb/s, 24 fps, 24 tbr, 12288 tbn (default)",
+      "audio_stream": "aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 99 kb/s (default)",
+      "container_duration_sec": 10.0,
+      "scene_spec_passed": false
+    }
+  ]
 }
