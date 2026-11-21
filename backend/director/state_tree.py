@@ -9,7 +9,9 @@ Feature & Use Cases:
   `shared/assets/*` to `/assets/` paths if needed) on first boot.
 """
 
+import os
 import re
+import tempfile
 from typing import Optional
 
 from backend import config
@@ -43,10 +45,21 @@ def _seed_default_branch() -> BranchState:
 
 @log_function_call
 def save_branch(branch: BranchState) -> None:
-    """Persist a BranchState JSON snapshot to disk."""
+    """Atomically persist a BranchState JSON snapshot to disk (R-38 race-safe replace)."""
     safe_id = _validate_branch_id(branch.branch_id)
     path = config.BRANCHES_DIR / f"{safe_id}.json"
-    path.write_text(branch.model_dump_json(indent=2), encoding="utf-8")
+    payload = branch.model_dump_json(indent=2)
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{safe_id}_", suffix=".tmp", dir=str(config.BRANCHES_DIR))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(payload)
+        os.replace(tmp_name, path)
+    except Exception:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
 
 
 @log_function_call

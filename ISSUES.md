@@ -159,6 +159,7 @@
 
 | 编号 | 优先级 | 问题 | 原因 / 位置 | 建议修法 | 状态 |
 |---|---|---|---|---|---|
+| R-38 | P1 | 同时渲染同一条分支的几幕，后写的会把先写的盖掉 | `main.py` 渲染接口与 `state_tree.save_branch` 读整条分支再写回无锁 | `state_tree.save_branch` 原子落盘 + `main.py` 按 `branch_id` 加锁重读后仅更新当前 `scene_id` | 已修（Master `state_tree.py` + `main.py`） |
 
 ### P2（worker-1，前缀 B-）
 

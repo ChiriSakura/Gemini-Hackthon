@@ -33,7 +33,7 @@ from backend.director.hydrogen_judge import (
     inspect_tail_frame,
     parse_director_input,
 )
-from backend.director.neon_director import plan_scenes
+from backend.director.neon_director import extend_single_scene, plan_scenes
 from backend.director.rule_memory import add_rule, load_general_rules, load_rules
 from backend.director.state_tree import get_branch, list_branches, save_branch
 from backend.logger import log_function_call
@@ -42,6 +42,16 @@ from backend.media.video_renderer import get_render_progress, render_branch_scen
 from backend.schemas import BranchState, Scene, SceneMedia, StagePropState
 
 _ALLOWED_PREVIEW_EXTS: set[str] = {".webm", ".mp4", ".png", ".jpg", ".jpeg"}
+_BRANCH_WRITE_LOCKS: dict[str, asyncio.Lock] = {}
+
+
+def _get_branch_lock(branch_id: str) -> asyncio.Lock:
+    """Return a per-branch asyncio lock preventing concurrent render clobbering (R-38)."""
+    lock = _BRANCH_WRITE_LOCKS.get(branch_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _BRANCH_WRITE_LOCKS[branch_id] = lock
+    return lock
 
 app = FastAPI(title="StageState Director API", version="0.2.0")
 
@@ -158,8 +168,9 @@ async def _invoke_create_prop(
     description: str,
     camera_frame_bytes: Optional[bytes],
     frame_timestamp_sec: Optional[float] = None,
+    detect_throw_peak: bool = True,
 ):
-    """Call `create_prop` while safely supporting optional `frame_timestamp_sec` across P2 updates."""
+    """Call `create_prop` while safely supporting optional `frame_timestamp_sec` & `detect_throw_peak` across P2 updates."""
     sig = inspect.signature(create_prop)
     kwargs: dict = {
         "name": name,
@@ -168,7 +179,29 @@ async def _invoke_create_prop(
     }
     if "frame_timestamp_sec" in sig.parameters:
         kwargs["frame_timestamp_sec"] = frame_timestamp_sec
+    if "detect_throw_peak" in sig.parameters:
+        kwargs["detect_throw_peak"] = detect_throw_peak
     return await create_prop(**kwargs)
+
+
+async def _invoke_render_scene_media(
+    scene: Scene,
+    refs: list[str],
+    *,
+    cam_a_preview_path: Optional[str],
+    cam_b_preview_path: Optional[str],
+    fast_live_mode: bool = False,
+):
+    """Call `render_scene_media` while safely forwarding optional `fast_live_mode` across P2 updates."""
+    sig = inspect.signature(render_scene_media)
+    kwargs: dict = {
+        "cam_a_preview_path": cam_a_preview_path,
+        "cam_b_preview_path": cam_b_preview_path,
+        "tail_inspector": inspect_tail_frame,
+    }
+    if "fast_live_mode" in sig.parameters:
+        kwargs["fast_live_mode"] = fast_live_mode
+    return await render_scene_media(scene, refs, **kwargs)
 
 
 @app.post("/api/director/fork", response_model=BranchState)
@@ -277,6 +310,103 @@ async def api_director_fork(
     return new_branch
 
 
+@app.post("/api/director/extend", response_model=BranchState)
+@log_function_call
+async def api_director_extend(
+    branch_id: str = Form("branch_v1"),
+    from_scene_id: Optional[int] = Form(None),
+    text: Optional[str] = Form(None),
+    end_freeze_mode: str = Form("sculpture"),
+    detect_throw_peak: bool = Form(True),
+    clip: Optional[UploadFile] = File(None),
+) -> BranchState:
+    """
+    Unbounded Living-Sculpture continuation endpoint (`Design_Infinite_Sculpture.md` Sec 3.2):
+    - If `from_scene_id` is omitted or equals the latest scene of `branch_id`, appends a new
+      single scene `Scene N+1` onto `branch_id` (protecting `branch_v1` baseline by auto-forking).
+    - If `from_scene_id < len(branch.scenes)` (user rewound to an earlier historical sculpture),
+      forks a brand-new branch `branch_v<N>` preserving `1..from_scene_id` verbatim and appending `Scene from_scene_id + 1`.
+    """
+    parent = get_branch(branch_id)
+    if not parent or not parent.scenes:
+        raise HTTPException(status_code=404, detail=f"Branch {branch_id} not found or empty")
+
+    ordered_scenes = sorted(parent.scenes, key=lambda s: s.scene_id)
+    anchor_id = from_scene_id if from_scene_id is not None else ordered_scenes[-1].scene_id
+    prefix_scenes = [s.model_copy(deep=True) for s in ordered_scenes if s.scene_id <= anchor_id]
+    if not prefix_scenes:
+        raise HTTPException(status_code=404, detail=f"Scene {anchor_id} not found in {branch_id}")
+
+    next_scene_id = prefix_scenes[-1].scene_id + 1
+    clip_bytes = await clip.read() if clip else None
+    parsed = await parse_director_input(
+        clip_bytes=clip_bytes,
+        clip_mime_type=(clip.content_type if clip else "video/webm") or "video/webm",
+        text_fallback=text,
+        target_scene_id=next_scene_id,
+    )
+    parsed.target_scene_id = next_scene_id
+    parsed.mode = "extend" if anchor_id == ordered_scenes[-1].scene_id else "fork"
+
+    updated_registry = dict(parent.props_registry)
+    thrown_prop_id: Optional[str] = None
+    if parsed.has_physical_prop and parsed.prop_name:
+        thrown_prop_id, prop_item = await _invoke_create_prop(
+            name=parsed.prop_name,
+            description=parsed.prop_description or parsed.prop_name,
+            camera_frame_bytes=clip_bytes,
+            frame_timestamp_sec=parsed.prop_frame_timestamp_sec,
+            detect_throw_peak=detect_throw_peak,
+        )
+        updated_registry[thrown_prop_id] = prop_item
+
+    next_scene = await extend_single_scene(
+        parsed_input=parsed,
+        prior_scenes=prefix_scenes,
+        props_registry=updated_registry,
+        learned_rules=load_general_rules(),
+        end_freeze_mode=end_freeze_mode,
+    )
+    if thrown_prop_id and not any(p.id == thrown_prop_id for p in next_scene.stage_props):
+        next_scene.stage_props.append(
+            StagePropState(
+                id=thrown_prop_id,
+                grid=[1.05, 1.1],
+                on_floor=False,
+                state="glowing",
+                entry_motion="throw_arc",
+                entry_origin=[1.0, 2.2, 0.8],
+            )
+        )
+
+    is_rewound = anchor_id < ordered_scenes[-1].scene_id
+    # Never mutate immutable cached baseline branches in-place; fork cleanly instead
+    is_protected_cached = branch_id == "branch_v1" or branch_id.endswith("_cached")
+    if is_rewound or is_protected_cached:
+        for ps in prefix_scenes:
+            ps.needs_rerender = False
+            if ps.reused_from_branch is None:
+                ps.reused_from_branch = parent.branch_id
+        new_branch_id = _next_branch_id()
+        out_branch = BranchState(
+            branch_id=new_branch_id,
+            branch_label=f"Continue from S{anchor_id}: {parsed.instruction[:24]}",
+            parent_branch_id=parent.branch_id,
+            forked_from_scene=next_scene_id,
+            rewrite_summary=parsed.instruction,
+            props_registry=updated_registry,
+            scenes=[*prefix_scenes, next_scene],
+        )
+    else:
+        parent.props_registry = updated_registry
+        parent.rewrite_summary = parsed.instruction
+        parent.scenes = [*prefix_scenes, next_scene]
+        out_branch = parent
+
+    save_branch(out_branch)
+    return out_branch
+
+
 @app.post("/api/media/create-prop")
 @log_function_call
 async def api_media_create_prop(
@@ -285,18 +415,22 @@ async def api_media_create_prop(
     branch_id: str = Form("branch_v1"),
     scene_id: int = Form(1),
     placement: str = Form("table"),
+    entry_motion: str = Form("place"),
+    detect_throw_peak: bool = Form(True),
     frame_timestamp_sec: Optional[float] = Form(None),
     image: Optional[UploadFile] = File(None),
 ) -> dict:
-    """Create a transparent 2D stage prop from text or a camera image snapshot and sync placement to `branch.scenes`."""
+    """Create a transparent 2D stage prop from text or a camera image/30s video and sync placement to `branch.scenes`."""
     img_bytes = await image.read() if image else None
     prop_id, item = await _invoke_create_prop(
         name=name,
         description=description,
         camera_frame_bytes=img_bytes,
         frame_timestamp_sec=frame_timestamp_sec,
+        detect_throw_peak=detect_throw_peak,
     )
     norm_placement = placement if placement in ("table", "held", "floor") else "table"
+    norm_motion = entry_motion if entry_motion in ("place", "throw_arc", "held") else ("held" if norm_placement == "held" else "place")
     on_floor = norm_placement == "floor"
     prop_state = "held" if norm_placement == "held" else "glowing"
     prop_grid = [1.08, 1.08] if norm_placement == "table" else ([1.15, 1.48] if on_floor else [0.92, 1.15])
@@ -318,13 +452,20 @@ async def api_media_create_prop(
                         existing.grid = prop_grid
                         existing.on_floor = on_floor
                         existing.state = prop_state
+                        existing.entry_motion = norm_motion  # type: ignore[assignment]
                     else:
                         s.stage_props.append(
-                            StagePropState(id=prop_id, grid=prop_grid, on_floor=on_floor, state=prop_state)
+                            StagePropState(
+                                id=prop_id,
+                                grid=prop_grid,
+                                on_floor=on_floor,
+                                state=prop_state,
+                                entry_motion=norm_motion,  # type: ignore[assignment]
+                            )
                         )
                 s.needs_rerender = True
         save_branch(branch)
-    return {"prop_id": prop_id, "image_url": item.image_url, "item": item, "placement": norm_placement}
+    return {"prop_id": prop_id, "image_url": item.image_url, "item": item, "placement": norm_placement, "entry_motion": norm_motion}
 
 
 async def _save_preview_file(
@@ -366,6 +507,7 @@ async def api_media_render_scene(
     cam_b_start_png: Optional[str] = Form(None),
     cam_b_end_png: Optional[str] = Form(None),
     prev_tail_frame_url: Optional[str] = Form(None),
+    fast_live_mode: bool = Form(False),
 ) -> dict:
     """Render either a specific scene (from `scene_id` or `scene_json` + 2.5D previews) or all `needs_rerender` scenes."""
     branch = get_branch(branch_id)
@@ -399,24 +541,44 @@ async def api_media_render_scene(
         ]
         # R-15: Enforce hard 95s per-scene timeout with graceful 2.5D preview fallback
         try:
-            target.media = await asyncio.wait_for(
-                render_scene_media(
+            rendered_media = await asyncio.wait_for(
+                _invoke_render_scene_media(
                     target,
                     refs,
                     cam_a_preview_path=target.media.cam_a_preview_url,
                     cam_b_preview_path=target.media.cam_b_preview_url,
-                    tail_inspector=inspect_tail_frame,
+                    fast_live_mode=fast_live_mode,
                 ),
                 timeout=95.0,
             )
         except asyncio.TimeoutError:
-            target.media = SceneMedia(
+            rendered_media = SceneMedia(
                 cam_a_preview_url=target.media.cam_a_preview_url,
                 cam_b_preview_url=target.media.cam_b_preview_url,
                 fallback_to_preview=True,
             )
-        save_branch(branch)
-        return {"scene_id": target.scene_id, "media": target.media, "environment_notes": target.environment_notes}
+
+        # R-38: Re-read latest branch under per-branch lock and update ONLY this scene_id
+        # so concurrent per-scene renders on the same branch never overwrite each other.
+        async with _get_branch_lock(branch_id):
+            latest = get_branch(branch_id) or branch
+            latest_scene = next((s for s in latest.scenes if s.scene_id == target.scene_id), None)
+            if latest_scene is None:
+                target.media = rendered_media
+                target.needs_rerender = False
+                latest.scenes.append(target)
+                latest_scene = target
+            else:
+                latest_scene.media = rendered_media
+                if target.environment_notes:
+                    latest_scene.environment_notes = target.environment_notes
+                latest_scene.needs_rerender = False
+            save_branch(latest)
+            return {
+                "scene_id": latest_scene.scene_id,
+                "media": latest_scene.media,
+                "environment_notes": latest_scene.environment_notes,
+            }
 
     updated = await render_branch_scenes(branch, tail_inspector=inspect_tail_frame)
     save_branch(updated)

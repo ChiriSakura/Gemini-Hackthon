@@ -20,9 +20,10 @@ Analyze ALL non-text cues carefully — DO NOT rely only on transcript:
    - "beckon_soothe" if gently beckoning, soothing, or making a heart gesture (maps to warm/romantic mood).
    - "show_physical_prop" if holding up a real physical object (cup, paper star, badge, sketch, etc.) toward the camera to turn into a stage prop.
    - "none" otherwise.
-3. If a physical object is held up, set has_physical_prop=true, give a concise prop_name & prop_description, and output prop_frame_timestamp_sec where the object is clearest.
-4. Identify target_scene_id (default 2 if unspecified) and clean rewrite instruction.
-5. Always output `instruction`, `prop_name`, and `prop_description` in natural, idiomatic English even if audio/text input contains accents or mixed languages.
+3. If a physical object is held up or tossed/thrown toward the camera, set has_physical_prop=true, give a concise prop_name & prop_description, and output prop_frame_timestamp_sec where the object is clearest.
+4. If the director's instruction asks to introduce/give/throw a brand-new physical object onto the stage (e.g., "give her a magic lantern", "throw in a shield") AND no physical clip has already supplied it, set needs_prop_prompt=true and provide a short prop_prompt_hint (e.g., "Hold up & toss a physical object to serve as the shield!"). Otherwise set needs_prop_prompt=false.
+5. Identify target_scene_id (default 2 if unspecified; may be any positive integer >= 1 for unbounded scene extension) and clean English rewrite/continuation instruction.
+6. Always output `instruction`, `prop_name`, `prop_description`, and `prop_prompt_hint` in natural, idiomatic English even if audio/text input contains accents or mixed languages.
 
 Return strict JSON matching DirectorInputParsed in shared/schema.json.
 """.strip()

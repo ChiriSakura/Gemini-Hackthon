@@ -31,7 +31,7 @@
       "description": "Output of Hydrogen Hear/See Agent from 3s webcam+mic .webm or text",
       "required": ["target_scene_id", "instruction", "vocal_emotion", "gesture_intent", "direction_hint", "has_physical_prop"],
       "properties": {
-        "target_scene_id": { "type": "integer", "minimum": 1, "maximum": 4 },
+        "target_scene_id": { "type": "integer", "minimum": 1 },
         "instruction": { "type": "string" },
         "vocal_emotion": { "$ref": "#/$defs/VocalEmotion" },
         "gesture_intent": { "$ref": "#/$defs/GestureIntent" },
@@ -39,7 +39,10 @@
         "has_physical_prop": { "type": "boolean" },
         "prop_name": { "type": ["string", "null"] },
         "prop_description": { "type": ["string", "null"] },
-        "prop_frame_timestamp_sec": { "type": ["number", "null"] }
+        "prop_frame_timestamp_sec": { "type": ["number", "null"] },
+        "mode": { "type": "string", "enum": ["extend", "fork"], "default": "extend" },
+        "needs_prop_prompt": { "type": "boolean", "default": false },
+        "prop_prompt_hint": { "type": ["string", "null"] }
       }
     },
     "JudgeItem": {
@@ -83,7 +86,9 @@
         "id": { "type": "string" },
         "grid": { "$ref": "#/$defs/GridCoord" },
         "on_floor": { "type": "boolean" },
-        "state": { "type": "string", "enum": ["intact", "broken", "held", "glowing"] }
+        "state": { "type": "string", "enum": ["intact", "broken", "held", "glowing"] },
+        "entry_motion": { "type": "string", "enum": ["place", "throw_arc", "held"], "default": "place" },
+        "entry_origin": { "type": ["array", "null"], "items": { "type": "number" }, "minItems": 2, "maxItems": 3 }
       }
     },
     "SceneMedia": {
@@ -106,7 +111,7 @@
       "type": "object",
       "required": ["scene_id", "title", "narration", "lighting", "actors", "stage_props", "qa_questions"],
       "properties": {
-        "scene_id": { "type": "integer", "minimum": 1, "maximum": 4 },
+        "scene_id": { "type": "integer", "minimum": 1 },
         "title": { "type": "string" },
         "duration_sec": { "type": "number", "default": 4.0 },
         "narration": { "type": "string" },
@@ -119,6 +124,8 @@
         "environment_notes": { "type": "string" },
         "needs_rerender": { "type": "boolean", "default": true },
         "reused_from_branch": { "type": ["string", "null"] },
+        "end_freeze_mode": { "type": "string", "enum": ["sculpture", "none"], "default": "sculpture" },
+        "parent_scene_id": { "type": ["integer", "null"] },
         "actors": { "type": "array", "items": { "$ref": "#/$defs/ActorState" } },
         "stage_props": { "type": "array", "items": { "$ref": "#/$defs/StagePropState" } },
         "qa_questions": { "type": "array", "items": { "type": "string" } },

@@ -220,3 +220,84 @@ async def plan_scenes(
         )
 
     return _sanitize_scenes_invariants(last_combined)
+
+
+@log_function_call
+async def extend_single_scene(
+    parsed_input: DirectorInputParsed,
+    prior_scenes: list[Scene],
+    props_registry: dict[str, PropRegistryItem],
+    learned_rules: list[str] | None = None,
+    end_freeze_mode: str = "sculpture",
+) -> Scene:
+    """
+    Generate ONLY the single next scene `Scene N+1` inheriting the world state
+    and `environment_notes` of the frozen sculpture at `prior_scenes[-1]`
+    (Design_Infinite_Sculpture.md Sec 4.A — 3x faster single-scene planning).
+    """
+    assert prior_scenes, "extend_single_scene requires at least one prior scene snapshot"
+    prev_scene = prior_scenes[-1]
+    next_id = prev_scene.scene_id + 1
+    freeze_val = "none" if end_freeze_mode == "none" else "sculpture"
+
+    if config.DEMO_MODE or not config.GEMINI_API_KEY:
+        next_scene = prev_scene.model_copy(deep=True)
+        next_scene.scene_id = next_id
+        next_scene.parent_scene_id = prev_scene.scene_id
+        next_scene.end_freeze_mode = freeze_val  # type: ignore[assignment]
+        next_scene.title = f"Act {next_id} · Live Continuation"
+        next_scene.narration = f"[Scene {next_id}] {parsed_input.instruction}"
+        next_scene.vocal_emotion = parsed_input.vocal_emotion
+        next_scene.gesture_intent = parsed_input.gesture_intent
+        next_scene.direction_hint = parsed_input.direction_hint
+        next_scene.needs_rerender = True
+        next_scene.reused_from_branch = None
+        next_scene.media = SceneMedia()
+        sanitized = _sanitize_scenes_invariants([*prior_scenes, next_scene])
+        return sanitized[-1]
+
+    rules_block = ""
+    if learned_rules:
+        rules_block = "\nStory-agnostic continuity rules:\n- " + "\n- ".join(learned_rules)
+
+    base_prompt = (
+        f"Generate ONLY the single next scene with scene_id={next_id} continuing seamlessly "
+        f"from the frozen sculpture state of Scene {prev_scene.scene_id}.\n"
+        f"previous_sculpture_scene = {prev_scene.model_dump_json()}\n"
+        f"props_registry = {json.dumps({pid: p.model_dump() for pid, p in props_registry.items()}, ensure_ascii=False)}\n"
+        f"director_instruction = {parsed_input.model_dump_json()}\n"
+        f"{rules_block}\n\n"
+        f"Preserve object permanence (broken vase stays broken unless explicitly fixed), "
+        f"carry forward environment_notes, keep grid coords in [0..2, 0..2], and output strict JSON for `Scene`."
+    )
+
+    last_scene: Scene | None = None
+    invariant_errors: list[str] = []
+    for attempt in range(2):
+        prompt_text = base_prompt
+        if invariant_errors:
+            prompt_text += "\n\nFIX THESE INVARIANT VIOLATIONS:\n- " + "\n- ".join(invariant_errors)
+        candidate = await generate_structured(
+            model=config.MODEL_DIRECTOR,
+            system_instruction=prompts.NEON_DIRECTOR_PROMPT,
+            contents=[prompt_text],
+            response_schema=Scene,
+            temperature=0.25 if attempt == 0 else 0.1,
+            thinking_level="LOW",
+        )
+        candidate.scene_id = next_id
+        candidate.parent_scene_id = prev_scene.scene_id
+        candidate.end_freeze_mode = freeze_val  # type: ignore[assignment]
+        candidate.needs_rerender = True
+        candidate.reused_from_branch = None
+        candidate.media = SceneMedia()
+        for actor in candidate.actors:
+            if not actor.asset_url:
+                actor.asset_url = f"/assets/actors/{actor.id}.png"
+        last_scene = candidate
+        invariant_errors = validate_scene_invariants([*prior_scenes, candidate])
+        if not invariant_errors:
+            return candidate
+
+    assert last_scene is not None
+    return _sanitize_scenes_invariants([*prior_scenes, last_scene])[-1]
