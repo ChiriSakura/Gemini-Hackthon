@@ -1,5 +1,5 @@
 /**
- * 4-Scene Story Branch Tree Component.
+ * 4-Scene Causal Story Branch Tree Component.
  *
  * Feature & Use Cases:
  * - Visualizes all branches (e.g., BE `branch_v1` and rewritten HE `branch_v2`).
@@ -8,6 +8,7 @@
  */
 import React from 'react';
 import type { BranchState } from '../types/schema';
+import { getBranchLabelEn, getSceneTextEn } from '../utils/displayLocale';
 
 interface StoryBranchTreeProps {
   branches: BranchState[];
@@ -29,12 +30,12 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          fontSize: '0.82rem',
+          fontSize: '0.8rem',
         }}
       >
-        <strong>🌿 4 幕因果分叉剧情树</strong>
-        <span style={{ color: 'var(--text-muted)', fontSize: '0.74rem' }}>
-          点击任意分支与幕次即可切换舞台与对比过去/未来结局
+        <strong>🌿 4-Scene Causal Story Tree</strong>
+        <span style={{ color: 'var(--text-muted)', fontSize: '0.73rem' }}>
+          Click any branch or scene to jump &amp; compare timelines
         </span>
       </div>
 
@@ -54,11 +55,11 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
               className={`branch-label-btn ${isCurrentBranch ? 'active' : ''}`}
               onClick={() => onSelectScene(branch.branch_id, activeSceneIndex)}
             >
-              <div style={{ fontWeight: 700 }}>{branch.branch_label}</div>
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+              <div style={{ fontWeight: 700 }}>{getBranchLabelEn(branch)}</div>
+              <div style={{ fontSize: '0.71rem', color: 'var(--text-muted)' }}>
                 {branch.forked_from_scene
-                  ? `第 ${branch.forked_from_scene} 幕分叉 · 省下 ${savedPct}% 重画`
-                  : '主线基准分支'}
+                  ? `Forked at Scene ${branch.forked_from_scene} · ${savedPct}% rerender saved`
+                  : 'Primary Baseline Timeline'}
               </div>
             </button>
 
@@ -68,6 +69,7 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
                 Boolean(sc.reused_from_branch) ||
                 (Boolean(branch.forked_from_scene) && !sc.needs_rerender);
               const isRerendered = Boolean(sc.needs_rerender);
+              const { title } = getSceneTextEn(branch.branch_id, sc);
 
               return (
                 <button
@@ -83,17 +85,17 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
-                      fontSize: '0.72rem',
+                      fontSize: '0.71rem',
                       fontWeight: 700,
                       gap: 4,
                     }}
                   >
-                    <span>第 {sc.scene_id} 幕</span>
+                    <span>Scene {sc.scene_id}</span>
                     <span
                       style={{
                         padding: '1px 6px',
                         borderRadius: 999,
-                        fontSize: '0.68rem',
+                        fontSize: '0.67rem',
                         background: isReused
                           ? 'rgba(52, 211, 153, 0.14)'
                           : isRerendered
@@ -115,13 +117,13 @@ export const StoryBranchTree: React.FC<StoryBranchTreeProps> = ({
                   </div>
                   <div
                     style={{
-                      fontSize: '0.78rem',
+                      fontSize: '0.76rem',
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                     }}
                   >
-                    {sc.title}
+                    {title}
                   </div>
                 </button>
               );

@@ -28,6 +28,7 @@ export interface PreviewExportResult {
 
 interface SpriteEntity {
   sprite: THREE.Sprite;
+  shadow?: THREE.Mesh;
   baseScale: [number, number];
   targetPos: THREE.Vector3;
   action: string;
@@ -131,6 +132,8 @@ export class ThreeStageManager {
 
   private textureLoader = new THREE.TextureLoader();
   private textureCache = new Map<string, THREE.Texture>();
+  private failedUrls = new Set<string>();
+  private fallbackStarTexture: THREE.CanvasTexture | null = null;
   private actorEntities = new Map<string, SpriteEntity>();
   private propEntities = new Map<string, SpriteEntity>();
 
@@ -200,13 +203,73 @@ export class ThreeStageManager {
     this.startLoop();
   }
 
+  private createConservatoryBackdropTexture(): THREE.CanvasTexture {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d')!;
+
+    // Night sky gradient
+    const sky = ctx.createLinearGradient(0, 0, 0, 512);
+    sky.addColorStop(0, '#091124');
+    sky.addColorStop(0.6, '#101d3a');
+    sky.addColorStop(1, '#0b1020');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, 1024, 512);
+
+    // Subtle stars through glass roof
+    for (let i = 0; i < 65; i++) {
+      const sx = (i * 173) % 1024;
+      const sy = (i * 89) % 340;
+      const r = (i % 3) * 0.7 + 0.7;
+      ctx.fillStyle = `rgba(254, 249, 195, ${0.25 + (i % 5) * 0.12})`;
+      ctx.beginPath();
+      ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Three Victorian conservatory glass arches
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.32)';
+    ctx.lineWidth = 6;
+    const archCenters = [200, 512, 824];
+    for (const cx of archCenters) {
+      ctx.beginPath();
+      ctx.moveTo(cx - 125, 512);
+      ctx.lineTo(cx - 125, 190);
+      ctx.arc(cx, 190, 125, Math.PI, 0, false);
+      ctx.lineTo(cx + 125, 512);
+      ctx.stroke();
+
+      // Inner mullions
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(cx, 65);
+      ctx.lineTo(cx, 512);
+      ctx.moveTo(cx - 125, 290);
+      ctx.lineTo(cx + 125, 290);
+      ctx.stroke();
+      ctx.lineWidth = 6;
+
+      // Soft lantern glow at arch pillar
+      const lantern = ctx.createRadialGradient(cx - 125, 270, 4, cx - 125, 270, 52);
+      lantern.addColorStop(0, 'rgba(253, 224, 71, 0.55)');
+      lantern.addColorStop(1, 'rgba(253, 224, 71, 0)');
+      ctx.fillStyle = lantern;
+      ctx.fillRect(cx - 180, 215, 110, 110);
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
   private buildConservatoryStage(): void {
     // 3x3 reflective glasshouse floor
     const floorGeo = new THREE.PlaneGeometry(7.2, 6.0);
     const floorMat = new THREE.MeshStandardMaterial({
       color: '#111827',
-      roughness: 0.28,
-      metalness: 0.35,
+      roughness: 0.25,
+      metalness: 0.4,
     });
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
@@ -214,28 +277,36 @@ export class ThreeStageManager {
 
     // 3x3 grid lines
     const gridHelper = new THREE.GridHelper(6.3, 3, 0x38bdf8, 0x334155);
-    gridHelper.position.y = 0.01;
+    gridHelper.position.y = 0.012;
     this.scene.add(gridHelper);
 
-    // Subtle glasshouse back arch frame
-    const backWallGeo = new THREE.PlaneGeometry(7.6, 4.4);
-    const backWallMat = new THREE.MeshStandardMaterial({
-      color: '#0f172a',
-      roughness: 0.6,
+    // Victorian glasshouse arched window backdrop
+    const backWallGeo = new THREE.PlaneGeometry(8.2, 4.5);
+    const backWallMat = new THREE.MeshBasicMaterial({
+      map: this.createConservatoryBackdropTexture(),
       transparent: true,
-      opacity: 0.85,
+      opacity: 0.92,
     });
     const backWall = new THREE.Mesh(backWallGeo, backWallMat);
-    backWall.position.set(0, 2.2, -3.05);
+    backWall.position.set(0, 2.25, -3.05);
     this.scene.add(backWall);
 
     // Center round table at grid [1, 1] -> world (0, 0)
     const tableTop = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.68, 0.64, 0.1, 24),
-      new THREE.MeshStandardMaterial({ color: '#334155', roughness: 0.3, metalness: 0.5 }),
+      new THREE.CylinderGeometry(0.68, 0.64, 0.1, 28),
+      new THREE.MeshStandardMaterial({ color: '#334155', roughness: 0.28, metalness: 0.55 }),
     );
     tableTop.position.set(0, 0.72, 0);
     this.scene.add(tableTop);
+
+    // Subtle brass trim ring on center table
+    const tableRim = new THREE.Mesh(
+      new THREE.TorusGeometry(0.67, 0.018, 12, 36),
+      new THREE.MeshStandardMaterial({ color: '#d97706', metalness: 0.75, roughness: 0.25 }),
+    );
+    tableRim.rotation.x = Math.PI / 2;
+    tableRim.position.set(0, 0.76, 0);
+    this.scene.add(tableRim);
 
     const tableLeg = new THREE.Mesh(
       new THREE.CylinderGeometry(0.1, 0.22, 0.72, 16),
@@ -290,11 +361,25 @@ export class ThreeStageManager {
     return points;
   }
 
+  private getFallbackStarTexture(): THREE.CanvasTexture {
+    if (!this.fallbackStarTexture) {
+      this.fallbackStarTexture = createFallbackStarTexture();
+    }
+    return this.fallbackStarTexture;
+  }
+
   private loadSpriteTexture(
     url: string,
     fallbackKey?: string,
     onSizeReady?: (w: number, h: number) => void,
+    onFallbackApplied?: (fallback: THREE.Texture) => void,
   ): THREE.Texture {
+    if (this.failedUrls.has(url)) {
+      const fb = this.getFallbackStarTexture();
+      this.textureCache.set(url, fb);
+      return fb;
+    }
+
     const cached = this.textureCache.get(url);
     if (cached) {
       const img = cached.image as { width?: number; height?: number } | undefined;
@@ -304,7 +389,6 @@ export class ThreeStageManager {
       return cached;
     }
 
-    const fallbackTex = createFallbackStarTexture();
     const tex = this.textureLoader.load(
       url,
       (loaded) => {
@@ -316,9 +400,12 @@ export class ThreeStageManager {
       },
       undefined,
       () => {
+        this.failedUrls.add(url);
+        const fallbackTex = this.getFallbackStarTexture();
         if (fallbackKey) {
           this.textureCache.set(url, fallbackTex);
         }
+        onFallbackApplied?.(fallbackTex);
       },
     );
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -379,8 +466,25 @@ export class ThreeStageManager {
         sprite.position.set(x, y, z);
         sprite.scale.set(maxW, maxH, 1);
         this.scene.add(sprite);
+
+        // Soft floor contact shadow beneath 2.5D actor standee
+        const shadowRadius = isNyx ? 0.32 : 0.56;
+        const shadowMesh = new THREE.Mesh(
+          new THREE.CircleGeometry(shadowRadius, 24),
+          new THREE.MeshBasicMaterial({
+            color: '#020617',
+            transparent: true,
+            opacity: 0.48,
+            depthWrite: false,
+          }),
+        );
+        shadowMesh.rotation.x = -Math.PI / 2;
+        shadowMesh.position.set(x, 0.015, z);
+        this.scene.add(shadowMesh);
+
         entity = {
           sprite,
+          shadow: shadowMesh,
           baseScale: [maxW, maxH],
           targetPos: new THREE.Vector3(x, y, z),
           action: actor.action,
@@ -403,7 +507,9 @@ export class ThreeStageManager {
 
     // Hide unused actors
     for (const [id, ent] of this.actorEntities.entries()) {
-      ent.sprite.visible = activeActorIds.has(id);
+      const visible = activeActorIds.has(id);
+      ent.sprite.visible = visible;
+      if (ent.shadow) ent.shadow.visible = visible;
     }
 
     // Sync props (stage_props + any non-umbrella prop currently held by an actor)
@@ -460,15 +566,23 @@ export class ThreeStageManager {
 
       let entity = this.propEntities.get(prop.id);
       const applyPropTexture = (ent: SpriteEntity, targetUrl: string, fallbackUrl: string) => {
-        if (ent.currentTextureUrl === targetUrl) return;
-        ent.currentTextureUrl = targetUrl;
+        const effectiveUrl = this.failedUrls.has(targetUrl) ? fallbackUrl : targetUrl;
+        if (ent.currentTextureUrl === effectiveUrl) return;
+        ent.currentTextureUrl = effectiveUrl;
         ent.usingBrokenAsset = false;
 
-        const cached = this.textureCache.get(targetUrl);
+        if (this.failedUrls.has(effectiveUrl)) {
+          const fbTex = this.getFallbackStarTexture();
+          ent.sprite.material.map = fbTex;
+          ent.sprite.material.needsUpdate = true;
+          return;
+        }
+
+        const cached = this.textureCache.get(effectiveUrl);
         if (cached) {
           ent.sprite.material.map = cached;
           ent.sprite.material.needsUpdate = true;
-          if (targetUrl.includes('crystal_vase_broken')) {
+          if (effectiveUrl.includes('crystal_vase_broken')) {
             ent.usingBrokenAsset = true;
             ent.sprite.material.opacity = 1.0;
             ent.sprite.material.rotation = 0;
@@ -477,18 +591,18 @@ export class ThreeStageManager {
         }
 
         const tex = this.textureLoader.load(
-          targetUrl,
+          effectiveUrl,
           (loaded) => {
             loaded.colorSpace = THREE.SRGBColorSpace;
-            this.textureCache.set(targetUrl, loaded);
-            if (ent.currentTextureUrl === targetUrl) {
+            this.textureCache.set(effectiveUrl, loaded);
+            if (ent.currentTextureUrl === effectiveUrl) {
               ent.sprite.material.map = loaded;
               ent.sprite.material.needsUpdate = true;
               const img = loaded.image as { width?: number; height?: number } | undefined;
               if (img?.width && img?.height) {
                 ent.baseScale = this.fitScaleToBox(img.width, img.height, maxPropW, maxPropH);
               }
-              if (targetUrl.includes('crystal_vase_broken')) {
+              if (effectiveUrl.includes('crystal_vase_broken')) {
                 ent.usingBrokenAsset = true;
                 ent.sprite.material.opacity = 1.0;
                 ent.sprite.material.rotation = 0;
@@ -497,15 +611,30 @@ export class ThreeStageManager {
           },
           undefined,
           () => {
-            if (targetUrl !== fallbackUrl) {
+            this.failedUrls.add(effectiveUrl);
+            if (effectiveUrl !== fallbackUrl) {
               ent.usingBrokenAsset = false;
-              const fbTex = this.loadSpriteTexture(fallbackUrl, prop.id, (iw, ih) => {
-                ent.baseScale = this.fitScaleToBox(iw, ih, maxPropW, maxPropH);
-              });
+              ent.currentTextureUrl = fallbackUrl;
+              const fbTex = this.loadSpriteTexture(
+                fallbackUrl,
+                prop.id,
+                (iw, ih) => {
+                  ent.baseScale = this.fitScaleToBox(iw, ih, maxPropW, maxPropH);
+                },
+                (proceduralFb) => {
+                  ent.sprite.material.map = proceduralFb;
+                  ent.sprite.material.needsUpdate = true;
+                },
+              );
               ent.sprite.material.map = fbTex;
               ent.sprite.material.needsUpdate = true;
               ent.sprite.material.opacity = isBroken ? 0.55 : 1.0;
               ent.sprite.material.rotation = isBroken ? 0.65 : 0;
+            } else {
+              const proceduralFb = this.getFallbackStarTexture();
+              this.textureCache.set(effectiveUrl, proceduralFb);
+              ent.sprite.material.map = proceduralFb;
+              ent.sprite.material.needsUpdate = true;
             }
           },
         );
@@ -516,7 +645,7 @@ export class ThreeStageManager {
 
       if (!entity) {
         const mat = new THREE.SpriteMaterial({
-          map: this.loadSpriteTexture(baseImageUrl, prop.id),
+          map: this.getFallbackStarTexture(),
           transparent: true,
         });
         const sprite = new THREE.Sprite(mat);
@@ -637,6 +766,10 @@ export class ThreeStageManager {
 
       ent.sprite.position.y = ent.targetPos.y + offsetY;
       ent.sprite.scale.set(w * flipX, scaleY, 1);
+      if (ent.shadow) {
+        ent.shadow.position.x = ent.sprite.position.x;
+        ent.shadow.position.z = ent.sprite.position.z;
+      }
     }
 
     for (const ent of this.propEntities.values()) {

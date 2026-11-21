@@ -113,7 +113,7 @@ export async function submitDirectorFork(
       parent_branch_id: payload.parentBranchId,
       forked_from_scene: payload.targetSceneId,
       rewrite_summary: payload.text?.trim()
-        ? `离线模拟改写第 ${payload.targetSceneId} 幕：「${payload.text.trim()}」`
+        ? `Simulated Scene ${payload.targetSceneId} rewrite: "${payload.text.trim()}"`
         : MOCK_BRANCH_2.rewrite_summary,
     };
     return { branch: simulatedBranch, simulated: true };

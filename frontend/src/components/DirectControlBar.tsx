@@ -1,12 +1,12 @@
 /**
- * Unified Multimodal Director Control Bar.
+ * Unified Multimodal Director Control Bar (English-First UI).
  *
  * Feature & Use Cases:
- * - Combines camera + microphone into a single 3-second "Hold to Direct (Cam+Mic)"
+ * - Combines camera + microphone into a single 3-second "Hold to Direct (3s Cam+Mic)"
  *   `.webm` capture button with live PiP preview.
- * - Provides a text fallback input, target scene selector (1..4), and quick
- *   hackathon demo prompts for live judge interaction.
- * - Handles contradiction confirmation if backend returns `contradiction_warning`.
+ * - Includes "Snap Physical Prop" webcam capture panel wired to `POST /api/media/create-prop`.
+ * - Provides text fallback input, target scene selector (1..4), quick hackathon
+ *   demo preset chips, and inline contradiction confirmation.
  */
 import React, { useRef, useState } from 'react';
 
@@ -30,23 +30,23 @@ interface DirectControlBarProps {
 const DEMO_PROMPTS: Array<{ sceneId: number; label: string; text: string }> = [
   {
     sceneId: 2,
-    label: 'HE · 第2幕递星光礼物安抚黑猫',
-    text: '第2幕她把红伞放下，轻轻递出星光礼物安抚黑猫，黑猫没有撞翻花瓶！',
+    label: 'HE · Scene 2 Starlight Gift',
+    text: 'In Scene 2, Lia sets down her red umbrella and gently offers a glowing starlight token to soothe Nyx so the crystal vase stays intact.',
   },
   {
     sceneId: 2,
-    label: '防护 · 第2幕举伞挡在圆桌前',
-    text: '其实第2幕她举起雨伞挡在圆桌前，花瓶稳稳留在了桌上。',
+    label: 'Shield · Umbrella Guard',
+    text: 'In Scene 2, Lia blocks the table with her red umbrella to protect the crystal vase from falling.',
   },
   {
     sceneId: 3,
-    label: '雪夜 · 第3幕暖金初雪共赏',
-    text: '第3幕把灯光换成暖金初雪，黑猫跳上圆桌一起赏雪。',
+    label: 'Snow · Scene 3 Golden Snow',
+    text: 'In Scene 3, shift the conservatory lighting to warm golden snow as Nyx hops gently beside Lia.',
   },
   {
     sceneId: 3,
-    label: '冲突测试 · 拿未碎花瓶献花',
-    text: '第3幕她把完好无损的水晶花瓶递给黑猫（测试矛盾检查）。',
+    label: 'Conflict Test · Unbroken Vase',
+    text: 'In Scene 3, Lia picks up the completely unbroken crystal vase from the table and hands it to Nyx.',
   },
 ];
 
@@ -66,7 +66,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
   const [recording, setRecording] = useState(false);
   const [camError, setCamError] = useState<string | null>(null);
   const [propPanelOpen, setPropPanelOpen] = useState(false);
-  const [propName, setPropName] = useState('星光护盾');
+  const [propName, setPropName] = useState('Starlight Shield');
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const propVideoRef = useRef<HTMLVideoElement | null>(null);
   const propStreamRef = useRef<MediaStream | null>(null);
@@ -104,7 +104,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
         }
       }, 60);
     } catch {
-      setCamError('未检测到摄像头，可直接输入道具名进行文字造道具。');
+      setCamError('Camera unavailable — enter a prop name to generate via text.');
     }
   };
 
@@ -183,7 +183,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
         }
       }, 3000);
     } catch {
-      setCamError('未检测到摄像头/麦克风权限，请直接使用右侧文字输入框导戏。');
+      setCamError('Camera/microphone unavailable — use text input on the right.');
       stopStream();
     }
   };
@@ -203,10 +203,18 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
   return (
     <section className="director-bar">
       {contradictionWarning && (
-        <div className="warning-banner" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+        <div
+          className="warning-banner"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 10,
+            flexWrap: 'wrap',
+          }}
+        >
           <span>
-            ⚠️ <strong>逻辑矛盾检查：</strong>
-            {contradictionWarning}
+            ⚠️ <strong>Contradiction Check:</strong> {contradictionWarning}
           </span>
           <span style={{ display: 'flex', gap: 8 }}>
             {onDismissContradiction && (
@@ -215,7 +223,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
                 className="pill-btn"
                 onClick={onDismissContradiction}
               >
-                取消改写
+                Cancel
               </button>
             )}
             <button
@@ -227,7 +235,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
                   : onSubmitFork({ text, confirmContradiction: true })
               }
             >
-              仍要强制改写
+              Force Rewrite
             </button>
           </span>
         </div>
@@ -246,7 +254,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
           onTouchEnd={handleStopHold}
           disabled={submitting}
         >
-          {recording ? '🔴 正在录制 3s 音画手势...' : '🎥 按住手势+语音导戏 (3s)'}
+          {recording ? '🔴 Recording 3s Cam+Mic…' : '🎥 Hold to Direct (3s Cam+Mic)'}
         </button>
 
         {onCreateProp && (
@@ -256,7 +264,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
             onClick={handleTogglePropPanel}
             disabled={creatingProp}
           >
-            {creatingProp ? '⏳ 抠图造道具中...' : '📷 举实物造道具'}
+            {creatingProp ? '⏳ Creating Prop…' : '📷 Snap Physical Prop'}
           </button>
         )}
 
@@ -274,12 +282,12 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
           className="select-input"
           value={targetSceneId}
           onChange={(e) => onTargetSceneChange(Number(e.target.value))}
-          aria-label="选择改写幕次"
+          aria-label="Target scene to rewrite"
         >
-          <option value={1}>改写第 1 幕</option>
-          <option value={2}>改写第 2 幕</option>
-          <option value={3}>改写第 3 幕</option>
-          <option value={4}>改写第 4 幕</option>
+          <option value={1}>Rewrite Scene 1</option>
+          <option value={2}>Rewrite Scene 2</option>
+          <option value={3}>Rewrite Scene 3</option>
+          <option value={4}>Rewrite Scene 4</option>
         </select>
 
         <input
@@ -287,7 +295,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
           className="text-input"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="文字兜底：输入一句话改写剧情（例如：第2幕她把红伞放下，递出礼物安抚黑猫）"
+          placeholder="Type a one-sentence rewrite (e.g. In Scene 2, Lia offers a starlight gift to soothe Nyx...)"
         />
 
         <button
@@ -295,7 +303,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
           className="send-btn"
           disabled={submitting || !text.trim()}
         >
-          {submitting ? '推演中...' : '⚡ 改写并分叉'}
+          {submitting ? 'Simulating…' : '⚡ Fork & Direct'}
         </button>
       </form>
 
@@ -325,7 +333,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
             style={{ maxWidth: 240 }}
             value={propName}
             onChange={(e) => setPropName(e.target.value)}
-            placeholder="输入道具名称（如：星光护盾）"
+            placeholder="Prop name (e.g. Starlight Shield)"
           />
           <button
             type="button"
@@ -333,29 +341,29 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
             onClick={handleCaptureProp}
             disabled={creatingProp || !propName.trim()}
           >
-            {creatingProp ? '生成中...' : '📸 拍 1 帧并上舞台'}
+            {creatingProp ? 'Generating…' : '📸 Capture & Place on Stage'}
           </button>
           <button
             type="button"
             className="pill-btn"
             onClick={handleTogglePropPanel}
           >
-            关闭
+            Close
           </button>
         </div>
       )}
 
       {!cleanCaptureMode && (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-            快捷试戏：
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.73rem', color: 'var(--text-muted)' }}>
+            Quick Presets:
           </span>
           {DEMO_PROMPTS.map((preset, idx) => (
             <button
               key={idx}
               type="button"
-              className="pill-btn"
-              style={{ fontSize: '0.73rem', padding: '3px 10px' }}
+              className="pill-btn subtle"
+              style={{ fontSize: '0.72rem', padding: '3px 9px' }}
               onClick={() => {
                 setText(preset.text);
                 onTargetSceneChange(preset.sceneId);
