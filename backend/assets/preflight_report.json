@@ -1,6 +1,6 @@
 {
   "preflight_passed": true,
-  "elapsed_sec": 1.74,
+  "elapsed_sec": 6.66,
   "api_checks": {
     "health_200": true,
     "branches_200": true,
@@ -368,7 +368,7 @@
     ]
   },
   "props_summary": {
-    "total_props": 14,
+    "total_props": 19,
     "all_rgba_200": true,
     "files": [
       {
@@ -432,6 +432,41 @@
         "mode": "RGBA",
         "has_transparency": true,
         "resolution": "499x508",
+        "http_200": true
+      },
+      {
+        "file": "showcase_everyday_black_smartphone.png",
+        "mode": "RGBA",
+        "has_transparency": true,
+        "resolution": "241x512",
+        "http_200": true
+      },
+      {
+        "file": "showcase_everyday_laptop.png",
+        "mode": "RGBA",
+        "has_transparency": true,
+        "resolution": "512x346",
+        "http_200": true
+      },
+      {
+        "file": "showcase_everyday_snack_bag.png",
+        "mode": "RGBA",
+        "has_transparency": true,
+        "resolution": "436x512",
+        "http_200": true
+      },
+      {
+        "file": "showcase_everyday_soda_can.png",
+        "mode": "RGBA",
+        "has_transparency": true,
+        "resolution": "281x512",
+        "http_200": true
+      },
+      {
+        "file": "showcase_everyday_yellow_soda_can.png",
+        "mode": "RGBA",
+        "has_transparency": true,
+        "resolution": "265x512",
         "http_200": true
       },
       {

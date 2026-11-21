@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-21T15:14:03",
+  "generated_at": "2026-11-21T15:36:46",
   "project": "StageState — Time-Travel Dual-Camera AI Stage Director",
   "models": {
     "director_planner": "gemini-4-neon",
@@ -22,7 +22,7 @@
     "avg_latency_sec": 1.37
   },
   "prop_persistence_and_cutout": {
-    "total_props_audited": 14,
+    "total_props_audited": 19,
     "all_rgba": true,
     "all_bottom_flush": true,
     "total_green_halo_pixels": 0,

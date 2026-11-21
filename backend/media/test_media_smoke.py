@@ -48,6 +48,11 @@ def run_smoke_tests() -> None:
         "/assets/props/red_umbrella_closed.png",
         "/assets/props/red_umbrella_open.png",
         "/assets/props/wooden_chair.png",
+        "/assets/props/showcase_everyday_soda_can.png",
+        "/assets/props/showcase_everyday_yellow_soda_can.png",
+        "/assets/props/showcase_everyday_black_smartphone.png",
+        "/assets/props/showcase_everyday_snack_bag.png",
+        "/assets/props/showcase_everyday_laptop.png",
         "/assets/stages/conservatory_cam_a.png",
         "/assets/stages/conservatory_cam_b.png",
         "/assets/showcase_storyboard_strip.png",
@@ -109,6 +114,7 @@ def run_smoke_tests() -> None:
     # 4. Verify POST /api/media/create-prop contract using an in-memory test image (fast demo-safe check)
     prev_demo = config.DEMO_MODE
     created_smoke_prop_id: str | None = None
+    orig_b1_raw = (config.BRANCHES_DIR / "branch_v1.json").read_bytes()
     try:
         config.DEMO_MODE = True
         buf = io.BytesIO()
@@ -214,10 +220,8 @@ def run_smoke_tests() -> None:
         (config.PROPS_DIR / "smoke_prop.png").unlink(missing_ok=True)
         if created_smoke_prop_id:
             (config.PROPS_DIR / f"{created_smoke_prop_id}.png").unlink(missing_ok=True)
-        # Restore branch_v1 snapshot untouched by smoke_prop
-        from backend.director.state_tree import save_branch
-        from backend.schemas import BranchState
-        save_branch(BranchState(**branch_v1))
+        # Restore branch_v1 snapshot byte-for-byte untouched by smoke_prop
+        (config.BRANCHES_DIR / "branch_v1.json").write_bytes(orig_b1_raw)
 
     print("ALL P2 SMOKE TESTS PASSED!")
 

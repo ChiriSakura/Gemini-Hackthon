@@ -219,6 +219,7 @@
 |---|---|---|---|---|---|
 | B-01 | P0 | R-18/R-19/30s 投掷抽帧截断：顺序读 `.webm` 上限 150 帧（5s），且异常占位未标注退化状态 | `prop_maker.py` 150 帧截断 & 默认 `state="intact"` | 放宽至 `1200` 帧（30s）、实现 `_detect_throw_peak_frame_idx()` 峰值抽帧与日常物品（`drink`/`snack`/`laptop`）身高表、返回 `degraded_fallback`/`mock_placeholder` | 已修（`W1-V2-01`） |
 | B-02 | P0 | R-06/R-39/R-40/接物动作：路演数字同步、暗边裁剪、10–20s 续演与条件化 `catch_from_camera` | `build_press_kit.py` 口播数字、`video_renderer.py` 默认平放 vs 显式抛投接取 | 同步 `80.9% -> 87.2% -> 97.9%` & `0.95 calib`、增加 `fast_live_mode` / `sculpture` 尾帧提示、`_trim_dark_borders_sync` 及 `catch_from_camera`/`throw_arc` 条件抓取引导 | 已修（`W1-V2-02`、`W1-V2-04`、`W1-V2-05`、`W1-V2-07`） |
+| B-03 | P0 | W1-V3 写实外观保真（黄色可乐罐/黑色手机不被暖金覆写）+ 秒级模板换色 (`W1-V3-04`) 与 `384px` 极速未知物通道 (`W1-V3-05`) | `prop_maker.py` 固定暖色调与慢速二次调模、`video_renderer.py` 缺 `prop_descriptions` 透传 | 零 LLM `<5ms` OpenCV HSV 主色提取、5 个中性灰白动漫基础模板 (`<0.2s` 平滑光影换色 + `(category, color_bucket)` 磁盘缓存)、`<=384px` 精简生图与 `prop_descriptions` 透传；`B1..B4` 实测与 `19/19` props 零绿边通过 | 已修（`W1-V3-01..05`、`W1-V2-B1..B4`） |
 
 ### P3（worker-2，前缀 C-）
 

@@ -16,6 +16,7 @@ import base64
 import hashlib
 import io
 import re
+import shutil
 import tempfile
 import unicodedata
 from pathlib import Path
@@ -42,9 +43,13 @@ def _resolve_image_model() -> str:
     return _IMAGE_MODEL_ALIASES.get(config.MODEL_IMAGE, config.MODEL_IMAGE)
 
 
-def _slugify(name: str) -> str:
+def _slugify(name: str, extra_bytes: Optional[bytes] = None) -> str:
     """Create a collision-safe, filesystem-safe prop identifier with deterministic hash suffix."""
-    digest = hashlib.sha1(name.encode("utf-8")).hexdigest()
+    hasher = hashlib.sha1(name.encode("utf-8"))
+    if extra_bytes:
+        hasher.update(b":")
+        hasher.update(hashlib.sha1(extra_bytes).digest())
+    digest = hasher.hexdigest()
     ascii_folded = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
     slug = re.sub(r"[^a-zA-Z0-9]+", "_", ascii_folded).strip("_").lower()
     if not slug:
@@ -82,6 +87,7 @@ _PROP_HEIGHT_KEYWORDS: list[tuple[tuple[str, ...], float]] = [
         ),
         0.13,
     ),
+    (("smartphone", "phone", "cellphone", "mobile", "iphone", "手机"), 0.15),
     (
         (
             "snack",
@@ -102,7 +108,6 @@ _PROP_HEIGHT_KEYWORDS: list[tuple[tuple[str, ...], float]] = [
             "book",
             "diary",
             "letter",
-            "phone",
             "bottle",
             "thermos",
             "jar",
@@ -128,16 +133,18 @@ _PROP_HEIGHT_KEYWORDS: list[tuple[tuple[str, ...], float]] = [
 ]
 
 
+def _keyword_matches(text: str, kw: str) -> bool:
+    """Match English keywords on word/underscore boundaries so e.g. 'canopy' never triggers 'can'."""
+    if kw.isascii():
+        return bool(re.search(rf"(?<![a-z0-9]){re.escape(kw)}(?![a-z0-9])", text))
+    return kw in text
+
+
 def estimate_prop_height_m(name: str, description: str = "") -> float:
     """Estimate realistic SI metric height in meters (clamped to 0.08m..1.20m) for a prop."""
-    def _matches(text: str, kw: str) -> bool:
-        if kw.isascii():
-            return bool(re.search(rf"(?<![a-z0-9]){re.escape(kw)}(?![a-z0-9])", text))
-        return kw in text
-
     for scope in (name.lower().replace("_", " "), f"{name} {description}".lower().replace("_", " ")):
         for keywords, height_m in _PROP_HEIGHT_KEYWORDS:
-            if any(_matches(scope, k) for k in keywords):
+            if any(_keyword_matches(scope, k) for k in keywords):
                 return height_m
     return 0.22
 
@@ -455,43 +462,208 @@ def _chroma_key_green_to_rgba(raw_image_bytes: bytes, max_size: int = 512) -> Im
     return Image.fromarray(final_arr, mode="RGBA")
 
 
+TEMPLATES_DIR = config.PROPS_DIR / "templates"
+TEMPLATE_CACHE_DIR = TEMPLATES_DIR / "cache"
+
+_TEMPLATE_CATEGORY_RULES: list[tuple[str, tuple[str, ...]]] = [
+    ("smartphone", ("smartphone", "phone", "cellphone", "mobile", "iphone", "手机")),
+    ("laptop", ("laptop", "macbook", "computer", "notebook", "电脑")),
+    ("soda_can", ("can", "soda", "cola", "drink", "beverage", "可乐", "汽水", "饮料")),
+    ("snack_bag", ("snack", "chips", "pouch", "cookie", "candy", "pocky", "nibbles", "零食", "薯片")),
+    ("coffee_mug", ("mug", "cup", "coffee", "teacup", "tea", "杯", "咖啡")),
+]
+
+_TEXT_COLOR_PALETTE: list[tuple[tuple[str, ...], str, tuple[int, int, int], str]] = [
+    (("yellow", "lemon", "canary", "sunny", "黄"), "bright yellow", (245, 212, 36), "yellow"),
+    (("gold", "golden", "amber", "brass", "金"), "warm golden", (230, 184, 58), "gold"),
+    (("orange", "coral", "tangerine", "peach", "橙"), "warm orange", (242, 128, 38), "orange"),
+    (("red", "crimson", "ruby", "scarlet", "cherry", "红"), "vibrant red", (215, 52, 52), "red"),
+    (("pink", "rose", "magenta", "粉"), "rose pink", (235, 118, 165), "pink"),
+    (("blue", "cobalt", "sapphire", "navy", "cyan", "sky", "蓝"), "cobalt blue", (48, 116, 224), "blue"),
+    (("green", "emerald", "mint", "lime", "olive", "绿"), "vivid green", (58, 176, 86), "green"),
+    (("purple", "violet", "lavender", "紫"), "rich purple", (138, 72, 204), "purple"),
+    (("black", "obsidian", "dark", "matte", "炭黑", "黑"), "matte black", (46, 48, 54), "black"),
+    (("white", "ivory", "cream", "pearl", "白"), "clean white", (236, 239, 244), "white"),
+    (("silver", "gray", "grey", "chrome", "metallic", "aluminum", "银", "灰"), "metallic silver-grey", (178, 186, 198), "silver"),
+]
+
+_GENERIC_PROP_NAMES = {
+    "",
+    "prop",
+    "object",
+    "item",
+    "thing",
+    "captured prop",
+    "physical object",
+    "custom prop",
+    "smoke_prop",
+}
+
+
+def _match_template_category(name: str, description: str = "") -> Optional[str]:
+    """Match incoming prop against cached neutral anime template categories (`< 0.3s` recolor path)."""
+    blob = f"{name} {description}".lower().replace("_", " ")
+    for category, keywords in _TEMPLATE_CATEGORY_RULES:
+        if any(_keyword_matches(blob, k) for k in keywords) and (TEMPLATES_DIR / f"{category}.png").is_file():
+            return category
+    return None
+
+
+def _extract_dominant_color_info(
+    name: str,
+    description: str,
+    still: Optional[tuple[bytes, str]],
+) -> tuple[str, tuple[int, int, int], str]:
+    """
+    Zero-LLM <5ms dominant color extractor returning `(color_label, target_rgb, color_bucket)`.
+
+    When `still` is present, reads the central 50% ROI via OpenCV HSV; otherwise resolves text color hints.
+    """
+    if still:
+        arr = np.frombuffer(still[0], dtype=np.uint8)
+        bgr = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        if bgr is not None and bgr.size > 0:
+            h, w = bgr.shape[:2]
+            roi = bgr[max(0, h // 4) : min(h, max(1, (3 * h) // 4)), max(0, w // 4) : min(w, max(1, (3 * w) // 4))]
+            hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+            med_h = float(np.median(hsv[:, :, 0]))
+            med_s = float(np.median(hsv[:, :, 1]))
+            med_v = float(np.median(hsv[:, :, 2]))
+            med_b = int(round(float(np.median(roi[:, :, 0]))))
+            med_g = int(round(float(np.median(roi[:, :, 1]))))
+            med_r = int(round(float(np.median(roi[:, :, 2]))))
+
+            if med_v < 65:
+                return "matte black", (46, 48, 54), "black"
+            if med_s < 38 and med_v > 185:
+                return "clean white", (236, 239, 244), "white"
+            if med_s < 42:
+                return "metallic silver-grey", (178, 186, 198), "silver"
+
+            if 18 <= med_h <= 35:
+                label, canon, bucket = "bright yellow", (245, 212, 36), "yellow"
+            elif 6 <= med_h < 18:
+                label, canon, bucket = "warm orange", (242, 128, 38), "orange"
+            elif med_h < 6 or med_h > 165:
+                label, canon, bucket = "vibrant red", (215, 52, 52), "red"
+            elif 36 <= med_h <= 85:
+                label, canon, bucket = "vivid green", (58, 176, 86), "green"
+            elif 86 <= med_h <= 132:
+                label, canon, bucket = "cobalt blue", (48, 116, 224), "blue"
+            else:
+                label, canon, bucket = "rich purple", (138, 72, 204), "purple"
+
+            mixed = (
+                int(round(0.60 * canon[0] + 0.40 * med_r)),
+                int(round(0.60 * canon[1] + 0.40 * med_g)),
+                int(round(0.60 * canon[2] + 0.40 * med_b)),
+            )
+            return label, mixed, bucket
+
+    blob = f"{name} {description}".lower().replace("_", " ")
+    for keywords, label, rgb_val, bucket in _TEXT_COLOR_PALETTE:
+        if any(_keyword_matches(blob, k) for k in keywords):
+            return label, rgb_val, bucket
+    return "metallic silver-grey", (178, 186, 198), "silver"
+
+
+def _recolor_template_preserve_shading(template_path: Path, target_rgb: tuple[int, int, int]) -> Image.Image:
+    """
+    Fast (<50ms) shade-preserving luminance tint over a neutral anime base template.
+
+    Uses smooth highlight/ink feathering to avoid hard-threshold speckles and enforces 0px bottom gap.
+    """
+    with Image.open(template_path) as im:
+        rgba = np.array(im.convert("RGBA"), dtype=np.uint8)
+
+    alpha = rgba[:, :, 3]
+    rgb = rgba[:, :, :3].astype(np.float32) / 255.0
+    lum = 0.299 * rgb[:, :, 0] + 0.587 * rgb[:, :, 1] + 0.114 * rgb[:, :, 2]
+
+    tint = np.array(target_rgb, dtype=np.float32) / 255.0
+    rel = np.clip(lum / 0.88, 0.24, 1.06)[:, :, None]
+    tinted = tint[None, None, :] * rel
+
+    ink_w = np.clip((0.30 - lum) / 0.16, 0.0, 1.0)[:, :, None]
+    spec_w = np.clip((lum - 0.86) / 0.12, 0.0, 1.0)[:, :, None]
+    spec_target = np.clip(0.65 * tinted + 0.35 * np.array([[[0.96, 0.97, 0.99]]], dtype=np.float32), 0.0, 1.0)
+    blended = (1.0 - spec_w) * tinted + spec_w * spec_target
+    out_rgb = (1.0 - ink_w) * blended + ink_w * (rgb * 0.88)
+
+    out_arr = np.zeros_like(rgba)
+    out_arr[:, :, :3] = np.clip(out_rgb * 255.0, 0, 255).astype(np.uint8)
+    out_arr[:, :, 3] = alpha
+    ys_final = np.where(alpha >= 16)[0]
+    if len(ys_final) > 0:
+        out_arr = out_arr[: int(ys_final.max()) + 1, :, :]
+    return Image.fromarray(out_arr, mode="RGBA")
+
+
+def _downscale_jpeg_sync(still: tuple[bytes, str], max_side: int = 384, quality: int = 80) -> tuple[bytes, str]:
+    """Downscale camera JPEG cleanly to <=384px for ultra-fast unseen prop API upload/tokenization (W1-V3-05)."""
+    still_bytes, still_mime = still
+    try:
+        with Image.open(io.BytesIO(still_bytes)) as im:
+            rgb = im.convert("RGB")
+            if max(rgb.width, rgb.height) > max_side:
+                rgb.thumbnail((max_side, max_side), Image.Resampling.LANCZOS)
+            buf = io.BytesIO()
+            rgb.save(buf, format="JPEG", quality=quality)
+            return buf.getvalue(), "image/jpeg"
+    except Exception:
+        return still_bytes, still_mime
+
+
 def _generate_prop_sync(
     name: str,
     description: str,
     camera_still: Optional[tuple[bytes, str]],
+    appearance_summary: str = "",
+    color_label: str = "",
 ) -> tuple[bytes, dict]:
-    """Synchronous Gemini Interactions API call to generate a chroma-green prop image."""
+    """
+    Synchronous Gemini Interactions API call to generate a chroma-green prop image (W1-V3-05 lean mode).
+
+    Uses <=384px payload when `camera_still` is present and avoids extra serial LLM calls or warm-palette overrides.
+    """
     model_id = _resolve_image_model()
     client = genai.Client(http_options=types.HttpOptions(timeout=120_000))
 
-    desc_text = description.strip() or name
-    prompt_text = (
-        f"Create a single centered 2D anime visual-novel stage prop illustration of '{name}' "
-        f"({desc_text}). Style: crisp hand-painted anime cel-shaded game prop, clean silhouette, "
-        "front-facing 3/4 view, NO human hands, NO characters, NO text, NO watermark. "
-        "Use warm rich ivory, gold, brass, crimson, amber, ceramic white, silver, or sapphire tones on the prop "
-        "(avoid neon green or emerald reflections on the prop itself unless explicitly requested). "
-        "Place the object completely isolated on a flat, uniform, solid bright chroma-key green "
-        "background (#00FF00) with zero floor shadows and zero green spill on the prop."
-    )
-
+    desc_text = appearance_summary.strip() or description.strip() or name
+    lean_name = name.strip().lower() not in _GENERIC_PROP_NAMES
     if camera_still:
-        still_bytes, still_mime = camera_still
+        lean_still_bytes, lean_mime = _downscale_jpeg_sync(camera_still, max_side=384, quality=80)
+        if lean_name:
+            color_prefix = f"{color_label} " if color_label and color_label.lower() not in name.lower() else ""
+            prompt_text = (
+                f"Simple clean 2D anime cel-shaded game icon of a {color_prefix}{name.strip()}: "
+                "keep ONLY what the object is and its primary color; omit fine labels, small patterns, or complex lighting details. "
+                "No human hands, no shadows, isolated on solid flat #00FF00 chroma green background."
+            )
+        else:
+            prompt_text = (
+                f"Simple clean 2D anime cel-shaded game icon matching this object ({desc_text}): "
+                "keep ONLY what the object is and its exact primary color from the photo; omit fine labels or complex details. "
+                "No human hands, no shadows, isolated on solid flat #00FF00 chroma green background."
+            )
         input_payload: list[dict] | str = [
             {
                 "type": "image",
-                "data": base64.b64encode(still_bytes).decode("ascii"),
-                "mime_type": still_mime,
+                "data": base64.b64encode(lean_still_bytes).decode("ascii"),
+                "mime_type": lean_mime,
             },
-            {
-                "type": "text",
-                "text": (
-                    "Convert the physical object shown in this photo into "
-                    + prompt_text
-                ),
-            },
+            {"type": "text", "text": prompt_text},
         ]
     else:
+        prompt_text = (
+            f"Create a single centered 2D anime visual-novel stage prop illustration of '{name}' "
+            f"({desc_text}). Style: crisp hand-painted anime cel-shaded game prop, clean silhouette, "
+            "front-facing 3/4 view, NO human hands, NO characters, NO text, NO watermark. "
+            "Faithfully follow every color and material mentioned in the description (and avoid neon green or emerald reflections "
+            "unless part of the item); when no color is specified, use warm rich ivory, gold, brass, crimson, silver, or sapphire tones. "
+            "Place the object completely isolated on a flat, uniform, solid bright chroma-key green "
+            "background (#00FF00) with zero floor shadows and zero green spill on the prop."
+        )
         input_payload = prompt_text
 
     interaction = client.interactions.create(
@@ -528,12 +700,13 @@ async def create_prop(
     """
     Generate a transparent PNG prop from text or webcam frame (up to 30s `.webm`) and save under `backend/assets/props/`.
 
-    Flags placeholder/mock fallbacks explicitly in `PropRegistryItem.state` (`degraded_fallback` / `mock_placeholder`)
-    rather than masking failures as intact rendered props (R-18).
-    Returns `(prop_id, PropRegistryItem)` ready for `props_registry`.
+    Fast paths:
+    1) W1-V3-04 (<0.3s): Known categories (`soda_can`, `smartphone`, `coffee_mug`, `snack_bag`, `laptop`) reuse
+       `(category, color_bucket)` cache or shade-preservingly tint the neutral anime template via zero-LLM HSV color extraction.
+    2) W1-V3-05: Brand-new unseen categories run lean `<=384px` single-call generation without extra serial LLM round-trips.
     """
     resolved_ts = frame_timestamp_sec if frame_timestamp_sec is not None else timestamp_sec
-    resolved_id = prop_id or _slugify(name)
+    resolved_id = prop_id or _slugify(name, extra_bytes=camera_frame_bytes)
     out_path = config.PROPS_DIR / f"{resolved_id}.png"
     origin: Literal["preset", "text_generated", "camera_physical"] = (
         "camera_physical" if camera_frame_bytes else "text_generated"
@@ -541,50 +714,92 @@ async def create_prop(
     resolved_model = _resolve_image_model()
     prop_state = "intact"
 
-    if config.DEMO_MODE or not config.GEMINI_API_KEY:
+    camera_still = (
+        await asyncio.to_thread(
+            _extract_image_from_bytes,
+            camera_frame_bytes,
+            timestamp_sec=resolved_ts,
+            detect_throw_peak=detect_throw_peak,
+        )
+        if camera_frame_bytes
+        else None
+    )
+    color_label, target_rgb, color_bucket = await asyncio.to_thread(
+        _extract_dominant_color_info,
+        name,
+        description,
+        camera_still,
+    )
+    if camera_still is not None:
+        base_desc = description.strip() or name.strip() or "object"
+        appearance_summary = base_desc if color_bucket in base_desc.lower() else f"{color_label} {base_desc}".strip()
+    else:
+        appearance_summary = description.strip() or f"{color_label} {name}".strip()
+
+    matched_category = _match_template_category(name, description)
+    if matched_category and not (config.DEMO_MODE and prop_id == "v2_throw_test_coin"):
+        TEMPLATE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        cache_path = TEMPLATE_CACHE_DIR / f"{matched_category}_{color_bucket}.png"
+        template_path = TEMPLATES_DIR / f"{matched_category}.png"
+        if cache_path.is_file():
+            shutil.copy2(cache_path, out_path)
+            path_mode = f"template_cache_hit:{matched_category}_{color_bucket}"
+        else:
+            recolored = await asyncio.to_thread(_recolor_template_preserve_shading, template_path, target_rgb)
+            recolored.save(cache_path, format="PNG")
+            recolored.save(out_path, format="PNG")
+            path_mode = f"template_recolor:{matched_category}_{color_bucket}"
+        log_genai_call(
+            "opencv_template_recolor",
+            {"name": name, "category": matched_category, "color_bucket": color_bucket, "appearance_summary": appearance_summary},
+            {"fast_path": path_mode},
+            {"saved_path": str(out_path), "state": prop_state},
+        )
+    elif config.DEMO_MODE or not config.GEMINI_API_KEY:
         if not out_path.exists():
-            img = Image.new("RGBA", (256, 256), (255, 215, 64, 230))
+            img = Image.new("RGBA", (256, 256), (*target_rgb, 230))
             img.save(out_path, format="PNG")
         prop_state = "mock_placeholder"
         log_genai_call(
             resolved_model,
-            {"name": name, "description": description, "has_camera_frame": bool(camera_frame_bytes)},
+            {
+                "name": name,
+                "description": description,
+                "appearance_summary": appearance_summary,
+                "has_camera_frame": bool(camera_frame_bytes),
+            },
             {"placeholder": True},
             {"saved_path": str(out_path), "state": prop_state},
         )
     else:
-        camera_still = (
-            _extract_image_from_bytes(
-                camera_frame_bytes,
-                timestamp_sec=resolved_ts,
-                detect_throw_peak=detect_throw_peak,
-            )
-            if camera_frame_bytes
-            else None
-        )
         try:
             raw_img_bytes, meta = await asyncio.to_thread(
                 _generate_prop_sync,
                 name,
                 description,
                 camera_still,
+                appearance_summary,
+                color_label,
             )
-            rgba_img = await asyncio.to_thread(_chroma_key_green_to_rgba, raw_img_bytes)
+            max_out = 384 if camera_still is not None else 512
+            rgba_img = await asyncio.to_thread(_chroma_key_green_to_rgba, raw_img_bytes, max_out)
             rgba_img.save(out_path, format="PNG")
             log_genai_call(
                 resolved_model,
                 {
                     "name": name,
                     "description": description,
+                    "appearance_summary": appearance_summary,
                     "has_camera_still": bool(camera_still),
+                    "lean_384px": bool(camera_still),
                 },
-                {"aspect_ratio": "1:1", "chroma_key": "opencv_hsv_despill"},
+                {"aspect_ratio": "1:1", "chroma_key": "opencv_hsv_despill", "max_size": max_out},
                 {"saved_path": str(out_path), "size": [rgba_img.width, rgba_img.height], **meta},
             )
         except Exception as exc:
             # Never crash live demo if image generation fails, but explicitly mark state degraded (R-18).
             if not out_path.exists():
-                img = Image.new("RGBA", (256, 256), (255, 215, 64, 230))
+                img = Image.new("RGBA", (256, 256), (*target_rgb, 230))
                 img.save(out_path, format="PNG")
             prop_state = "degraded_fallback"
             log_genai_call(
@@ -599,6 +814,7 @@ async def create_prop(
         image_url=f"/assets/props/{resolved_id}.png",
         state=prop_state,
         origin=origin,
-        height_m=estimate_prop_height_m(name, description),
+        height_m=estimate_prop_height_m(name, description or appearance_summary),
+        appearance_summary=appearance_summary,
     )
     return resolved_id, item

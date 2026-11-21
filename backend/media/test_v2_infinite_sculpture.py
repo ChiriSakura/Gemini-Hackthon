@@ -4,19 +4,23 @@ Unbounded Scene 5+ Extend, Dark-Border Crop, and R-13/R-14/R-18 Hardening (Owned
 """
 
 import asyncio
+import io
 import json
 import tempfile
+import time
 from pathlib import Path
 
 import cv2
 import numpy as np
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from backend import config
 from backend.director.state_tree import get_branch
 from backend.main import app
 from backend.media.prop_maker import (
     _detect_throw_peak_frame_idx,
+    _downscale_jpeg_sync,
     _extract_image_from_bytes,
     create_prop,
     estimate_prop_height_m,
@@ -244,9 +248,88 @@ def test_unbounded_extend_scene_5_plus() -> None:
         b1_path.write_bytes(orig_raw)
 
 
+def test_v3_captured_appearance_preservation() -> None:
+    """W1-V3-03/04/05: Verify smartphone height, collision-free IDs, <0.3s template recolor & color fidelity, 384px downscale, & prop_descriptions."""
+    assert estimate_prop_height_m("Black Smartphone", "Matte black mobile phone") == 0.15
+
+    buf_yellow = io.BytesIO()
+    Image.new("RGB", (640, 480), (250, 225, 25)).save(buf_yellow, format="PNG")
+    buf_black = io.BytesIO()
+    Image.new("RGB", (640, 480), (18, 18, 22)).save(buf_black, format="PNG")
+
+    ds_bytes, ds_mime = _downscale_jpeg_sync((buf_yellow.getvalue(), "image/png"), max_side=384)
+    assert ds_mime == "image/jpeg"
+    with Image.open(io.BytesIO(ds_bytes)) as ds_im:
+        assert max(ds_im.width, ds_im.height) <= 384
+
+    prev_demo = config.DEMO_MODE
+    config.DEMO_MODE = False
+    created_ids: list[str] = []
+    try:
+        t0 = time.perf_counter()
+        pid_y, item_y = asyncio.run(
+            create_prop(
+                name="Captured Can",
+                description="soda can",
+                camera_frame_bytes=buf_yellow.getvalue(),
+            )
+        )
+        dt_y = time.perf_counter() - t0
+        created_ids.append(pid_y)
+
+        t1 = time.perf_counter()
+        pid_b, item_b = asyncio.run(
+            create_prop(
+                name="Black Smartphone",
+                description="smartphone",
+                camera_frame_bytes=buf_black.getvalue(),
+            )
+        )
+        dt_b = time.perf_counter() - t1
+        created_ids.append(pid_b)
+
+        assert dt_y < 0.35 and dt_b < 0.35, f"Template fast-path too slow: yellow={dt_y:.3f}s, black={dt_b:.3f}s"
+        assert pid_y != pid_b, f"Distinct camera captures collided on prop_id={pid_y}"
+        assert item_y.state == "intact" and "yellow" in item_y.appearance_summary.lower(), item_y.appearance_summary
+        assert item_b.state == "intact" and "black" in item_b.appearance_summary.lower(), item_b.appearance_summary
+
+        with Image.open(config.PROPS_DIR / f"{pid_y}.png") as im_y:
+            arr_y = np.array(im_y.convert("RGBA"))
+            opaque_y = arr_y[arr_y[:, :, 3] > 200]
+            assert float(np.mean(opaque_y[:, 0])) > 140 and float(np.mean(opaque_y[:, 1])) > 120
+            assert float(np.mean(opaque_y[:, 0])) - float(np.mean(opaque_y[:, 2])) > 55
+        with Image.open(config.PROPS_DIR / f"{pid_b}.png") as im_b:
+            arr_b = np.array(im_b.convert("RGBA"))
+            opaque_b = arr_b[arr_b[:, :, 3] > 200]
+            assert float(np.mean(opaque_b[:, :3])) < 70
+    finally:
+        config.DEMO_MODE = prev_demo
+        for pid in created_ids:
+            (config.PROPS_DIR / f"{pid}.png").unlink(missing_ok=True)
+
+    scene_v3 = Scene(
+        scene_id=7,
+        title="Yellow Can Encore",
+        narration="Lia places the yellow aluminum can gently onto the center table.",
+        lighting="warm_gold_snow",
+        end_freeze_mode="sculpture",
+        actors=[ActorState(id="lia", name="Lia", asset_url="/assets/actors/lia.png", grid=[0.6, 1.1], action="stand")],
+        stage_props=[StagePropState(id="yellow_drink_can", grid=[1.0, 1.0], state="intact", on_floor=False)],
+    )
+    prompt_v3 = _build_shot_prompt(
+        scene_v3,
+        "cam_a",
+        has_first_frame=False,
+        has_preview_video=False,
+        prop_descriptions={"yellow_drink_can": "bright yellow aluminum beverage can"},
+    )
+    assert "bright yellow aluminum beverage can" in prompt_v3
+
+
 if __name__ == "__main__":
     test_30s_throw_peak_window_and_degraded_flag()
     test_catch_from_camera_conditional_prompting()
     test_fast_live_mode_sculpture_prompt_and_border_trim()
     test_unbounded_extend_scene_5_plus()
-    print("ALL W1-V2-07 INFINITE SCULPTURE & 30S THROW-PEAK TESTS PASSED!")
+    test_v3_captured_appearance_preservation()
+    print("ALL W1-V2/V3 INFINITE SCULPTURE, 30S THROW-PEAK & APPEARANCE TESTS PASSED!")

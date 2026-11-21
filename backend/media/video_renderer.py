@@ -377,8 +377,10 @@ def _describe_prop_with_scale(
     on_floor: bool = False,
     opened: bool = False,
     entry_motion: str = "place",
+    prop_descriptions: Optional[dict[str, str]] = None,
 ) -> str:
-    """Return a concise, physically anchored natural description with relative SI scale ratios."""
+    """Return a concise, physically anchored natural description preserving exact captured visual traits & SI scale."""
+    appearance = (prop_descriptions or {}).get(prop_id, "").strip()
     if prop_id == "red_umbrella":
         if on_floor:
             return "ONE single closed crimson red long-handle umbrella (~0.86m, roughly half Lia's height) lying flat on the floor"
@@ -398,7 +400,7 @@ def _describe_prop_with_scale(
         if entry_motion == "throw_arc":
             return "ONE single small palm-sized (~0.10m, fits inside one hand) glowing golden star keepsake flying in along an incoming throw arc from the front camera"
         return "ONE single small palm-sized (~0.10m, fits inside one hand) glowing golden star keepsake"
-    h_m = estimate_prop_height_m(prop_id)
+    h_m = estimate_prop_height_m(prop_id, appearance)
     table_pct = max(8, min(140, int(round((h_m / 0.75) * 100))))
     size_cue = (
         "small palm-sized object"
@@ -413,7 +415,8 @@ def _describe_prop_with_scale(
         loc = "resting flat on the floor with contact shadow"
     else:
         loc = "resting squarely on the center round table with contact shadow"
-    return f"ONE single {prop_id.replace('_', ' ')} ({size_cue}, ~{h_m:.2f}m tall / ~{table_pct}% of table height, {loc}, state={state})"
+    label = appearance if appearance else prop_id.replace("_", " ")
+    return f"ONE single {prop_id.replace('_', ' ')} ({label}; {size_cue}, ~{h_m:.2f}m tall / ~{table_pct}% of table height, {loc}, state={state})"
 
 
 def _trim_dark_borders_sync(img_path: Path) -> tuple[Path, bool]:
@@ -579,6 +582,7 @@ def _build_shot_prompt(
     has_first_frame: bool,
     has_preview_video: bool,
     extra_constraint: str = "",
+    prop_descriptions: Optional[dict[str, str]] = None,
 ) -> str:
     """Build a natural-language Omni Flash prompt enforcing camera angle, room lock, sculpture freeze, and SI scale."""
     if cam_id == "cam_a":
@@ -615,7 +619,7 @@ def _build_shot_prompt(
         if a.holding_prop:
             held_prop_ids.add(a.holding_prop)
             desc += (
-                f" holding {_describe_prop_with_scale(a.holding_prop, state='held', on_floor=False, opened=_umbrella_is_open(scene))}"
+                f" holding {_describe_prop_with_scale(a.holding_prop, state='held', on_floor=False, opened=_umbrella_is_open(scene), prop_descriptions=prop_descriptions)}"
             )
         actor_phrases.append(desc)
 
@@ -630,7 +634,7 @@ def _build_shot_prompt(
         blocking = _grid_to_blocking(p.grid)
         prop_entry = getattr(p, "entry_motion", "place")
         prop_phrases.append(
-            f"{_describe_prop_with_scale(p.id, state=p.state, on_floor=p.on_floor, entry_motion=prop_entry)} ({blocking})"
+            f"{_describe_prop_with_scale(p.id, state=p.state, on_floor=p.on_floor, entry_motion=prop_entry, prop_descriptions=prop_descriptions)} ({blocking})"
         )
 
     safe_narration = _milden_safety_phrasing(scene.narration)
@@ -897,6 +901,7 @@ async def render_single_camera_shot(
     extra_constraint: str = "",
     overwrite_canonical: bool = False,
     fast_live_mode: bool = False,
+    prop_descriptions: Optional[dict[str, str]] = None,
 ) -> tuple[str, Optional[str], JudgeResult, int, int]:
     """
     Generate parallel Omni Flash candidates (1 take when `fast_live_mode=True` for 10-20s turnaround,
@@ -910,6 +915,7 @@ async def render_single_camera_shot(
         has_first_frame=bool(prev_tail_path),
         has_preview_video=bool(preview_path),
         extra_constraint=extra_constraint,
+        prop_descriptions=prop_descriptions,
     )
     run_tag = "" if overwrite_canonical else f"_{uuid.uuid4().hex[:6]}"
 
@@ -1183,6 +1189,7 @@ async def render_scene_media(
     tail_inspector: Optional[Callable[[int, str], Awaitable[str]]] = None,
     overwrite_canonical: bool = False,
     fast_live_mode: bool = False,
+    prop_descriptions: Optional[dict[str, str]] = None,
 ) -> SceneMedia:
     """Concurrently render Camera A and Camera B (1-take ~16-19s when `fast_live_mode=True`), run cross-camera QA, and update tail notes."""
     preview_a = cam_a_preview_path or scene.media.cam_a_preview_url
@@ -1197,6 +1204,7 @@ async def render_scene_media(
             preview_path=preview_a,
             overwrite_canonical=overwrite_canonical,
             fast_live_mode=fast_live_mode,
+            prop_descriptions=prop_descriptions,
         ),
         render_single_camera_shot(
             scene,
@@ -1206,6 +1214,7 @@ async def render_scene_media(
             preview_path=preview_b,
             overwrite_canonical=overwrite_canonical,
             fast_live_mode=fast_live_mode,
+            prop_descriptions=prop_descriptions,
         ),
     )
 
@@ -1226,6 +1235,7 @@ async def render_scene_media(
                     "round table, and crystal vase intact/broken state from a true 45-degree diagonal side close-up angle."
                 ),
                 overwrite_canonical=overwrite_canonical,
+                prop_descriptions=prop_descriptions,
             )
             if cand_b[0]:
                 cand_cross = await _check_cross_camera_consistency(scene, res_a[1], cand_b[1])
@@ -1245,6 +1255,7 @@ async def render_scene_media(
                     "round table, and crystal vase intact/broken state from a wide front-center establishing full-stage angle."
                 ),
                 overwrite_canonical=overwrite_canonical,
+                prop_descriptions=prop_descriptions,
             )
             if cand_a[0]:
                 cand_cross = await _check_cross_camera_consistency(scene, cand_a[1], res_b[1])
@@ -1280,6 +1291,7 @@ async def render_branch_scenes(
     branch: BranchState,
     tail_inspector: Optional[Callable[[int, str], Awaitable[str]]] = None,
     fast_live_mode: bool = False,
+    prop_descriptions: Optional[dict[str, str]] = None,
 ) -> BranchState:
     """Concurrently render all scenes with `needs_rerender=True` in `branch` anchored on 2.5D previews."""
     ref_images = [
@@ -1287,6 +1299,12 @@ async def render_branch_scenes(
         str(config.SHARED_ASSETS_DIR / "nyx.png"),
         str(config.SHARED_ASSETS_DIR / "crystal_vase.png"),
     ] + [p.image_url for p in branch.props_registry.values()]
+    merged_prop_descs = {
+        pid: (p.appearance_summary or p.name)
+        for pid, p in branch.props_registry.items()
+    }
+    if prop_descriptions:
+        merged_prop_descs.update(prop_descriptions)
 
     target_scenes = [s for s in branch.scenes if s.needs_rerender]
     for s in branch.scenes:
@@ -1307,6 +1325,7 @@ async def render_branch_scenes(
             cam_b_preview_path=scene.media.cam_b_preview_url,
             tail_inspector=tail_inspector,
             fast_live_mode=fast_live_mode,
+            prop_descriptions=merged_prop_descs or None,
         )
         _update_render_progress(
             branch.branch_id,
