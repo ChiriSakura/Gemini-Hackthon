@@ -191,8 +191,9 @@ async def _invoke_render_scene_media(
     cam_a_preview_path: Optional[str],
     cam_b_preview_path: Optional[str],
     fast_live_mode: bool = False,
+    prop_descriptions: Optional[dict[str, str]] = None,
 ):
-    """Call `render_scene_media` while safely forwarding optional `fast_live_mode` across P2 updates."""
+    """Call `render_scene_media` while safely forwarding optional `fast_live_mode` and `prop_descriptions` across P2 updates."""
     sig = inspect.signature(render_scene_media)
     kwargs: dict = {
         "cam_a_preview_path": cam_a_preview_path,
@@ -201,6 +202,8 @@ async def _invoke_render_scene_media(
     }
     if "fast_live_mode" in sig.parameters:
         kwargs["fast_live_mode"] = fast_live_mode
+    if "prop_descriptions" in sig.parameters and prop_descriptions:
+        kwargs["prop_descriptions"] = prop_descriptions
     return await render_scene_media(scene, refs, **kwargs)
 
 
@@ -369,6 +372,10 @@ async def api_director_extend(
 
     updated_registry = dict(parent.props_registry)
     thrown_prop_id: Optional[str] = None
+    explicit_handoff = any(
+        kw in (parsed.instruction or "").lower()
+        for kw in ("hand you", "give you", "toss", "throw", "catch", "pass you", "to lia", "for you", "for lia", "递给", "给你", "扔给", "丢给")
+    )
     if parsed.has_physical_prop and parsed.prop_name:
         thrown_prop_id, prop_item = await _invoke_create_prop(
             name=parsed.prop_name,
@@ -378,6 +385,8 @@ async def api_director_extend(
             detect_throw_peak=detect_throw_peak,
         )
         updated_registry[thrown_prop_id] = prop_item
+        if getattr(prop_item, "appearance_summary", ""):
+            parsed.prop_description = prop_item.appearance_summary
 
     next_scene = await extend_single_scene(
         parsed_input=parsed,
@@ -386,17 +395,23 @@ async def api_director_extend(
         learned_rules=load_general_rules(),
         end_freeze_mode=end_freeze_mode,
     )
-    if thrown_prop_id and not any(p.id == thrown_prop_id for p in next_scene.stage_props):
-        next_scene.stage_props.append(
-            StagePropState(
-                id=thrown_prop_id,
-                grid=[1.05, 1.1],
-                on_floor=False,
-                state="glowing",
-                entry_motion="throw_arc",
-                entry_origin=[1.0, 2.2, 0.8],
+    if thrown_prop_id:
+        prop_app = (getattr(updated_registry[thrown_prop_id], "appearance_summary", "") or "").strip()
+        if prop_app:
+            cue = f"{thrown_prop_id}: {prop_app}"
+            if cue not in (next_scene.environment_notes or ""):
+                next_scene.environment_notes = f"{next_scene.environment_notes} {cue}".strip() if next_scene.environment_notes else cue
+        if not any(p.id == thrown_prop_id for p in next_scene.stage_props):
+            next_scene.stage_props.append(
+                StagePropState(
+                    id=thrown_prop_id,
+                    grid=[1.05, 1.1],
+                    on_floor=False,
+                    state="glowing",
+                    entry_motion="throw_arc" if explicit_handoff else "place",
+                    entry_origin=[1.0, 2.2, 0.8] if explicit_handoff else None,
+                )
             )
-        )
 
     is_rewound = anchor_id < ordered_scenes[-1].scene_id
     # Never mutate immutable cached baseline branches in-place; fork cleanly instead
@@ -456,6 +471,7 @@ async def api_media_create_prop(
     item.state = prop_state
 
     branch = get_branch(branch_id)
+    appearance_summary = (getattr(item, "appearance_summary", "") or "").strip()
     if branch:
         branch.props_registry[prop_id] = item
         for s in branch.scenes:
@@ -482,9 +498,20 @@ async def api_media_create_prop(
                                 entry_motion=norm_motion,  # type: ignore[assignment]
                             )
                         )
+                if appearance_summary:
+                    cue = f"{prop_id}: {appearance_summary}"
+                    if cue not in (s.environment_notes or ""):
+                        s.environment_notes = f"{s.environment_notes} {cue}".strip() if s.environment_notes else cue
                 s.needs_rerender = True
         save_branch(branch)
-    return {"prop_id": prop_id, "image_url": item.image_url, "item": item, "placement": norm_placement, "entry_motion": norm_motion}
+    return {
+        "prop_id": prop_id,
+        "image_url": item.image_url,
+        "item": item,
+        "placement": norm_placement,
+        "entry_motion": norm_motion,
+        "appearance_summary": appearance_summary,
+    }
 
 
 async def _save_preview_file(
@@ -558,6 +585,10 @@ async def api_media_render_scene(
         refs = [str(config.SHARED_ASSETS_DIR / "lia.png"), str(config.SHARED_ASSETS_DIR / "nyx.png")] + [
             p.image_url for p in branch.props_registry.values()
         ]
+        prop_descriptions = {
+            pid: ((getattr(p, "appearance_summary", "") or "").strip() or p.name)
+            for pid, p in branch.props_registry.items()
+        }
         # R-15: Enforce hard 95s per-scene timeout with graceful 2.5D preview fallback
         try:
             rendered_media = await asyncio.wait_for(
@@ -567,6 +598,7 @@ async def api_media_render_scene(
                     cam_a_preview_path=target.media.cam_a_preview_url,
                     cam_b_preview_path=target.media.cam_b_preview_url,
                     fast_live_mode=fast_live_mode,
+                    prop_descriptions=prop_descriptions,
                 ),
                 timeout=95.0,
             )

@@ -28,6 +28,9 @@ export interface DirectorInputParsed {
   prop_name?: string | null;
   prop_description?: string | null;
   prop_frame_timestamp_sec?: number | null;
+  mode?: 'extend' | 'fork';
+  needs_prop_prompt?: boolean;
+  prop_prompt_hint?: string | null;
 }
 
 export interface JudgeItem {
@@ -43,21 +46,39 @@ export interface JudgeResult {
   items: JudgeItem[];
 }
 
+export type ActorAction =
+  | 'stand'
+  | 'walk'
+  | 'kneel'
+  | 'reach'
+  | 'sit'
+  | 'jump'
+  | 'crouch'
+  | 'flee'
+  | 'nuzzle'
+  | 'shared_umbrella'
+  | 'catch_from_camera';
+
 export interface ActorState {
   id: 'lia' | 'nyx';
   name: string;
   asset_url: string;
   grid: [number, number];
   facing: 'left' | 'right' | 'front' | 'center';
-  action: 'stand' | 'walk' | 'kneel' | 'reach' | 'sit' | 'jump' | 'crouch' | 'flee' | 'nuzzle' | 'shared_umbrella';
+  action: ActorAction;
   holding_prop: string | null;
+  height_m?: number | null;
 }
+
+export type PropEntryMotion = 'place' | 'throw_arc' | 'held';
 
 export interface StagePropState {
   id: string;
   grid: [number, number];
   on_floor: boolean;
-  state: 'intact' | 'broken' | 'held' | 'glowing';
+  state: 'intact' | 'broken' | 'held' | 'glowing' | 'closed' | 'open';
+  entry_motion?: PropEntryMotion;
+  entry_origin?: number[] | null;
 }
 
 export interface SceneMedia {
@@ -88,6 +109,8 @@ export interface Scene {
   environment_notes: string;
   needs_rerender: boolean;
   reused_from_branch: string | null;
+  end_freeze_mode?: 'sculpture' | 'none';
+  parent_scene_id?: number | null;
   actors: ActorState[];
   stage_props: StagePropState[];
   qa_questions: string[];
@@ -99,6 +122,8 @@ export interface PropRegistryItem {
   image_url: string;
   state: string;
   origin: 'preset' | 'text_generated' | 'camera_physical';
+  height_m?: number | null;
+  appearance_summary?: string;
 }
 
 export interface BranchState {

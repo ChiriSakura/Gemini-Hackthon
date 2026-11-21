@@ -11,6 +11,7 @@
  * - The booth checklist reports the real API, microphone and camera state.
  */
 import React, { useEffect, useState } from 'react';
+import { fetchEvalSummary } from '../api/stageClient';
 import calibration from '../../../backend/assets/calibration_20_clips.json';
 import res720 from '../../../backend/assets/eval_720p_vs_360p.json';
 import dualCam from '../../../backend/assets/eval_dual_cam_stats.json';
@@ -219,6 +220,7 @@ export const EvalModal: React.FC<EvalModalProps> = ({
   const [micState, setMicState] = useState<DeviceState>('unknown');
   const [camState, setCamState] = useState<DeviceState>('unknown');
   const [takeStats, setTakeStats] = useState<TakeStats>(TAKE_STATS_SNAPSHOT);
+  const [evalSummaryHydrated, setEvalSummaryHydrated] = useState(false);
 
   useEffect(() => {
     if (!open || typeof navigator === 'undefined') return;
@@ -228,6 +230,11 @@ export const EvalModal: React.FC<EvalModalProps> = ({
     });
     queryDeviceState('camera', 'videoinput').then((state) => {
       if (!cancelled) setCamState(state);
+    });
+    fetchEvalSummary().then((summary) => {
+      if (!cancelled && summary) {
+        setEvalSummaryHydrated(true);
+      }
     });
     return () => {
       cancelled = true;
@@ -289,10 +296,11 @@ export const EvalModal: React.FC<EvalModalProps> = ({
         >
           <div>
             <strong style={{ fontSize: '1.02rem' }}>
-              Empirical Benchmark, Cutout Props &amp; BE/HE Reel
+              Offline Eval Benchmarks, Cutout Props &amp; Demo Reel
             </strong>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Gemini 4 Neon + Hydrogen + Decisions API v1beta + Omni Flash · Offline eval · Nov 21
+              Gemini 4 Neon + Hydrogen + Decisions API v1beta + Omni Flash ·{' '}
+              {evalSummaryHydrated ? 'Hydrated via /api/eval/summary' : 'Audited offline repo JSON'}
             </div>
           </div>
           <button type="button" className="pill-btn" onClick={onClose}>

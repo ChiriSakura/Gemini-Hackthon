@@ -157,11 +157,11 @@
     "W1-V2-04: Disabled QA-retry add_rule() pollution (R-14), raised CROSS_CAM_THRESHOLD=0.80 w/ single-condition checks (R-13), mildened phrasing & surfaced [content_blocked] QA reasons (R-39)",
     "W1-V2-05: Regenerated dynamic R-06 eval_charts_board.png, eval_dashboard_12s.mp4 & synced build_press_kit.py + TTS narrated video + voiceover script (80.9% -> 87.2% -> 97.9%, 0.95 calib)",
     "W1-V2-06: Confirmed zero stray branch_v5.json (R-34) & audited 14/14 RGBA props with 0 green halo pixels",
-    "W1-V2-07: Added regression test suite test_v2_infinite_sculpture.py (30s >150-frame throw peak, fast_live_mode + sculpture freeze, /api/director/extend Scene 5+)",
-    "W1-V2-08: Passed full P2 battery (test_v2_infinite_sculpture, test_webm_prop, test_english_enforced, test_failover_rehearsal, test_media_smoke, audit_props 14/14, preflight_check 29/29 MP4s w/ audio)",
+    "W1-V2-07: Added regression test suite test_v2_infinite_sculpture.py (30s >150-frame throw peak, everyday drink/snack/laptop SI scaling, conditional catch_from_camera/throw_arc vs default place prompting, fast_live_mode + sculpture freeze, /api/director/extend Scene 5+)",
+    "W1-V2-08: Merged origin/main be92760 (catch_from_camera) cleanly and passed full P2 verification battery after final edit (test_v2_infinite_sculpture, test_webm_prop, test_english_enforced, test_failover_rehearsal, test_media_smoke, audit_props 14/14, preflight_check 29/29 MP4s w/ audio)",
     "W1-V2-B1: Measured live fixed-room dual-cam Scene 2 pair (conservatory_cam_a/b.png + red_umbrella_closed + wooden_chair, CROSS_CAM_THRESHOLD=0.80) -> 5/5 (100.0%) pass@0.80 (mean P=0.8754, room P=0.8875, QA=0.917, 0 retries) -> backend/assets/eval_dual_cam_fixed_room.json",
     "W1-V2-B2: Benchmarked & pre-cached fast_live_mode=True extended Scene 5 (catch_from_camera + showcase_desk_coffee_mug.png + sculpture freeze) -> warm dual-cam 28.16s (parallel ref upload 4.6s vs 13.5s serial = 2.9x faster), QA=0.895, all_passed=true, 0 retries -> backend/assets/eval_fast_live_latency.json",
-    "W1-V2-OPT: Fixed 4 subtle bugs on main — per-key concurrent Files API upload coalescing (-9s cold upload), instant softened retry on fast content_blocked (R-39), _merge_dual_cam_qa 0.0-confidence error scoring, word-boundary SI prop height matching (soda/snack/laptop/chair), and Panel 3 dynamic R-06 Best-of-2 chart sync (49 shots: 81.6% -> 87.8% -> 98.0%)"
+    "W1-V2-OPT: Fixed 5 subtle bugs on main — per-key concurrent Files API upload coalescing (-9s cold upload), instant softened retry on fast content_blocked (R-39), _merge_dual_cam_qa 0.0-confidence error scoring, word-boundary SI prop height matching (soda/snack/laptop/chair), and Panel 3 dynamic R-06 Best-of-2 chart sync (49 shots: 81.6% -> 87.8% -> 98.0%)"
   ],
   "w1_v2_summary": {
     "props_audited_zero_halo": "14/14",
@@ -171,7 +171,9 @@
     "stage_room_refs": ["backend/assets/stages/conservatory_cam_a.png", "backend/assets/stages/conservatory_cam_b.png"],
     "isolated_stage_props": ["red_umbrella_closed.png", "red_umbrella_open.png", "wooden_chair.png"],
     "webm_throw_peak_max_frames": 1200,
-    "cross_cam_threshold": 0.8
+    "cross_cam_threshold": 0.8,
+    "conditional_catch_from_camera_prompt": true,
+    "everyday_item_heights_m": {"soda_can_drink": 0.13, "snack_bag": 0.20, "laptop": 0.28}
   },
   "w1_v2_b1_fixed_room_consistency": {
     "report_file": "backend/assets/eval_dual_cam_fixed_room.json",
@@ -206,5 +208,5 @@
     ]
   },
   "blockers": [],
-  "last_updated": "2026-11-21T15:24:00-05:00"
+  "last_updated": "2026-11-21T15:27:00-05:00"
 }

@@ -1,36 +1,34 @@
 /**
- * Director Input Dock (Zone 3 of the first view, pinned at the bottom).
+ * Minimal Voice + Text Director Prompt Bar (W2-V2-01 / W2-V2-04).
  *
  * Feature & Use Cases:
- * - One bar with a compact scene selector, a wide text field, and three
- *   clearly separate controls: "Direct" (send the typed rewrite), "Hold to
- *   talk" (press and hold to record up to 3 seconds of camera + microphone)
- *   and "Show an object" (snap a physical prop with the camera and place it).
- * - Example prompts live in a small "Examples" popover; choosing one fills the
- *   text field so it is sent through the same live rewrite path.
- * - Hosts the inline contradiction confirmation and camera/microphone hints.
+ * - Keeps the bottom input dock effortless and uncluttered: a subtle `Next S(N+1)`
+ *   indicator, one wide open prompt field, "Direct" (send typed prompt),
+ *   "Hold to talk" (press and hold up to 3s of camera + microphone), and a quick
+ *   "Throw Object" button wired to the persistent bottom-right Self-View camera.
+ * - Preserves rock-solid hold-to-record guards (`holdBusyRef`, window release
+ *   listeners, `MIN_CLIP_MS = 1000`, never attaching stale text to a voice clip).
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { IconCamera, IconClapper, IconClose, IconList, IconMic } from './Icons';
+import { IconCamera, IconClapper, IconClose, IconMic } from './Icons';
 
 export type PropPlacement = 'table' | 'held' | 'floor';
 
 interface DirectControlBarProps {
-  targetSceneId: number;
-  onTargetSceneChange: (sceneId: number) => void;
+  /** Current anchor scene the next prompt continues from (`from_scene_id`). */
+  currentSceneId: number;
+  /** True when the user rewound earlier than the tail scene (will branch cleanly). */
+  isRewound?: boolean;
   submitting: boolean;
   creatingProp?: boolean;
+  throwOpen?: boolean;
   contradictionWarning: string | null;
   cleanCaptureMode?: boolean;
   onDismissContradiction?: () => void;
   onForceRewrite?: () => void;
-  onCreateProp?: (opts: {
-    name: string;
-    imageBlob?: Blob | null;
-    placement: PropPlacement;
-  }) => void;
-  /** Resolves to true only when a new branch was actually added. */
-  onSubmitFork: (opts: {
+  onOpenThrowCamera?: () => void;
+  /** Resolves to true only when the backend accepted and applied the prompt. */
+  onSubmitPrompt: (opts: {
     clip?: Blob | null;
     text?: string;
     confirmContradiction?: boolean;
@@ -89,57 +87,26 @@ function pickRecorderMime(hasVideo: boolean): string | undefined {
   return candidates.find((m) => MediaRecorder.isTypeSupported(m));
 }
 
-const DEMO_PROMPTS: Array<{ sceneId: number; label: string; text: string }> = [
-  {
-    sceneId: 2,
-    label: 'Starlight gift',
-    text: 'In Scene 2, Lia sets down her red umbrella and gently offers a glowing starlight token to soothe Nyx so the crystal vase stays intact.',
-  },
-  {
-    sceneId: 2,
-    label: 'Umbrella guard',
-    text: 'In Scene 2, Lia blocks the table with her red umbrella to protect the crystal vase from falling.',
-  },
-  {
-    sceneId: 3,
-    label: 'Golden snow',
-    text: 'In Scene 3, shift the conservatory lighting to warm golden snow as Nyx hops gently beside Lia.',
-  },
-  {
-    sceneId: 3,
-    label: 'Contradiction test',
-    text: 'In Scene 3, Lia picks up the completely unbroken crystal vase from the table and hands it to Nyx.',
-  },
-];
-
 export const DirectControlBar: React.FC<DirectControlBarProps> = ({
-  targetSceneId,
-  onTargetSceneChange,
+  currentSceneId,
+  isRewound = false,
   submitting,
   creatingProp = false,
+  throwOpen = false,
   contradictionWarning,
-  cleanCaptureMode = false,
   onDismissContradiction,
   onForceRewrite,
-  onCreateProp,
-  onSubmitFork,
+  onOpenThrowCamera,
+  onSubmitPrompt,
 }) => {
   const [text, setText] = useState('');
   const [recording, setRecording] = useState(false);
   const [remainingMs, setRemainingMs] = useState(MAX_CLIP_MS);
   const [holdHint, setHoldHint] = useState<string | null>(null);
-  const [examplesOpen, setExamplesOpen] = useState(false);
   const textInputRef = useRef<HTMLInputElement | null>(null);
   const [audioLevel, setAudioLevel] = useState(0);
   const [camError, setCamError] = useState<string | null>(null);
-  const [propPanelOpen, setPropPanelOpen] = useState(false);
-  const [propName, setPropName] = useState('Starlight Shield');
-  const [propPlacement, setPropPlacement] = useState<PropPlacement>('table');
-  const [capturedPropBlob, setCapturedPropBlob] = useState<Blob | null>(null);
-  const [capturedPropPreviewUrl, setCapturedPropPreviewUrl] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const propVideoRef = useRef<HTMLVideoElement | null>(null);
-  const propStreamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<number | null>(null);
@@ -150,119 +117,6 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
   const holdBusyRef = useRef(false);
   const holdReleasedRef = useRef(false);
   const recordStartedAtRef = useRef(0);
-
-  const clearCapturedProp = () => {
-    if (capturedPropPreviewUrl) {
-      URL.revokeObjectURL(capturedPropPreviewUrl);
-    }
-    setCapturedPropBlob(null);
-    setCapturedPropPreviewUrl(null);
-  };
-
-  const stopPropCam = () => {
-    if (propStreamRef.current) {
-      propStreamRef.current.getTracks().forEach((t) => t.stop());
-      propStreamRef.current = null;
-    }
-    if (propVideoRef.current) {
-      propVideoRef.current.srcObject = null;
-    }
-  };
-
-  const startPropCam = async () => {
-    setCamError(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false,
-      });
-      propStreamRef.current = stream;
-      window.setTimeout(() => {
-        if (propVideoRef.current) {
-          propVideoRef.current.srcObject = stream;
-        }
-      }, 60);
-    } catch (err) {
-      const name = (err as { name?: string } | null)?.name;
-      setCamError(
-        name === 'NotAllowedError'
-          ? 'Camera permission was denied — allow access, or enter a prop name to generate via text.'
-          : 'Camera unavailable — enter a prop name to generate via text.',
-      );
-    }
-  };
-
-  const handleTogglePropPanel = async () => {
-    setExamplesOpen(false);
-    if (propPanelOpen) {
-      stopPropCam();
-      clearCapturedProp();
-      setPropPanelOpen(false);
-      return;
-    }
-    setPropPanelOpen(true);
-    clearCapturedProp();
-    await startPropCam();
-  };
-
-  const handleSnapPropPreview = () => {
-    const videoEl = propVideoRef.current;
-    if (videoEl && videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
-      const canvas = document.createElement('canvas');
-      canvas.width = videoEl.videoWidth;
-      canvas.height = videoEl.videoHeight;
-      const ctx = canvas.getContext('2d');
-      ctx?.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob((blob) => {
-        if (!blob) return;
-        clearCapturedProp();
-        setCapturedPropBlob(blob);
-        setCapturedPropPreviewUrl(URL.createObjectURL(blob));
-      }, 'image/png');
-    }
-  };
-
-  const handleSubmitProp = () => {
-    if (!onCreateProp || !propName.trim() || creatingProp) return;
-    if (capturedPropBlob) {
-      onCreateProp({
-        name: propName.trim(),
-        imageBlob: capturedPropBlob,
-        placement: propPlacement,
-      });
-      stopPropCam();
-      clearCapturedProp();
-      setPropPanelOpen(false);
-      return;
-    }
-    const videoEl = propVideoRef.current;
-    if (videoEl && videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
-      const canvas = document.createElement('canvas');
-      canvas.width = videoEl.videoWidth;
-      canvas.height = videoEl.videoHeight;
-      const ctx = canvas.getContext('2d');
-      ctx?.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob((blob) => {
-        onCreateProp({
-          name: propName.trim(),
-          imageBlob: blob,
-          placement: propPlacement,
-        });
-        stopPropCam();
-        clearCapturedProp();
-        setPropPanelOpen(false);
-      }, 'image/png');
-    } else {
-      onCreateProp({
-        name: propName.trim(),
-        imageBlob: null,
-        placement: propPlacement,
-      });
-      stopPropCam();
-      clearCapturedProp();
-      setPropPanelOpen(false);
-    }
-  };
 
   const stopStream = () => {
     if (timerRef.current !== null) {
@@ -407,7 +261,7 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
         return;
       }
       // A recorded clip is sent on its own: text box content is never attached
-      void onSubmitFork({ clip: new Blob(chunks, { type: blobType }) });
+      void onSubmitPrompt({ clip: new Blob(chunks, { type: blobType }) });
     };
 
     recordStartedAtRef.current = Date.now();
@@ -440,7 +294,6 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
         recorder.stop();
       }
       streamRef.current?.getTracks().forEach((t) => t.stop());
-      propStreamRef.current?.getTracks().forEach((t) => t.stop());
       audioCtxRef.current?.close().catch(() => {});
       detachReleaseListeners();
     };
@@ -449,7 +302,8 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
   const handleTextSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!text.trim() || submitting) return;
-    const ok = await onSubmitFork({ text });
+    const submittedText = text.trim();
+    const ok = await onSubmitPrompt({ text: submittedText });
     if (ok) setText('');
   };
 
@@ -472,10 +326,10 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
             onClick={() =>
               onForceRewrite
                 ? onForceRewrite()
-                : onSubmitFork({ text, confirmContradiction: true })
+                : onSubmitPrompt({ text, confirmContradiction: true })
             }
           >
-            Force rewrite
+            Force continue
           </button>
         </div>
       )}
@@ -523,122 +377,17 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
         </div>
       )}
 
-      {examplesOpen && !cleanCaptureMode && (
-        <div className="dock-pop" role="dialog" aria-label="Example rewrites">
-          <div className="examples-list">
-            {DEMO_PROMPTS.map((preset, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => {
-                  setText(preset.text);
-                  onTargetSceneChange(preset.sceneId);
-                  setExamplesOpen(false);
-                  textInputRef.current?.focus();
-                }}
-              >
-                <small>
-                  Scene {preset.sceneId} · {preset.label}
-                </small>
-                {preset.text}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {propPanelOpen && (
-        <div className="dock-pop row" role="dialog" aria-label="Show an object to the camera">
-          <video
-            ref={propVideoRef}
-            className="webcam-pip mirrored"
-            style={{ display: capturedPropPreviewUrl ? 'none' : 'block' }}
-            autoPlay
-            muted
-            playsInline
-          />
-          {capturedPropPreviewUrl && (
-            <img src={capturedPropPreviewUrl} alt="Captured object snapshot" className="webcam-pip" />
-          )}
-          <input
-            type="text"
-            className="text-input"
-            style={{ maxWidth: 200 }}
-            value={propName}
-            onChange={(e) => setPropName(e.target.value)}
-            placeholder="Name this object"
-            aria-label="Object name"
-          />
-          <div className="placement-chips" role="group" aria-label="Where to place it">
-            {(
-              [
-                { id: 'table', label: 'Table' },
-                { id: 'held', label: 'Held' },
-                { id: 'floor', label: 'Floor' },
-              ] as Array<{ id: PropPlacement; label: string }>
-            ).map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                className={`pill-btn subtle ${propPlacement === opt.id ? 'active' : ''}`}
-                onClick={() => setPropPlacement(opt.id)}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-          {!capturedPropPreviewUrl ? (
-            <button
-              type="button"
-              className="pill-btn"
-              onClick={handleSnapPropPreview}
-              disabled={creatingProp}
-            >
-              Snap
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="pill-btn"
-              onClick={clearCapturedProp}
-              disabled={creatingProp}
-            >
-              Retake
-            </button>
-          )}
-          <button
-            type="button"
-            className="dock-btn primary"
-            onClick={handleSubmitProp}
-            disabled={creatingProp || !propName.trim()}
-          >
-            {creatingProp ? 'Creating' : 'Place on stage'}
-          </button>
-          <button
-            type="button"
-            className="icon-btn"
-            aria-label="Close"
-            title="Close"
-            onClick={handleTogglePropPanel}
-          >
-            <IconClose />
-          </button>
-        </div>
-      )}
-
       <form className="dock-row" onSubmit={handleTextSubmit}>
-        <select
-          className="dock-scene"
-          value={targetSceneId}
-          onChange={(e) => onTargetSceneChange(Number(e.target.value))}
-          aria-label="Scene to rewrite"
-          title="Scene to rewrite"
+        <span
+          className={`dock-scene-pill ${isRewound ? 'rewound' : ''}`}
+          title={
+            isRewound
+              ? `Rewound to Scene ${currentSceneId}: next prompt branches into Scene ${currentSceneId + 1}`
+              : `Continuing seamlessly into Scene ${currentSceneId + 1}`
+          }
         >
-          <option value={1}>Scene 1</option>
-          <option value={2}>Scene 2</option>
-          <option value={3}>Scene 3</option>
-          <option value={4}>Scene 4</option>
-        </select>
+          {isRewound ? `Branch S${currentSceneId + 1}` : `Next S${currentSceneId + 1}`}
+        </span>
 
         <div className="dock-field">
           <input
@@ -646,28 +395,16 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
             type="text"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Type what should change…"
-            aria-label="What should change"
+            placeholder="Speak or type what happens next… (or toss an object into your camera)"
+            aria-label="Direct the next scene"
           />
-          {!cleanCaptureMode && (
-            <button
-              type="button"
-              className={`icon-btn ${examplesOpen ? 'on' : ''}`}
-              aria-label="Examples"
-              aria-expanded={examplesOpen}
-              title="Examples"
-              onClick={() => setExamplesOpen((v) => !v)}
-            >
-              <IconList />
-            </button>
-          )}
         </div>
 
         <button
           type="submit"
           className="dock-btn primary"
           disabled={submitting || !text.trim()}
-          title="Rewrite the story from the selected scene"
+          title="Continue the story from the current scene"
         >
           <IconClapper />
           <span>{submitting ? 'Working' : 'Direct'}</span>
@@ -678,7 +415,6 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
           className={`dock-btn ${recording ? 'recording' : ''}`}
           onPointerDown={(e) => {
             if (e.button !== 0) return;
-            setExamplesOpen(false);
             void handleStartHold();
           }}
           onKeyDown={(e) => {
@@ -705,17 +441,17 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
           <span>{recording ? `${(remainingMs / 1000).toFixed(1)}s` : 'Hold to talk'}</span>
         </button>
 
-        {onCreateProp && (
+        {onOpenThrowCamera && (
           <button
             type="button"
-            className={`dock-btn ${propPanelOpen ? 'on' : ''}`}
-            onClick={handleTogglePropPanel}
+            className={`dock-btn ${throwOpen ? 'on' : ''}`}
+            onClick={onOpenThrowCamera}
             disabled={creatingProp}
-            aria-expanded={propPanelOpen}
-            title="Hold an object up to the camera and place it on the stage"
+            aria-pressed={throwOpen}
+            title="Toss a real object (drink, snack, mug, laptop) into your bottom-right camera (Alt+T)"
           >
             <IconCamera />
-            <span>{creatingProp ? 'Creating' : 'Show an object'}</span>
+            <span>{creatingProp ? 'Creating' : 'Throw Object'}</span>
           </button>
         )}
       </form>

@@ -371,7 +371,13 @@ def _umbrella_is_open(scene: Scene) -> bool:
     return bool(_UMBRELLA_OPEN_CUES.search(f"{scene.title} {scene.narration}"))
 
 
-def _describe_prop_with_scale(prop_id: str, state: str = "intact", on_floor: bool = False, opened: bool = False) -> str:
+def _describe_prop_with_scale(
+    prop_id: str,
+    state: str = "intact",
+    on_floor: bool = False,
+    opened: bool = False,
+    entry_motion: str = "place",
+) -> str:
     """Return a concise, physically anchored natural description with relative SI scale ratios."""
     if prop_id == "red_umbrella":
         if on_floor:
@@ -389,6 +395,8 @@ def _describe_prop_with_scale(prop_id: str, state: str = "intact", on_floor: boo
             else "ONE single intact clear crystal vase (~0.32m tall, ~42% of table height) holding ONE glowing blue rose resting squarely on the center round table"
         )
     if prop_id == "star_token":
+        if entry_motion == "throw_arc":
+            return "ONE single small palm-sized (~0.10m, fits inside one hand) glowing golden star keepsake flying in along an incoming throw arc from the front camera"
         return "ONE single small palm-sized (~0.10m, fits inside one hand) glowing golden star keepsake"
     h_m = estimate_prop_height_m(prop_id)
     table_pct = max(8, min(140, int(round((h_m / 0.75) * 100))))
@@ -397,11 +405,14 @@ def _describe_prop_with_scale(prop_id: str, state: str = "intact", on_floor: boo
         if h_m <= 0.12
         else ("compact tabletop object" if h_m <= 0.25 else "medium stage prop")
     )
-    loc = (
-        "held naturally in hand"
-        if state == "held"
-        else ("resting flat on the floor with contact shadow" if on_floor else "resting squarely on the center round table with contact shadow")
-    )
+    if entry_motion == "throw_arc" and state != "held":
+        loc = "entering along an incoming throw arc from the front camera before settling onto the table or floor"
+    elif state == "held":
+        loc = "held naturally in hand"
+    elif on_floor:
+        loc = "resting flat on the floor with contact shadow"
+    else:
+        loc = "resting squarely on the center round table with contact shadow"
     return f"ONE single {prop_id.replace('_', ' ')} ({size_cue}, ~{h_m:.2f}m tall / ~{table_pct}% of table height, {loc}, state={state})"
 
 
@@ -610,12 +621,17 @@ def _build_shot_prompt(
 
     prop_phrases: list[str] = []
     seen_props: set[str] = set()
+    has_catch_action = any(a.action == "catch_from_camera" for a in scene.actors)
+    has_throw_arc_prop = any(getattr(p, "entry_motion", "place") == "throw_arc" for p in scene.stage_props)
     for p in scene.stage_props:
         if p.id in held_prop_ids or p.id in seen_props:
             continue
         seen_props.add(p.id)
         blocking = _grid_to_blocking(p.grid)
-        prop_phrases.append(f"{_describe_prop_with_scale(p.id, state=p.state, on_floor=p.on_floor)} ({blocking})")
+        prop_entry = getattr(p, "entry_motion", "place")
+        prop_phrases.append(
+            f"{_describe_prop_with_scale(p.id, state=p.state, on_floor=p.on_floor, entry_motion=prop_entry)} ({blocking})"
+        )
 
     safe_narration = _milden_safety_phrasing(scene.narration)
     parts = [
@@ -635,16 +651,6 @@ def _build_shot_prompt(
         parts.append("Characters: " + "; ".join(actor_phrases) + ".")
     if prop_phrases:
         parts.append("Stage props: " + "; ".join(prop_phrases) + ".")
-    # Only prompt forward camera grab when explicitly requested (catch_from_camera / throw_arc);
-    # default props rest naturally on table/floor.
-    has_camera_catch = any(a.action == "catch_from_camera" for a in scene.actors) or any(
-        getattr(p, "entry_motion", "place") == "throw_arc" for p in scene.stage_props
-    )
-    if has_camera_catch:
-        parts.append(
-            "Explicit hand-off/toss beat: Lia leans gracefully forward toward the camera lens with outstretched hand "
-            "to catch or receive the incoming prop from the viewer and interact with it naturally."
-        )
     if scene.environment_notes:
         clean_notes = _milden_safety_phrasing(
             scene.environment_notes.replace("warm_sunlight_streaming", "warm_night_lantern_glow").replace("lush_trees_outside", "dark_night_trees_outside")
@@ -660,6 +666,15 @@ def _build_shot_prompt(
         parts.append("Transform the stage motion from the preview video into rich anime cinema style while preserving exact character placement.")
     else:
         parts.append("Match character and prop designs strictly to the provided reference images, with ZERO extra unintended characters.")
+
+    if has_catch_action or has_throw_arc_prop:
+        parts.append(
+            "Explicit toss/hand-off choreography: ONLY when explicitly handed/tossed to her — Lia leans toward the camera to catch the flying item out of mid-air, then naturally interacts with it."
+        )
+    elif prop_phrases:
+        parts.append(
+            "Default prop placement: keep all newly placed stage props resting naturally on the round center table or conservatory floor without characters reaching toward the camera."
+        )
 
     if getattr(scene, "end_freeze_mode", "none") == "sculpture":
         parts.append(

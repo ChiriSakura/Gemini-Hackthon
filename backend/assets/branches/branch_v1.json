@@ -36,6 +36,8 @@
       "environment_notes": "rain_streaked_glass_dome glowing_blue_rose crystal_vase round_wooden_table warm_wall_lanterns herringbone_parquet_floor potted_corner_plant night_city_skyline",
       "needs_rerender": false,
       "reused_from_branch": null,
+      "end_freeze_mode": "sculpture",
+      "parent_scene_id": null,
       "actors": [
         {
           "id": "lia",
@@ -72,7 +74,9 @@
             1.0
           ],
           "on_floor": false,
-          "state": "intact"
+          "state": "intact",
+          "entry_motion": "place",
+          "entry_origin": null
         }
       ],
       "qa_questions": [
@@ -205,6 +209,8 @@
       "environment_notes": "shattered_glass_vase water_puddles scattered_blue_petals wet_tiled_floor rain_streaked_windows moonlight_reflections closed_red_umbrella",
       "needs_rerender": false,
       "reused_from_branch": null,
+      "end_freeze_mode": "sculpture",
+      "parent_scene_id": null,
       "actors": [
         {
           "id": "lia",
@@ -241,7 +247,9 @@
             1.2
           ],
           "on_floor": true,
-          "state": "broken"
+          "state": "broken",
+          "entry_motion": "place",
+          "entry_origin": null
         }
       ],
       "qa_questions": [
@@ -374,6 +382,8 @@
       "environment_notes": "floor_water_puddles broken_glass_vase shattered_glass_shards fallen_blue_roses scattered_blue_petals rain_streaked_windows empty_round_table moonlit_floor_reflections closed_red_umbrella",
       "needs_rerender": false,
       "reused_from_branch": null,
+      "end_freeze_mode": "sculpture",
+      "parent_scene_id": null,
       "actors": [
         {
           "id": "lia",
@@ -410,7 +420,9 @@
             1.2
           ],
           "on_floor": true,
-          "state": "broken"
+          "state": "broken",
+          "entry_motion": "place",
+          "entry_origin": null
         }
       ],
       "qa_questions": [
@@ -530,6 +542,8 @@
       "environment_notes": "shattered_glass_shards scattered_blue_petals fallen_blue_rose rain_streaked_windows wet_reflective_floor moonlight_floor_spotlight empty_round_table full_moon_overhead",
       "needs_rerender": false,
       "reused_from_branch": null,
+      "end_freeze_mode": "sculpture",
+      "parent_scene_id": null,
       "actors": [
         {
           "id": "lia",
@@ -566,7 +580,9 @@
             1.2
           ],
           "on_floor": true,
-          "state": "broken"
+          "state": "broken",
+          "entry_motion": "place",
+          "entry_origin": null
         }
       ],
       "qa_questions": [

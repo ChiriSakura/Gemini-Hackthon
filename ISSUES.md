@@ -217,8 +217,8 @@
 
 | 编号 | 优先级 | 问题 | 原因 / 位置 | 建议修法 | 状态 |
 |---|---|---|---|---|---|
-| B-01 | P0 | R-18/R-19/30s 投掷抽帧截断：顺序读 `.webm` 上限 150 帧（5s），且异常占位未标注退化状态 | `prop_maker.py` 150 帧截断 & 默认 `state="intact"` | 放宽至 `1200` 帧（30s）、实现 `_detect_throw_peak_frame_idx()` 峰值抽帧、返回 `degraded_fallback`/`mock_placeholder` | 已修（`W1-V2-01`） |
-| B-02 | P0 | R-06/R-39/R-40 路演数字同步、暗边裁剪与 10–20s 续演模式 | `build_press_kit.py` 口播数字、`video_renderer.py` 无单拍模式与起始黑边裁切 | 同步 `80.9% -> 87.2% -> 97.9%` & `0.95 calib`、增加 `fast_live_mode` / `sculpture` 尾帧提示与 `_trim_dark_borders_sync` | 已修（`W1-V2-02`、`W1-V2-04`、`W1-V2-05`、`W1-V2-07`） |
+| B-01 | P0 | R-18/R-19/30s 投掷抽帧截断：顺序读 `.webm` 上限 150 帧（5s），且异常占位未标注退化状态 | `prop_maker.py` 150 帧截断 & 默认 `state="intact"` | 放宽至 `1200` 帧（30s）、实现 `_detect_throw_peak_frame_idx()` 峰值抽帧与日常物品（`drink`/`snack`/`laptop`）身高表、返回 `degraded_fallback`/`mock_placeholder` | 已修（`W1-V2-01`） |
+| B-02 | P0 | R-06/R-39/R-40/接物动作：路演数字同步、暗边裁剪、10–20s 续演与条件化 `catch_from_camera` | `build_press_kit.py` 口播数字、`video_renderer.py` 默认平放 vs 显式抛投接取 | 同步 `80.9% -> 87.2% -> 97.9%` & `0.95 calib`、增加 `fast_live_mode` / `sculpture` 尾帧提示、`_trim_dark_borders_sync` 及 `catch_from_camera`/`throw_arc` 条件抓取引导 | 已修（`W1-V2-02`、`W1-V2-04`、`W1-V2-05`、`W1-V2-07`） |
 
 ### P3（worker-2，前缀 C-）
 

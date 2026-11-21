@@ -3,45 +3,8 @@
   "branch": "feat/w2-frontend",
   "pull_main_first": true,
   "batch_deadline": "16:25",
-  "feature_freeze": false,
+  "feature_freeze": true,
   "owned_paths": ["frontend/**", "tasks/status_P3.json"],
-  "note": "CRITICAL PRODUCT DIRECTION UPDATE (15:06): (1) CUT OVERDESIGN — NO prominent BE/HE badges, NO sprawling preset branches or busy widgets; (2) Main layout: big central 2D Anime Stage + clean bottom Voice/Text Prompt Bar + PERSISTENT bottom-right live Camera Self-View window; (3) PROP PLACEMENT RULE: By default, newly captured objects spawn cleanly on the TABLE or FLOOR (`entry_motion='place'`). ONLY trigger `'catch_from_camera'` + `'throw_arc'` when the user EXPLICITLY says they are handing/tossing an item to Lia/you! Pull origin/main FIRST!",
-  "parallel_tasks": [
-    {
-      "task_id": "W2-V2-01",
-      "priority": "P0",
-      "title": "Strip Overdesign & Simplify Home Layout: Anime Stage Hero + Voice/Text Bar + No BE/HE Clutter",
-      "details": "In `frontend/src/App.tsx`, `StoryBranchTree.tsx`, `DualCameraStage.tsx`, and `DirectControlBar.tsx`: (1) Remove/hide all prominent `BE` / `HE` badges, preset comparison buttons, and 4-branch preset pills from the main canvas (keep the underlying cached starter canvas clean, and tuck saved examples/Eval/Compare inside the single overflow menu for optional inspection only); (2) Keep the main screen dead simple: the large Anime Stage (`object-fit: contain`, zero crop `R-25`), a ultra-compact bottom-rail timeline pill (`S1 -> S2 -> ...`, collapsible), and one sleek Voice + Text Prompt input bar."
-    },
-    {
-      "task_id": "W2-V2-02",
-      "priority": "P0",
-      "title": "Persistent Bottom-Right Live Self-View Camera Window (`Camera Self-View PiP` + Default Place vs Explicit Toss)",
-      "details": "In `DirectControlBar.tsx` / `App.tsx`: render a clean, persistent **bottom-right live Camera Self-View PiP window** (`200–240px` wide rounded glass card, mirrored `scaleX(-1)`, gracefully collapsible). Default captured physical props use `entry_motion='place'` onto the table or floor (`grid` on table/floor). ONLY when user clicks Toss-To-Lia or prompt explicitly hands/tosses an item (`needs_prop_prompt` or hand-off wording) activate the 30s throw countdown + `entry_motion='throw_arc'` + `action='catch_from_camera'`."
-    },
-    {
-      "task_id": "W2-V2-03",
-      "priority": "P0",
-      "title": "Conditional Forward Grab (`catch_from_camera`), Default Table/Floor Placement, 3D Throw Arc & Sculpture Freeze",
-      "details": "In `frontend/src/stage/ThreeStageManager.ts`: (1) Default new props to render resting cleanly on the table or floor (`entry_motion='place'`, Lia stays in normal pose); (2) ONLY when `actor.action === 'catch_from_camera'` (or `prop.entry_motion === 'throw_arc'`), animate Lia leaning forward toward the front camera to catch the flying 3D parabolic prop via `spawnThrownPropAnimation()`; (3) Implement `setSculptureFrozen(frozen)` pausing idle/particle motion with subtle silver sculpture tint after each scene until the next prompt unfreezes it."
-    },
-    {
-      "task_id": "W2-V2-04",
-      "priority": "P0",
-      "title": "Wire `/api/director/perceive` (~2s Heard/Saw), `/api/director/extend` (Unbounded Open Prompt), & `fast_live_mode=true` (`R-11/R-21/R-39`)",
-      "details": "Update `frontend/src/api/stageClient.ts` & `App.tsx`: (1) Send voice/text input to `POST /api/director/perceive` first so Heard/Saw cues appear within ~2s (and trigger the Throw-In camera prompt automatically if `needs_prop_prompt=true`); (2) Call `POST /api/director/extend` to freely generate `Scene N+1` (`1, 2, 3... ∞`) from the current frozen stage without preset plot limits; (3) Render with `fast_live_mode=true` (10–20s unfreeze) and surface explicit `'content_blocked, retrying'` or `'Open a saved run'` notices cleanly."
-    },
-    {
-      "task_id": "W2-V2-05",
-      "priority": "P0",
-      "title": "Fix 2.5D Prop Fidelity: Standalone Umbrella/Chair Sprites, Foot-Bottom Anchoring, & Clean Hotkeys (`R-12/24/26/33`)",
-      "details": "In `ThreeStageManager.ts` & `App.tsx`: (1) Render isolated `red_umbrella_closed.png` / `open.png` & `wooden_chair.png` (once P2/public has them) with bottom-center foot anchoring (`center=(0.5, 0)`) and optional `height_m` scaling (`R-12`, `R-24`); (2) Keep `MOCK` badge always visible even in clean mode and guard global shortcuts with `Alt+` (`R-33`); (3) Keep `Reset Stage` non-destructive cleanly (`R-26`)."
-    },
-    {
-      "task_id": "W2-V2-06",
-      "priority": "P0",
-      "title": "Sync `types/schema.ts` (`catch_from_camera`, `scene_id>=1`, `throw_arc`, `sculpture`), `verify-locale`, & `npm run verify`",
-      "details": "Update `frontend/src/types/schema.ts` & `test_stage_helpers.mjs` for `'catch_from_camera'`, `scene_id >= 1`, `end_freeze_mode`, `entry_motion`, run `npm run verify` (6/6 gates green, 0 CJK UI leaks!), test live bottom-right camera self-view + prop throw + extend, and update `ISSUES.md` & `tasks/status_P3.json`."
-    }
-  ]
+  "note": "Master merged bc45bde cleanly into origin/main (all 6/6 `npm run verify` gates green!). W2-V3-01..03 are complete. Only stay on standby for final rehearsal tweaks or optional latency/toast polish while P2 lands W1-V3-01..04.",
+  "parallel_tasks": []
 }

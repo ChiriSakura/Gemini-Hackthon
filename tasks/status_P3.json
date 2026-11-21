@@ -1,34 +1,31 @@
 {
   "agent": "P3_frontend",
   "branch": "feat/w2-frontend",
-  "current_milestone": "T12_CROSS_PLATFORM_VERIFY_LOCKED",
-  "status": "feature_freeze_verified_100pct_ready_for_pitch",
-  "feature_freeze_verified": true,
+  "current_milestone": "V3_PROP_FIDELITY_AND_STRICT_PLACE_VS_TOSS_COMPLETE",
+  "status": "v3_complete_6_of_6_gates_green_ready_for_master_merge",
+  "feature_freeze_verified": false,
   "capture_stream_mode": "webm_with_png_fallback",
   "auto_poll_enabled": true,
   "bundle_metrics": {
-    "build_time_ms": 610,
-    "app_js_kb": 99.42,
-    "app_js_gzip_kb": 28.64,
-    "app_css_kb": 13.37,
+    "build_time_ms": 668,
+    "app_js_kb": 140.40,
+    "app_js_gzip_kb": 41.90,
+    "app_css_kb": 39.52,
     "react_vendor_kb": 140.87,
     "three_vendor_kb": 486.78,
     "cjk_ui_hits": 0,
+    "source_files_scanned": 19,
     "cached_branches_verified": 4,
     "referenced_assets_verified": 13,
     "submission_and_desk_assets_verified": 9,
-    "smoke_preview_http_200_endpoints": 10
+    "smoke_preview_http_200_endpoints": 13
   },
   "completed_items": [
-    "W2-T11A: Added combined `npm run verify` script in frontend/package.json chaining tsc, vite build, verify-locale.mjs, verify_frontend.mjs, and test_stage_helpers.mjs",
-    "W2-T11B: Mirrored star_token.png into frontend/public/assets/props/ alongside crystal_vase.png and crystal_vase_broken.png for 100% real transparent PNG offline 2.5D rendering across all 4 branches",
-    "W2-T11C: Added frontend/scripts/smoke_preview.mjs spawning `vite preview --port 4173` and asserting HTTP 200 OK for /, lia.png, crystal_vase_broken.png, and star_token.png with clean shutdown",
-    "W2-T11D: Executed `npm run verify` + `node scripts/smoke_preview.mjs` (100% PASS, zero UI component edits) and locked `feature_freeze_verified: true`",
-    "W2-T12A: Fixed Windows Node v24 `spawn EINVAL` in frontend/scripts/smoke_preview.mjs by spawning `process.execPath` with `node_modules/vite/bin/vite.js` directly (no `npx.cmd` or `shell: true`)",
-    "W2-T12B: Verified stage_concept_split.png & mirrored showcase_desk_{brass_key,coffee_mug,paper_heart}.png under frontend/public/assets/props/, extending smoke_preview.mjs ENDPOINTS to assert HTTP 200 across all 10 offline paths",
-    "W2-T12C: Chained `node scripts/smoke_preview.mjs` directly into `npm run verify` in frontend/package.json (all 6 gates in 1 command)",
-    "W2-T12D: Re-ran full `npm run verify` cleanly (6/6 gates PASS, 10/10 HTTP 200 OK, zero UI component edits) and locked tasks/status_P3.json"
+    "W2-V2-01..06: Completed Living Sculpture V2 layout, persistent bottom-right Self-View Camera, conditional catch_from_camera + 3D throw-arc + sculpture freeze, perceive/extend/fast_live_mode wiring, standalone umbrella/chair PNGs, foot-bottom anchoring, Alt-guarded hotkeys, and EvalModal /api/eval/summary hydration",
+    "W2-V3-01: Locked default `placement='table'` (`entry_motion='place'`) in CameraSelfView.tsx with explicit `Rest on Table` / `Rest on Floor` / `Hand / Toss to Lia` chips (auto-selecting `held`/`throw_arc` ONLY when `promptedByStory && /hand|give|toss|throw|catch/i.test(throwHint)`), and gated `catch_from_camera` in App.tsx strictly on `payload.entryMotion === 'throw_arc'`",
+    "W2-V3-02: Added `PropRegistryItem.appearance_summary` in schema.ts, preserved & CJK-stripped `appearance_summary` in stageClient.ts `createStageProp()`, displayed `Captured prop matched: <appearance_summary>` in App.tsx, and appended `<prop_id>: <appearance_summary>` to `scene.environment_notes` across scenes >= currentSceneId",
+    "W2-V3-03: Extended test_stage_helpers.mjs with place-vs-throw and mixed-CJK appearance_summary assertions; full `npm run verify` passed 6/6 gates (668ms build, 0 CJK leaks, 13/13 HTTP 200 smoke endpoints)"
   ],
   "blockers": [],
-  "last_updated": "2026-11-21T14:14:35-05:00"
+  "last_updated": "2026-11-21T15:22:35-05:00"
 }
