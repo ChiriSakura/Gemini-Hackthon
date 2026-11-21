@@ -2,69 +2,9 @@
   "worker": "worker-1 (P2)",
   "branch": "feat/w1-media",
   "pull_main_first": true,
-  "batch_deadline": "16:35",
+  "feature_freeze": true,
+  "status": "ALL_COMPLETE_FEATURE_FROZEN_READY_FOR_PITCH",
   "owned_paths": ["backend/media/**", "backend/assets/**", "tasks/status_P2.json"],
-  "note": "Master merged ba54d96 + 7a61f20 (w1-media-opt) + 8ea9e07 (w2-frontend) cleanly! Pre-flight passed 100% (4 cached branches, 28/28 H.264 MP4s, 11 RGBA props, 14 blueprints, 0 CJK). Pull main first, then knock out these remaining 10 T6/T7 submission & verification tasks!",
-  "parallel_tasks": [
-    {
-      "task_id": "W1-T6A",
-      "priority": "P0",
-      "title": "Build 1-Minute Full-Pitch Composite Video (`pitch_demo_reel_1min.mp4`)",
-      "details": "Extend `backend/media/build_demo_reel.py` to assemble a ~52-58s 16:9 showcase MP4 (`backend/assets/finals/pitch_demo_reel_1min.mp4`, H.264 + AAC audio throughout) stitching `hook_10s_dualcam_twist.mp4`, BE vs HE comparison clips, `branch_v3`/`branch_v4` highlights, and `eval_dashboard_12s.mp4`."
-    },
-    {
-      "task_id": "W1-T6D",
-      "priority": "P1",
-      "title": "Cross-Branch Consistency Matrix Across All 4 Cached Branches (`eval_branch_matrix.json`)",
-      "details": "Run `models/gemini-decision-1` across all 4 cached branches (`branch_v1`, `branch_v2_cached`, `branch_v3_starlight_cached`, `branch_v4_umbrella_shield_cached`) verifying object permanence, character consistency, and lighting separation; save matrix report to `backend/assets/eval_branch_matrix.json`."
-    },
-    {
-      "task_id": "W1-T6I",
-      "priority": "P1",
-      "title": "Concurrent `create_prop` + `render_scene_media` Burst Stress Test (`eval_burst_stress.json`)",
-      "details": "Simulate rapid live judge booth usage (`create_prop` followed immediately by `render_scene_media` with asyncio concurrency), verify zero deadlocks or temp-file collisions on Windows Unicode paths, and save latency/QA output to `backend/assets/eval_burst_stress.json`."
-    },
-    {
-      "task_id": "W1-T6J",
-      "priority": "P0",
-      "title": "Master Pre-Freeze Audit Suite (`audit_props` + `audit_audio_codec` + `preflight_check` + `test_media_smoke`)",
-      "details": "Run all 4 verification scripts after completing T6/T7 items, confirm 100% pass across all cached branches, MP4s, audio streams, and prop PNGs, and record updated final counts in `tasks/status_P2.json`."
-    },
-    {
-      "task_id": "W1-T7A",
-      "priority": "P1",
-      "title": "Generate 2.5D Blueprint Anchor Previews for `branch_v3` & `branch_v4` via `stage_blueprint.py`",
-      "details": "Run `backend/media/stage_blueprint.py` across `branch_v3_starlight_cached` and `branch_v4_umbrella_shield_cached` to pre-generate `blueprint_branch_v3_*` and `blueprint_branch_v4_*` previews and refresh `backend/assets/eval_blueprint_anchoring.json`."
-    },
-    {
-      "task_id": "W1-T7B",
-      "priority": "P1",
-      "title": "Live Failover Dry-Run (`corrupt .webm` / PNG Fallback Regression in `eval_failover_rehearsal.json`)",
-      "details": "Create a focused test script verifying that passing an empty/corrupt `.webm` alongside valid `cam_a_start_png` / `cam_b_start_png` never crashes `render_scene_media()` and cleanly falls back; save pass log to `backend/assets/eval_failover_rehearsal.json`."
-    },
-    {
-      "task_id": "W1-T7C",
-      "priority": "P1",
-      "title": "Extend `test_media_smoke.py` for Submission Reels, Storyboard Strip & Desk Props HTTP 200",
-      "details": "Add HTTP 200 assertions in `backend/media/test_media_smoke.py` covering `/assets/finals/demo_comparison_be_vs_he.mp4`, `/assets/showcase_storyboard_strip.png`, `/assets/submission/hook_10s_dualcam_twist.mp4`, `/assets/submission/eval_dashboard_12s.mp4`, and `/assets/props/showcase_desk_*.png`."
-    },
-    {
-      "task_id": "W1-T7D",
-      "priority": "P1",
-      "title": "Non-English Input -> English Prop/Instruction Normalization Smoke Test (`test_english_enforced.py`)",
-      "details": "Write `backend/media/test_english_enforced.py` testing mixed/accented fallback strings through `create_prop()` slugification and `prompts.py` parsing contracts to confirm safe ASCII filenames and zero CJK leakage."
-    },
-    {
-      "task_id": "W1-T7E",
-      "priority": "P2",
-      "title": "Mux Subtle Ambient Audio Track Into `eval_dashboard_12s.mp4` (`28/28` Audio Streams)",
-      "details": "In `backend/media/build_submission_assets.py`: mux a clean low-volume synthesized ambient AAC stereo track into `eval_dashboard_12s.mp4` so 28/28 project MP4s carry uniform H.264 + AAC streams ready for timeline splicing."
-    },
-    {
-      "task_id": "W1-T7F",
-      "priority": "P1",
-      "title": "Export Consolidated `metrics_summary_for_submission.json` for Devpost & Pitch",
-      "details": "Aggregate all verified numbers (`eval_dual_cam_stats`, `calibration_20_clips`, `eval_prop_persistence`, `eval_audio_codec`, `eval_720p_vs_360p`, `eval_cache_savings`, `preflight_report`) into `backend/assets/metrics_summary_for_submission.json`."
-    }
-  ]
+  "note": "Master merged 8e1c808 (W1-T7A..T7F + W1-T6J ALL passed!) and verified ALL 7 backend suites + ALL 6 frontend gates green (28/28 H.264+AAC MP4s, 26/26 blueprints, 11/11 zero-halo RGBA props, 4/4 cached branches HTTP 200 & 0 CJK, 4/4 failover rehearsal). P2 is now FEATURE FROZEN and ready for live booth rehearsal!",
+  "parallel_tasks": []
 }

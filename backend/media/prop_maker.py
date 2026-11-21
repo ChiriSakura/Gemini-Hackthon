@@ -17,6 +17,7 @@ import hashlib
 import io
 import re
 import tempfile
+import unicodedata
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -44,7 +45,8 @@ def _resolve_image_model() -> str:
 def _slugify(name: str) -> str:
     """Create a collision-safe, filesystem-safe prop identifier with deterministic hash suffix."""
     digest = hashlib.sha1(name.encode("utf-8")).hexdigest()
-    slug = re.sub(r"[^a-zA-Z0-9]+", "_", name).strip("_").lower()
+    ascii_folded = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
+    slug = re.sub(r"[^a-zA-Z0-9]+", "_", ascii_folded).strip("_").lower()
     if not slug:
         return f"prop_{digest[:6]}"
     return f"{slug[:40]}_{digest[:4]}"
