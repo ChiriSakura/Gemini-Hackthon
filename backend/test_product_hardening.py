@@ -30,7 +30,10 @@ from backend.media.video_renderer import (
     _action_phrase,
     _build_size_chart,
     _cam_b_blocking,
+    _compose_split_frame_sync,
+    _crop_split_panel_sync,
     _same_view_score,
+    is_browser_h264,
     publish_scene_progress,
     render_scene_media,
 )
@@ -161,6 +164,17 @@ def run_product_hardening_tests() -> None:
         diff_score = _same_view_score(p_a, p_diff)
         assert same_score >= CAM_B_SAME_VIEW_THRESHOLD, f"Expected same>=0.6, got {same_score}"
         assert diff_score < CAM_B_SAME_VIEW_THRESHOLD, f"Expected orbit<0.6, got {diff_score}"
+
+        # 8. Split-screen 1-pass dual-cam composition & bundled-ffmpeg panel crop (Unicode path safe)
+        open_a = config.ASSETS_DIR / "stages" / "opening_cam_a.png"
+        open_b = config.ASSETS_DIR / "stages" / "opening_cam_b.png"
+        assert open_a.is_file() and open_b.is_file(), "Missing opening_cam_a/b.png"
+        split_png = _compose_split_frame_sync(open_a, open_b, Path(tmpdir) / "split_双机位.png")
+        assert split_png.is_file() and split_png.stat().st_size > 50_000
+        sample_mp4 = config.FINALS_DIR / "scene_1_cam_a_f0a5fb.mp4"
+        cropped_left = _crop_split_panel_sync(sample_mp4, False, Path(tmpdir) / "panel_a.mp4")
+        cropped_right = _crop_split_panel_sync(sample_mp4, True, Path(tmpdir) / "panel_b.mp4")
+        assert is_browser_h264(cropped_left) and is_browser_h264(cropped_right)
 
     phases: list[str] = []
     prev_demo = config.DEMO_MODE

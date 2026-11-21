@@ -74,6 +74,7 @@ type ApiStatus = 'checking' | 'live' | 'saved';
 const LIVE_STAGE_LABELS: Record<string, string> = {
   queued: 'queued',
   rendering: 'rendering',
+  rendering_split_screen: 'Dual-Cam split-screen',
   rendering_cam_a: 'Cam A',
   deriving_cam_b_keyframes: 'Cam B keyframes (+45°)',
   rendering_cam_b: 'Cam B',
