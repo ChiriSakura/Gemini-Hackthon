@@ -20,15 +20,18 @@ import asyncio
 import json
 import shutil
 import time
+import uuid
 from pathlib import Path
 from typing import Awaitable, Callable, Optional
 
 import cv2
+import numpy as np
 from google import genai
 from google.genai import types
 
 from backend import config
 from backend.director.hydrogen_judge import judge, score_clip_alignment, write_repair_constraint
+from backend.director.rule_memory import add_rule
 from backend.logger import log_function_call, log_genai_call
 from backend.schemas import BranchState, JudgeItem, JudgeResult, Scene, SceneMedia
 
@@ -47,6 +50,58 @@ EVAL_STATS_PATH = config.ASSETS_DIR / "eval_media_stats.jsonl"
 # In-memory cache mapping resolved local asset path -> (file_uri, mime_type).
 _UPLOAD_CACHE: dict[str, tuple[str, str]] = {}
 _UPLOAD_LOCK = asyncio.Lock()
+
+# In-memory render progress tracker for parallel render progress polling (W1-T3B).
+_RENDER_PROGRESS: dict[str, dict] = {}
+
+
+def is_browser_h264(video_path: Path) -> bool:
+    """Verify an MP4 file uses H.264/avc1 codec natively playable in Chrome <video> tags."""
+    if not video_path.is_file():
+        return False
+    cap = cv2.VideoCapture(str(video_path))
+    if not cap.isOpened():
+        return False
+    try:
+        fourcc_int = int(cap.get(cv2.CAP_PROP_FOURCC))
+        fourcc = "".join(chr((fourcc_int >> (8 * i)) & 0xFF) for i in range(4)).lower()
+        return fourcc in {"h264", "avc1", "x264"}
+    finally:
+        cap.release()
+
+
+def _update_render_progress(
+    branch_id: str,
+    scene_id: int,
+    status: str,
+    qa_score: Optional[float] = None,
+    fallback: Optional[bool] = None,
+) -> None:
+    """Update per-scene progress metadata for a branch render job."""
+    entry = _RENDER_PROGRESS.setdefault(
+        branch_id,
+        {"branch_id": branch_id, "status": "running", "updated_at": time.time(), "scenes": {}},
+    )
+    scene_entry = entry["scenes"].setdefault(str(scene_id), {"scene_id": scene_id, "status": status})
+    scene_entry["status"] = status
+    if qa_score is not None:
+        scene_entry["qa_score"] = qa_score
+    if fallback is not None:
+        scene_entry["fallback_to_preview"] = fallback
+    entry["updated_at"] = round(time.time(), 2)
+
+
+def get_render_progress(branch_id: str) -> dict:
+    """Return latest parallel render progress snapshot for `branch_id` (for FastAPI progress polling)."""
+    entry = _RENDER_PROGRESS.get(branch_id)
+    if not entry:
+        return {"branch_id": branch_id, "status": "idle", "scenes": {}}
+    return entry
+
+
+def list_render_progress() -> dict[str, dict]:
+    """Return all tracked branch render progress snapshots."""
+    return dict(_RENDER_PROGRESS)
 
 
 def _resolve_video_model() -> str:
@@ -551,10 +606,17 @@ async def render_branch_scenes(
     ] + [p.image_url for p in branch.props_registry.values()]
 
     target_scenes = [s for s in branch.scenes if s.needs_rerender]
+    for s in branch.scenes:
+        _update_render_progress(
+            branch.branch_id,
+            s.scene_id,
+            "queued" if s.needs_rerender else "reused",
+        )
 
     async def _run_scene(scene: Scene) -> None:
         # Three-layer consistency rule: anchor on each scene's own 2.5D preview,
         # NEVER chaining from the previous generated clip's tail frame.
+        _update_render_progress(branch.branch_id, scene.scene_id, "rendering")
         scene.media = await render_scene_media(
             scene,
             ref_images,
@@ -562,6 +624,16 @@ async def render_branch_scenes(
             cam_b_preview_path=scene.media.cam_b_preview_url,
             tail_inspector=tail_inspector,
         )
+        _update_render_progress(
+            branch.branch_id,
+            scene.scene_id,
+            "fallback" if scene.media.fallback_to_preview else "done",
+            qa_score=scene.media.qa_score,
+            fallback=scene.media.fallback_to_preview,
+        )
 
     await asyncio.gather(*(_run_scene(s) for s in target_scenes))
+    if branch.branch_id in _RENDER_PROGRESS:
+        _RENDER_PROGRESS[branch.branch_id]["status"] = "completed"
+        _RENDER_PROGRESS[branch.branch_id]["updated_at"] = round(time.time(), 2)
     return branch

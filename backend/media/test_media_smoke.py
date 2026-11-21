@@ -31,23 +31,34 @@ def run_smoke_tests() -> None:
     branches = r_branches.json()
     assert any(b["branch_id"] == "branch_v1" for b in branches), "branch_v1 missing"
 
-    # 2. Verify shared actor & prop URLs referenced by mock_branch_1.json serve 200 OK
+    # 2. Verify shared actor & prop URLs referenced by mock_branch_1/2.json serve 200 OK
     for asset_url in (
         "/assets/actors/lia.png",
         "/assets/actors/nyx.png",
         "/assets/props/crystal_vase.png",
+        "/assets/props/crystal_vase_broken.png",
     ):
         resp = client.get(asset_url)
         assert resp.status_code == 200, f"Static asset missing: {asset_url} -> {resp.status_code}"
 
-    # 3. Verify cached branch_v1 media URLs serve 200 OK when present
+    # 3. Verify cached branch_v1 & branch_v2_cached media URLs serve 200 OK and use H.264
+    from backend.media.video_renderer import get_render_progress, is_browser_h264
+
+    for branch_id in ("branch_v1", "branch_v2_cached"):
+        target_branch = next((b for b in branches if b["branch_id"] == branch_id), None)
+        assert target_branch is not None, f"{branch_id} missing"
+        for scene in target_branch["scenes"]:
+            for key in ("cam_a_final_url", "cam_b_final_url", "cam_a_tail_frame_url", "cam_b_tail_frame_url"):
+                url = scene["media"].get(key)
+                if url:
+                    resp = client.get(url)
+                    assert resp.status_code == 200, f"Cached media missing: {url} -> {resp.status_code}"
+                    if url.endswith(".mp4"):
+                        local_mp4 = config.ASSETS_DIR / url.removeprefix("/assets/")
+                        assert is_browser_h264(local_mp4), f"Non-H.264 clip: {local_mp4}"
+
     branch_v1 = next(b for b in branches if b["branch_id"] == "branch_v1")
-    for scene in branch_v1["scenes"]:
-        for key in ("cam_a_final_url", "cam_b_final_url", "cam_a_tail_frame_url", "cam_b_tail_frame_url"):
-            url = scene["media"].get(key)
-            if url:
-                resp = client.get(url)
-                assert resp.status_code == 200, f"Cached media missing: {url} -> {resp.status_code}"
+    assert get_render_progress("nonexistent_branch")["status"] == "idle"
 
     # 4. Verify POST /api/media/create-prop contract using an in-memory test image (fast demo-safe check)
     prev_demo = config.DEMO_MODE
