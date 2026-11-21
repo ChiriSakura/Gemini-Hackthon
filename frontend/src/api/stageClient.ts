@@ -100,15 +100,22 @@ export async function submitDirectorFork(
   }
 }
 
+export interface RenderSceneResponse {
+  scene_id: number;
+  media: SceneMedia;
+  environment_notes?: string;
+}
+
 /**
  * Send exported 2.5D preview clips (or start/end PNG keyframes fallback) to P2
  * `POST /api/media/render-scene` to obtain Omni Flash stylized video & QA results.
  */
 export async function requestSceneRender(
   payload: RenderScenePayload,
-): Promise<SceneMedia | null> {
+): Promise<RenderSceneResponse | null> {
   const formData = new FormData();
   formData.append('branch_id', payload.branchId);
+  formData.append('scene_id', String(payload.scene.scene_id));
   formData.append('scene_json', JSON.stringify(payload.scene));
   if (payload.camAPreview) {
     formData.append('cam_a_preview', payload.camAPreview, 'cam_a_preview.webm');
@@ -131,7 +138,31 @@ export async function requestSceneRender(
     });
     if (!res.ok) return null;
     const data = await res.json();
-    return (data.media ?? data) as SceneMedia;
+    return {
+      scene_id: data.scene_id ?? payload.scene.scene_id,
+      media: (data.media ?? data) as SceneMedia,
+      environment_notes: data.environment_notes,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Trigger concurrent rendering for all `needs_rerender` scenes of a branch.
+ */
+export async function requestBranchRender(
+  branchId: string,
+): Promise<BranchState | null> {
+  const formData = new FormData();
+  formData.append('branch_id', branchId);
+  try {
+    const res = await fetch('/api/media/render-scene', {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as BranchState;
   } catch {
     return null;
   }
