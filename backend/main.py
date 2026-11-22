@@ -265,6 +265,7 @@ def api_get_eval_summary() -> dict:
         "failover_rehearsal": _read_json_optional(config.ASSETS_DIR / "eval_failover_rehearsal.json"),
         "dual_cam_fixed_room": _read_json_optional(config.ASSETS_DIR / "eval_dual_cam_fixed_room.json"),
         "fast_live_latency": _read_json_optional(config.ASSETS_DIR / "eval_fast_live_latency.json"),
+        "video_consistency": _read_json_optional(config.ASSETS_DIR / "eval" / "video_consistency.json"),
         "submission_summary": _read_json_optional(config.ASSETS_DIR / "metrics_summary_for_submission.json"),
         "preflight": _read_json_optional(config.ASSETS_DIR / "preflight_report.json"),
     }

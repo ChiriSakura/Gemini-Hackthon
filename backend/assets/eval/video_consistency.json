@@ -1,0 +1,1693 @@
+{
+  "timestamp": "2026-11-22T17:14:23.740457+00:00",
+  "method": "A_baseline_prev_tail",
+  "branch_id": "branch_v7",
+  "script_name": "stage1_six_scene_benchmark",
+  "scenes_evaluated": 6,
+  "overall": {
+    "passed": 79,
+    "total": 90,
+    "pass_rate": 0.8778
+  },
+  "category_summary": {
+    "count": {
+      "passed": 12,
+      "total": 12,
+      "pass_rate": 1.0,
+      "avg_confidence": 0.8598
+    },
+    "holding": {
+      "passed": 12,
+      "total": 12,
+      "pass_rate": 1.0,
+      "avg_confidence": 0.9129
+    },
+    "position": {
+      "passed": 8,
+      "total": 12,
+      "pass_rate": 0.6667,
+      "avg_confidence": 0.9057
+    },
+    "permanence": {
+      "passed": 10,
+      "total": 12,
+      "pass_rate": 0.8333,
+      "avg_confidence": 0.8909
+    },
+    "clean": {
+      "passed": 12,
+      "total": 12,
+      "pass_rate": 1.0,
+      "avg_confidence": 0.8764
+    },
+    "cross_camera": {
+      "passed": 13,
+      "total": 18,
+      "pass_rate": 0.7222,
+      "avg_confidence": 0.7151
+    },
+    "inter_scene": {
+      "passed": 12,
+      "total": 12,
+      "pass_rate": 1.0,
+      "avg_confidence": 0.835
+    }
+  },
+  "per_scene": [
+    {
+      "scene_id": 2,
+      "step_key": "pick_up_vase",
+      "step_label": "Pick up crystal vase",
+      "title": "Holding the Crystal Vase",
+      "narration": "Lia sets her closed crimson umbrella down on the herringbone floor to the left, walks over to the center round wooden table, and gently lifts the glowing blue-rose crystal vase with both hands while Nyx watches curiously from the right.",
+      "cam_a_final_url": "/assets/finals/scene_2_cam_a_cb0858_sync.mp4",
+      "cam_b_final_url": "/assets/finals/scene_2_cam_b_cb0858_sync.mp4",
+      "timings": null,
+      "passed": 13,
+      "total": 15,
+      "pass_rate": 0.8667,
+      "checks": [
+        {
+          "category": "count",
+          "camera": "cam_a",
+          "frame_slot": "mid",
+          "question": "Are there at most one silver-haired girl (not two girls), at most one black cat (not two cats), and at most one crystal vase with a blue rose (no duplicated people, cats, or vases) in this frame?",
+          "passed": true,
+          "confidence": 0.897,
+          "reason": "Decision-1 P(true)=0.90",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s2_a_mid.png"
+          ]
+        },
+        {
+          "category": "permanence",
+          "camera": "cam_a",
+          "frame_slot": "mid",
+          "question": "Has the crystal vase been removed from the tabletop so that it is only in the girl's hands and not still sitting on the table?",
+          "passed": false,
+          "confidence": 0.863,
+          "reason": "Decision-1 P(true)=0.14",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s2_a_mid.png"
+          ]
+        },
+        {
+          "category": "clean",
+          "camera": "cam_a",
+          "frame_slot": "mid",
+          "question": "Is the image completely free of filming equipment (no cameras, tripods, lenses, or crew) and completely free of overlaid text, labels, subtitles, or numbers?",
+          "passed": true,
+          "confidence": 0.888,
+          "reason": "Decision-1 P(true)=0.89",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s2_a_mid.png"
+          ]
+        },
+        {
+          "category": "holding",
+          "camera": "cam_a",
+          "frame_slot": "end",
+          "question": "Is the silver-haired girl holding the crystal vase in her hands (and NOT holding the red umbrella)?",
+          "passed": true,
+          "confidence": 0.949,
+          "reason": "Decision-1 P(true)=0.95",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s2_a_end.png"
+          ]
+        },
+        {
+          "category": "position",
+          "camera": "cam_a",
+          "frame_slot": "end",
+          "question": "Is the silver-haired girl positioned on the left side of the round table, and is the black cat positioned on the floor (not on top of the table)?",
+          "passed": true,
+          "confidence": 0.925,
+          "reason": "Decision-1 P(true)=0.92",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s2_a_end.png"
+          ]
+        },
+        {
+          "category": "count",
+          "camera": "cam_b",
+          "frame_slot": "mid",
+          "question": "Are there at most one silver-haired girl (not two girls), at most one black cat (not two cats), and at most one crystal vase with a blue rose (no duplicated people, cats, or vases) in this frame?",
+          "passed": true,
+          "confidence": 0.893,
+          "reason": "Decision-1 P(true)=0.89",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s2_b_mid.png"
+          ]
+        },
+        {
+          "category": "permanence",
+          "camera": "cam_b",
+          "frame_slot": "mid",
+          "question": "Has the crystal vase been removed from the tabletop so that it is only in the girl's hands and not still sitting on the table?",
+          "passed": false,
+          "confidence": 0.916,
+          "reason": "Decision-1 P(true)=0.08",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s2_b_mid.png"
+          ]
+        },
+        {
+          "category": "clean",
+          "camera": "cam_b",
+          "frame_slot": "mid",
+          "question": "Is the image completely free of filming equipment (no cameras, tripods, lenses, or crew) and completely free of overlaid text, labels, subtitles, or numbers?",
+          "passed": true,
+          "confidence": 0.888,
+          "reason": "Decision-1 P(true)=0.89",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s2_b_mid.png"
+          ]
+        },
+        {
+          "category": "holding",
+          "camera": "cam_b",
+          "frame_slot": "end",
+          "question": "Is the silver-haired girl holding the crystal vase in her hands (and NOT holding the red umbrella)?",
+          "passed": true,
+          "confidence": 0.911,
+          "reason": "Decision-1 P(true)=0.91",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s2_b_end.png"
+          ]
+        },
+        {
+          "category": "position",
+          "camera": "cam_b",
+          "frame_slot": "end",
+          "question": "Is the silver-haired girl positioned on the left side of the round table, and is the black cat positioned on the floor (not on top of the table)?",
+          "passed": true,
+          "confidence": 0.907,
+          "reason": "Decision-1 P(true)=0.91",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s2_b_end.png"
+          ]
+        },
+        {
+          "category": "cross_camera",
+          "camera": "cam_a+cam_b",
+          "frame_slot": "start",
+          "question": "These two images show the same scene at the exact same start moment from a front viewpoint (image 1) and a 45-degree right viewpoint (image 2). Do both viewpoints show the silver-haired girl and the black cat performing the same action with consistent props and room layout?",
+          "passed": true,
+          "confidence": 0.597,
+          "reason": "Decision-1 P(true)=0.60 [LOW_CONFIDENCE: escalate]",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s2_a_start.png",
+            "/assets/eval/frames/branch_v7_s2_b_start.png"
+          ]
+        },
+        {
+          "category": "cross_camera",
+          "camera": "cam_a+cam_b",
+          "frame_slot": "mid",
+          "question": "These two images show the same scene at the exact same mid moment from a front viewpoint (image 1) and a 45-degree right viewpoint (image 2). Do both viewpoints show the silver-haired girl and the black cat performing the same action with consistent props and room layout?",
+          "passed": true,
+          "confidence": 0.726,
+          "reason": "Decision-1 P(true)=0.73",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s2_a_mid.png",
+            "/assets/eval/frames/branch_v7_s2_b_mid.png"
+          ]
+        },
+        {
+          "category": "cross_camera",
+          "camera": "cam_a+cam_b",
+          "frame_slot": "end",
+          "question": "These two images show the same scene at the exact same end moment from a front viewpoint (image 1) and a 45-degree right viewpoint (image 2). Do both viewpoints show the silver-haired girl and the black cat performing the same action with consistent props and room layout?",
+          "passed": true,
+          "confidence": 0.865,
+          "reason": "Decision-1 P(true)=0.86",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s2_a_end.png",
+            "/assets/eval/frames/branch_v7_s2_b_end.png"
+          ]
+        },
+        {
+          "category": "inter_scene",
+          "camera": "cam_a",
+          "frame_slot": "prev_end->curr_start",
+          "question": "Image 1 is the end of Scene 1 and Image 2 is the start of Scene 2 from the same Camera A viewpoint. Do the glass conservatory room, furniture, lighting, and characters connect seamlessly without abrupt resets or swapped outfits?",
+          "passed": true,
+          "confidence": 0.886,
+          "reason": "Decision-1 P(true)=0.89",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s1_a_end.png",
+            "/assets/eval/frames/branch_v7_s2_a_start.png"
+          ]
+        },
+        {
+          "category": "inter_scene",
+          "camera": "cam_b",
+          "frame_slot": "prev_end->curr_start",
+          "question": "Image 1 is the end of Scene 1 and Image 2 is the start of Scene 2 from the same Camera B viewpoint. Do the glass conservatory room, furniture, lighting, and characters connect seamlessly without abrupt resets or swapped outfits?",
+          "passed": true,
+          "confidence": 0.885,
+          "reason": "Decision-1 P(true)=0.88",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s1_b_end.png",
+            "/assets/eval/frames/branch_v7_s2_b_start.png"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": 3,
+      "step_key": "drink_beverage",
+      "step_label": "Drink beverage",
+      "title": "A Calm Sip of Iced Tea",
+      "narration": "Lia gently sets the glowing blue-rose crystal vase back onto the center round wooden table, picks up the tall clear glass of amber iced tea with a lemon slice, lifts it to her lips, and takes a calm sip while Nyx watches peacefully from the right.",
+      "cam_a_final_url": "/assets/finals/scene_3_cam_a_f93c60_sync.mp4",
+      "cam_b_final_url": "/assets/finals/scene_3_cam_b_f93c60_sync.mp4",
+      "timings": null,
+      "passed": 10,
+      "total": 15,
+      "pass_rate": 0.6667,
+      "checks": [
+        {
+          "category": "count",
+          "camera": "cam_a",
+          "frame_slot": "mid",
+          "question": "Are there at most one silver-haired girl (not two girls), at most one black cat (not two cats), and at most one crystal vase with a blue rose (no duplicated people, cats, or vases) in this frame?",
+          "passed": true,
+          "confidence": 0.844,
+          "reason": "Decision-1 P(true)=0.84",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s3_a_mid.png"
+          ]
+        },
+        {
+          "category": "permanence",
+          "camera": "cam_a",
+          "frame_slot": "mid",
+          "question": "Is the intact crystal vase with the blue rose still present on the round wooden table (not vanished or broken)?",
+          "passed": true,
+          "confidence": 0.904,
+          "reason": "Decision-1 P(true)=0.90",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s3_a_mid.png"
+          ]
+        },
+        {
+          "category": "clean",
+          "camera": "cam_a",
+          "frame_slot": "mid",
+          "question": "Is the image completely free of filming equipment (no cameras, tripods, lenses, or crew) and completely free of overlaid text, labels, subtitles, or numbers?",
+          "passed": true,
+          "confidence": 0.894,
+          "reason": "Decision-1 P(true)=0.89",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s3_a_mid.png"
+          ]
+        },
+        {
+          "category": "holding",
+          "camera": "cam_a",
+          "frame_slot": "end",
+          "question": "Is the silver-haired girl holding the iced tea cup a746 in her hand (and NOT holding the red umbrella)?",
+          "passed": true,
+          "confidence": 0.924,
+          "reason": "Decision-1 P(true)=0.92",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s3_a_end.png"
+          ]
+        },
+        {
+          "category": "position",
+          "camera": "cam_a",
+          "frame_slot": "end",
+          "question": "Is the silver-haired girl positioned on the right side of the round table, and is the black cat positioned on the floor (not on top of the table)?",
+          "passed": false,
+          "confidence": 0.916,
+          "reason": "Decision-1 P(true)=0.08",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s3_a_end.png"
+          ]
+        },
+        {
+          "category": "count",
+          "camera": "cam_b",
+          "frame_slot": "mid",
+          "question": "Are there at most one silver-haired girl (not two girls), at most one black cat (not two cats), and at most one crystal vase with a blue rose (no duplicated people, cats, or vases) in this frame?",
+          "passed": true,
+          "confidence": 0.866,
+          "reason": "Decision-1 P(true)=0.87",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s3_b_mid.png"
+          ]
+        },
+        {
+          "category": "permanence",
+          "camera": "cam_b",
+          "frame_slot": "mid",
+          "question": "Is the intact crystal vase with the blue rose still present on the round wooden table (not vanished or broken)?",
+          "passed": true,
+          "confidence": 0.896,
+          "reason": "Decision-1 P(true)=0.90",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s3_b_mid.png"
+          ]
+        },
+        {
+          "category": "clean",
+          "camera": "cam_b",
+          "frame_slot": "mid",
+          "question": "Is the image completely free of filming equipment (no cameras, tripods, lenses, or crew) and completely free of overlaid text, labels, subtitles, or numbers?",
+          "passed": true,
+          "confidence": 0.865,
+          "reason": "Decision-1 P(true)=0.86",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s3_b_mid.png"
+          ]
+        },
+        {
+          "category": "holding",
+          "camera": "cam_b",
+          "frame_slot": "end",
+          "question": "Is the silver-haired girl holding the iced tea cup a746 in her hand (and NOT holding the red umbrella)?",
+          "passed": true,
+          "confidence": 0.932,
+          "reason": "Decision-1 P(true)=0.93",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s3_b_end.png"
+          ]
+        },
+        {
+          "category": "position",
+          "camera": "cam_b",
+          "frame_slot": "end",
+          "question": "Is the silver-haired girl positioned on the right side of the round table, and is the black cat positioned on the floor (not on top of the table)?",
+          "passed": false,
+          "confidence": 0.901,
+          "reason": "Decision-1 P(true)=0.10",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s3_b_end.png"
+          ]
+        },
+        {
+          "category": "cross_camera",
+          "camera": "cam_a+cam_b",
+          "frame_slot": "start",
+          "question": "These two images show the same scene at the exact same start moment from a front viewpoint (image 1) and a 45-degree right viewpoint (image 2). Do both viewpoints show the silver-haired girl and the black cat performing the same action with consistent props and room layout?",
+          "passed": false,
+          "confidence": 0.74,
+          "reason": "Decision-1 P(true)=0.26",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s3_a_start.png",
+            "/assets/eval/frames/branch_v7_s3_b_start.png"
+          ]
+        },
+        {
+          "category": "cross_camera",
+          "camera": "cam_a+cam_b",
+          "frame_slot": "mid",
+          "question": "These two images show the same scene at the exact same mid moment from a front viewpoint (image 1) and a 45-degree right viewpoint (image 2). Do both viewpoints show the silver-haired girl and the black cat performing the same action with consistent props and room layout?",
+          "passed": false,
+          "confidence": 0.638,
+          "reason": "Decision-1 P(true)=0.36 [LOW_CONFIDENCE: escalate]",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s3_a_mid.png",
+            "/assets/eval/frames/branch_v7_s3_b_mid.png"
+          ]
+        },
+        {
+          "category": "cross_camera",
+          "camera": "cam_a+cam_b",
+          "frame_slot": "end",
+          "question": "These two images show the same scene at the exact same end moment from a front viewpoint (image 1) and a 45-degree right viewpoint (image 2). Do both viewpoints show the silver-haired girl and the black cat performing the same action with consistent props and room layout?",
+          "passed": false,
+          "confidence": 0.733,
+          "reason": "Decision-1 P(true)=0.27",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s3_a_end.png",
+            "/assets/eval/frames/branch_v7_s3_b_end.png"
+          ]
+        },
+        {
+          "category": "inter_scene",
+          "camera": "cam_a",
+          "frame_slot": "prev_end->curr_start",
+          "question": "Image 1 is the end of Scene 2 and Image 2 is the start of Scene 3 from the same Camera A viewpoint. Do the glass conservatory room, furniture, lighting, and characters connect seamlessly without abrupt resets or swapped outfits?",
+          "passed": true,
+          "confidence": 0.884,
+          "reason": "Decision-1 P(true)=0.88",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s2_a_end.png",
+            "/assets/eval/frames/branch_v7_s3_a_start.png"
+          ]
+        },
+        {
+          "category": "inter_scene",
+          "camera": "cam_b",
+          "frame_slot": "prev_end->curr_start",
+          "question": "Image 1 is the end of Scene 2 and Image 2 is the start of Scene 3 from the same Camera B viewpoint. Do the glass conservatory room, furniture, lighting, and characters connect seamlessly without abrupt resets or swapped outfits?",
+          "passed": true,
+          "confidence": 0.863,
+          "reason": "Decision-1 P(true)=0.86",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s2_b_end.png",
+            "/assets/eval/frames/branch_v7_s3_b_start.png"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": 4,
+      "step_key": "drag_position",
+      "step_label": "Move Lia to right side",
+      "title": "A Warm Glance at Nyx",
+      "narration": "Standing on the right side of the conservatory floor, Lia lowers the tall clear glass of amber iced tea with a lemon slice and turns to look warmly toward Nyx, who sits calmly beside her returning her gentle gaze.",
+      "cam_a_final_url": "/assets/finals/scene_4_cam_a_fe3c6a_sync.mp4",
+      "cam_b_final_url": "/assets/finals/scene_4_cam_b_fe3c6a_sync.mp4",
+      "timings": null,
+      "passed": 14,
+      "total": 15,
+      "pass_rate": 0.9333,
+      "checks": [
+        {
+          "category": "count",
+          "camera": "cam_a",
+          "frame_slot": "mid",
+          "question": "Are there at most one silver-haired girl (not two girls), at most one black cat (not two cats), and at most one crystal vase with a blue rose (no duplicated people, cats, or vases) in this frame?",
+          "passed": true,
+          "confidence": 0.879,
+          "reason": "Decision-1 P(true)=0.88",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s4_a_mid.png"
+          ]
+        },
+        {
+          "category": "permanence",
+          "camera": "cam_a",
+          "frame_slot": "mid",
+          "question": "Is the intact crystal vase with the blue rose still present on the round wooden table (not vanished or broken)?",
+          "passed": true,
+          "confidence": 0.895,
+          "reason": "Decision-1 P(true)=0.89",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s4_a_mid.png"
+          ]
+        },
+        {
+          "category": "clean",
+          "camera": "cam_a",
+          "frame_slot": "mid",
+          "question": "Is the image completely free of filming equipment (no cameras, tripods, lenses, or crew) and completely free of overlaid text, labels, subtitles, or numbers?",
+          "passed": true,
+          "confidence": 0.876,
+          "reason": "Decision-1 P(true)=0.88",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s4_a_mid.png"
+          ]
+        },
+        {
+          "category": "holding",
+          "camera": "cam_a",
+          "frame_slot": "end",
+          "question": "Is the silver-haired girl holding the iced tea cup a746 in her hand (and NOT holding the red umbrella)?",
+          "passed": true,
+          "confidence": 0.899,
+          "reason": "Decision-1 P(true)=0.90",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s4_a_end.png"
+          ]
+        },
+        {
+          "category": "position",
+          "camera": "cam_a",
+          "frame_slot": "end",
+          "question": "Is the silver-haired girl positioned on the right side of the round table, and is the black cat positioned on the floor (not on top of the table)?",
+          "passed": true,
+          "confidence": 0.93,
+          "reason": "Decision-1 P(true)=0.93",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s4_a_end.png"
+          ]
+        },
+        {
+          "category": "count",
+          "camera": "cam_b",
+          "frame_slot": "mid",
+          "question": "Are there at most one silver-haired girl (not two girls), at most one black cat (not two cats), and at most one crystal vase with a blue rose (no duplicated people, cats, or vases) in this frame?",
+          "passed": true,
+          "confidence": 0.854,
+          "reason": "Decision-1 P(true)=0.85",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s4_b_mid.png"
+          ]
+        },
+        {
+          "category": "permanence",
+          "camera": "cam_b",
+          "frame_slot": "mid",
+          "question": "Is the intact crystal vase with the blue rose still present on the round wooden table (not vanished or broken)?",
+          "passed": true,
+          "confidence": 0.905,
+          "reason": "Decision-1 P(true)=0.90",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s4_b_mid.png"
+          ]
+        },
+        {
+          "category": "clean",
+          "camera": "cam_b",
+          "frame_slot": "mid",
+          "question": "Is the image completely free of filming equipment (no cameras, tripods, lenses, or crew) and completely free of overlaid text, labels, subtitles, or numbers?",
+          "passed": true,
+          "confidence": 0.889,
+          "reason": "Decision-1 P(true)=0.89",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s4_b_mid.png"
+          ]
+        },
+        {
+          "category": "holding",
+          "camera": "cam_b",
+          "frame_slot": "end",
+          "question": "Is the silver-haired girl holding the iced tea cup a746 in her hand (and NOT holding the red umbrella)?",
+          "passed": true,
+          "confidence": 0.871,
+          "reason": "Decision-1 P(true)=0.87",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s4_b_end.png"
+          ]
+        },
+        {
+          "category": "position",
+          "camera": "cam_b",
+          "frame_slot": "end",
+          "question": "Is the silver-haired girl positioned on the right side of the round table, and is the black cat positioned on the floor (not on top of the table)?",
+          "passed": true,
+          "confidence": 0.874,
+          "reason": "Decision-1 P(true)=0.87",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s4_b_end.png"
+          ]
+        },
+        {
+          "category": "cross_camera",
+          "camera": "cam_a+cam_b",
+          "frame_slot": "start",
+          "question": "These two images show the same scene at the exact same start moment from a front viewpoint (image 1) and a 45-degree right viewpoint (image 2). Do both viewpoints show the silver-haired girl and the black cat performing the same action with consistent props and room layout?",
+          "passed": true,
+          "confidence": 0.58,
+          "reason": "Decision-1 P(true)=0.58 [LOW_CONFIDENCE: escalate]",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s4_a_start.png",
+            "/assets/eval/frames/branch_v7_s4_b_start.png"
+          ]
+        },
+        {
+          "category": "cross_camera",
+          "camera": "cam_a+cam_b",
+          "frame_slot": "mid",
+          "question": "These two images show the same scene at the exact same mid moment from a front viewpoint (image 1) and a 45-degree right viewpoint (image 2). Do both viewpoints show the silver-haired girl and the black cat performing the same action with consistent props and room layout?",
+          "passed": false,
+          "confidence": 0.548,
+          "reason": "Decision-1 P(true)=0.45 [LOW_CONFIDENCE: escalate]",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s4_a_mid.png",
+            "/assets/eval/frames/branch_v7_s4_b_mid.png"
+          ]
+        },
+        {
+          "category": "cross_camera",
+          "camera": "cam_a+cam_b",
+          "frame_slot": "end",
+          "question": "These two images show the same scene at the exact same end moment from a front viewpoint (image 1) and a 45-degree right viewpoint (image 2). Do both viewpoints show the silver-haired girl and the black cat performing the same action with consistent props and room layout?",
+          "passed": true,
+          "confidence": 0.629,
+          "reason": "Decision-1 P(true)=0.63 [LOW_CONFIDENCE: escalate]",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s4_a_end.png",
+            "/assets/eval/frames/branch_v7_s4_b_end.png"
+          ]
+        },
+        {
+          "category": "inter_scene",
+          "camera": "cam_a",
+          "frame_slot": "prev_end->curr_start",
+          "question": "Image 1 is the end of Scene 3 and Image 2 is the start of Scene 4 from the same Camera A viewpoint. Do the glass conservatory room, furniture, lighting, and characters connect seamlessly without abrupt resets or swapped outfits?",
+          "passed": true,
+          "confidence": 0.802,
+          "reason": "Decision-1 P(true)=0.80",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s3_a_end.png",
+            "/assets/eval/frames/branch_v7_s4_a_start.png"
+          ]
+        },
+        {
+          "category": "inter_scene",
+          "camera": "cam_b",
+          "frame_slot": "prev_end->curr_start",
+          "question": "Image 1 is the end of Scene 3 and Image 2 is the start of Scene 4 from the same Camera B viewpoint. Do the glass conservatory room, furniture, lighting, and characters connect seamlessly without abrupt resets or swapped outfits?",
+          "passed": true,
+          "confidence": 0.832,
+          "reason": "Decision-1 P(true)=0.83",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s3_b_end.png",
+            "/assets/eval/frames/branch_v7_s4_b_start.png"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": 5,
+      "step_key": "umbrella_on_floor",
+      "step_label": "Put umbrella on floor",
+      "title": "Resting Hands and Furled Umbrella",
+      "narration": "With the tall clear glass of amber iced tea set aside on the wooden table, Lia neatly places the closed red umbrella on the herringbone wooden floor beside her feet, then straightens up and rests her empty hands calmly at her sides while Nyx watches quietly nearby.",
+      "cam_a_final_url": "/assets/finals/scene_5_cam_a_1f058d_sync.mp4",
+      "cam_b_final_url": "/assets/finals/scene_5_cam_b_1f058d_sync.mp4",
+      "timings": null,
+      "passed": 15,
+      "total": 15,
+      "pass_rate": 1.0,
+      "checks": [
+        {
+          "category": "count",
+          "camera": "cam_a",
+          "frame_slot": "mid",
+          "question": "Are there at most one silver-haired girl (not two girls), at most one black cat (not two cats), and at most one crystal vase with a blue rose (no duplicated people, cats, or vases) in this frame?",
+          "passed": true,
+          "confidence": 0.798,
+          "reason": "Decision-1 P(true)=0.80",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s5_a_mid.png"
+          ]
+        },
+        {
+          "category": "permanence",
+          "camera": "cam_a",
+          "frame_slot": "mid",
+          "question": "Is the intact crystal vase with the blue rose still present on the round wooden table (not vanished or broken)?",
+          "passed": true,
+          "confidence": 0.859,
+          "reason": "Decision-1 P(true)=0.86",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s5_a_mid.png"
+          ]
+        },
+        {
+          "category": "clean",
+          "camera": "cam_a",
+          "frame_slot": "mid",
+          "question": "Is the image completely free of filming equipment (no cameras, tripods, lenses, or crew) and completely free of overlaid text, labels, subtitles, or numbers?",
+          "passed": true,
+          "confidence": 0.885,
+          "reason": "Decision-1 P(true)=0.89",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s5_a_mid.png"
+          ]
+        },
+        {
+          "category": "holding",
+          "camera": "cam_a",
+          "frame_slot": "end",
+          "question": "Are the silver-haired girl's hands free of the red umbrella (with the red umbrella resting on the floor or set aside, not held open)?",
+          "passed": true,
+          "confidence": 0.922,
+          "reason": "Decision-1 P(true)=0.92",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s5_a_end.png"
+          ]
+        },
+        {
+          "category": "position",
+          "camera": "cam_a",
+          "frame_slot": "end",
+          "question": "Is the silver-haired girl positioned on the right side of the round table, and is the black cat positioned on the floor (not on top of the table)?",
+          "passed": true,
+          "confidence": 0.921,
+          "reason": "Decision-1 P(true)=0.92",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s5_a_end.png"
+          ]
+        },
+        {
+          "category": "count",
+          "camera": "cam_b",
+          "frame_slot": "mid",
+          "question": "Are there at most one silver-haired girl (not two girls), at most one black cat (not two cats), and at most one crystal vase with a blue rose (no duplicated people, cats, or vases) in this frame?",
+          "passed": true,
+          "confidence": 0.882,
+          "reason": "Decision-1 P(true)=0.88",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s5_b_mid.png"
+          ]
+        },
+        {
+          "category": "permanence",
+          "camera": "cam_b",
+          "frame_slot": "mid",
+          "question": "Is the intact crystal vase with the blue rose still present on the round wooden table (not vanished or broken)?",
+          "passed": true,
+          "confidence": 0.874,
+          "reason": "Decision-1 P(true)=0.87",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s5_b_mid.png"
+          ]
+        },
+        {
+          "category": "clean",
+          "camera": "cam_b",
+          "frame_slot": "mid",
+          "question": "Is the image completely free of filming equipment (no cameras, tripods, lenses, or crew) and completely free of overlaid text, labels, subtitles, or numbers?",
+          "passed": true,
+          "confidence": 0.895,
+          "reason": "Decision-1 P(true)=0.90",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s5_b_mid.png"
+          ]
+        },
+        {
+          "category": "holding",
+          "camera": "cam_b",
+          "frame_slot": "end",
+          "question": "Are the silver-haired girl's hands free of the red umbrella (with the red umbrella resting on the floor or set aside, not held open)?",
+          "passed": true,
+          "confidence": 0.923,
+          "reason": "Decision-1 P(true)=0.92",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s5_b_end.png"
+          ]
+        },
+        {
+          "category": "position",
+          "camera": "cam_b",
+          "frame_slot": "end",
+          "question": "Is the silver-haired girl positioned on the right side of the round table, and is the black cat positioned on the floor (not on top of the table)?",
+          "passed": true,
+          "confidence": 0.927,
+          "reason": "Decision-1 P(true)=0.93",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s5_b_end.png"
+          ]
+        },
+        {
+          "category": "cross_camera",
+          "camera": "cam_a+cam_b",
+          "frame_slot": "start",
+          "question": "These two images show the same scene at the exact same start moment from a front viewpoint (image 1) and a 45-degree right viewpoint (image 2). Do both viewpoints show the silver-haired girl and the black cat performing the same action with consistent props and room layout?",
+          "passed": true,
+          "confidence": 0.653,
+          "reason": "Decision-1 P(true)=0.65 [LOW_CONFIDENCE: escalate]",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s5_a_start.png",
+            "/assets/eval/frames/branch_v7_s5_b_start.png"
+          ]
+        },
+        {
+          "category": "cross_camera",
+          "camera": "cam_a+cam_b",
+          "frame_slot": "mid",
+          "question": "These two images show the same scene at the exact same mid moment from a front viewpoint (image 1) and a 45-degree right viewpoint (image 2). Do both viewpoints show the silver-haired girl and the black cat performing the same action with consistent props and room layout?",
+          "passed": true,
+          "confidence": 0.601,
+          "reason": "Decision-1 P(true)=0.60 [LOW_CONFIDENCE: escalate]",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s5_a_mid.png",
+            "/assets/eval/frames/branch_v7_s5_b_mid.png"
+          ]
+        },
+        {
+          "category": "cross_camera",
+          "camera": "cam_a+cam_b",
+          "frame_slot": "end",
+          "question": "These two images show the same scene at the exact same end moment from a front viewpoint (image 1) and a 45-degree right viewpoint (image 2). Do both viewpoints show the silver-haired girl and the black cat performing the same action with consistent props and room layout?",
+          "passed": true,
+          "confidence": 0.824,
+          "reason": "Decision-1 P(true)=0.82",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s5_a_end.png",
+            "/assets/eval/frames/branch_v7_s5_b_end.png"
+          ]
+        },
+        {
+          "category": "inter_scene",
+          "camera": "cam_a",
+          "frame_slot": "prev_end->curr_start",
+          "question": "Image 1 is the end of Scene 4 and Image 2 is the start of Scene 5 from the same Camera A viewpoint. Do the glass conservatory room, furniture, lighting, and characters connect seamlessly without abrupt resets or swapped outfits?",
+          "passed": true,
+          "confidence": 0.853,
+          "reason": "Decision-1 P(true)=0.85",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s4_a_end.png",
+            "/assets/eval/frames/branch_v7_s5_a_start.png"
+          ]
+        },
+        {
+          "category": "inter_scene",
+          "camera": "cam_b",
+          "frame_slot": "prev_end->curr_start",
+          "question": "Image 1 is the end of Scene 4 and Image 2 is the start of Scene 5 from the same Camera B viewpoint. Do the glass conservatory room, furniture, lighting, and characters connect seamlessly without abrupt resets or swapped outfits?",
+          "passed": true,
+          "confidence": 0.868,
+          "reason": "Decision-1 P(true)=0.87",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s4_b_end.png",
+            "/assets/eval/frames/branch_v7_s5_b_start.png"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": 6,
+      "step_key": "cat_jumps_on_table",
+      "step_label": "Cat jumps on table",
+      "title": "Nyx's Graceful Leap onto the Table",
+      "narration": "With a soft flick of her tail, Nyx leaps gracefully up onto the round wooden center table and settles neatly beside the blue rose crystal vase and the tall clear glass of amber iced tea, while Lia turns toward the center table and watches her calmly.",
+      "cam_a_final_url": "/assets/finals/scene_6_cam_a_df7dbd_sync.mp4",
+      "cam_b_final_url": "/assets/finals/scene_6_cam_b_df7dbd_sync.mp4",
+      "timings": null,
+      "passed": 14,
+      "total": 15,
+      "pass_rate": 0.9333,
+      "checks": [
+        {
+          "category": "count",
+          "camera": "cam_a",
+          "frame_slot": "mid",
+          "question": "Are there at most one silver-haired girl (not two girls), at most one black cat (not two cats), and at most one crystal vase with a blue rose (no duplicated people, cats, or vases) in this frame?",
+          "passed": true,
+          "confidence": 0.915,
+          "reason": "Decision-1 P(true)=0.92",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s6_a_mid.png"
+          ]
+        },
+        {
+          "category": "permanence",
+          "camera": "cam_a",
+          "frame_slot": "mid",
+          "question": "Is the intact crystal vase with the blue rose still present on the round wooden table (not vanished or broken)?",
+          "passed": true,
+          "confidence": 0.934,
+          "reason": "Decision-1 P(true)=0.93",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s6_a_mid.png"
+          ]
+        },
+        {
+          "category": "clean",
+          "camera": "cam_a",
+          "frame_slot": "mid",
+          "question": "Is the image completely free of filming equipment (no cameras, tripods, lenses, or crew) and completely free of overlaid text, labels, subtitles, or numbers?",
+          "passed": true,
+          "confidence": 0.869,
+          "reason": "Decision-1 P(true)=0.87",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s6_a_mid.png"
+          ]
+        },
+        {
+          "category": "holding",
+          "camera": "cam_a",
+          "frame_slot": "end",
+          "question": "Are the silver-haired girl's hands free of the red umbrella (with the red umbrella resting on the floor or set aside, not held open)?",
+          "passed": true,
+          "confidence": 0.916,
+          "reason": "Decision-1 P(true)=0.92",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s6_a_end.png"
+          ]
+        },
+        {
+          "category": "position",
+          "camera": "cam_a",
+          "frame_slot": "end",
+          "question": "Is the silver-haired girl positioned on the right side of the round table, and is the black cat positioned on top of the round wooden table?",
+          "passed": true,
+          "confidence": 0.904,
+          "reason": "Decision-1 P(true)=0.90",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s6_a_end.png"
+          ]
+        },
+        {
+          "category": "count",
+          "camera": "cam_b",
+          "frame_slot": "mid",
+          "question": "Are there at most one silver-haired girl (not two girls), at most one black cat (not two cats), and at most one crystal vase with a blue rose (no duplicated people, cats, or vases) in this frame?",
+          "passed": true,
+          "confidence": 0.867,
+          "reason": "Decision-1 P(true)=0.87",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s6_b_mid.png"
+          ]
+        },
+        {
+          "category": "permanence",
+          "camera": "cam_b",
+          "frame_slot": "mid",
+          "question": "Is the intact crystal vase with the blue rose still present on the round wooden table (not vanished or broken)?",
+          "passed": true,
+          "confidence": 0.894,
+          "reason": "Decision-1 P(true)=0.89",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s6_b_mid.png"
+          ]
+        },
+        {
+          "category": "clean",
+          "camera": "cam_b",
+          "frame_slot": "mid",
+          "question": "Is the image completely free of filming equipment (no cameras, tripods, lenses, or crew) and completely free of overlaid text, labels, subtitles, or numbers?",
+          "passed": true,
+          "confidence": 0.863,
+          "reason": "Decision-1 P(true)=0.86",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s6_b_mid.png"
+          ]
+        },
+        {
+          "category": "holding",
+          "camera": "cam_b",
+          "frame_slot": "end",
+          "question": "Are the silver-haired girl's hands free of the red umbrella (with the red umbrella resting on the floor or set aside, not held open)?",
+          "passed": true,
+          "confidence": 0.912,
+          "reason": "Decision-1 P(true)=0.91",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s6_b_end.png"
+          ]
+        },
+        {
+          "category": "position",
+          "camera": "cam_b",
+          "frame_slot": "end",
+          "question": "Is the silver-haired girl positioned on the right side of the round table, and is the black cat positioned on top of the round wooden table?",
+          "passed": true,
+          "confidence": 0.901,
+          "reason": "Decision-1 P(true)=0.90",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s6_b_end.png"
+          ]
+        },
+        {
+          "category": "cross_camera",
+          "camera": "cam_a+cam_b",
+          "frame_slot": "start",
+          "question": "These two images show the same scene at the exact same start moment from a front viewpoint (image 1) and a 45-degree right viewpoint (image 2). Do both viewpoints show the silver-haired girl and the black cat performing the same action with consistent props and room layout?",
+          "passed": false,
+          "confidence": 0.686,
+          "reason": "Decision-1 P(true)=0.31 [LOW_CONFIDENCE: escalate]",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s6_a_start.png",
+            "/assets/eval/frames/branch_v7_s6_b_start.png"
+          ]
+        },
+        {
+          "category": "cross_camera",
+          "camera": "cam_a+cam_b",
+          "frame_slot": "mid",
+          "question": "These two images show the same scene at the exact same mid moment from a front viewpoint (image 1) and a 45-degree right viewpoint (image 2). Do both viewpoints show the silver-haired girl and the black cat performing the same action with consistent props and room layout?",
+          "passed": true,
+          "confidence": 0.872,
+          "reason": "Decision-1 P(true)=0.87",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s6_a_mid.png",
+            "/assets/eval/frames/branch_v7_s6_b_mid.png"
+          ]
+        },
+        {
+          "category": "cross_camera",
+          "camera": "cam_a+cam_b",
+          "frame_slot": "end",
+          "question": "These two images show the same scene at the exact same end moment from a front viewpoint (image 1) and a 45-degree right viewpoint (image 2). Do both viewpoints show the silver-haired girl and the black cat performing the same action with consistent props and room layout?",
+          "passed": true,
+          "confidence": 0.849,
+          "reason": "Decision-1 P(true)=0.85",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s6_a_end.png",
+            "/assets/eval/frames/branch_v7_s6_b_end.png"
+          ]
+        },
+        {
+          "category": "inter_scene",
+          "camera": "cam_a",
+          "frame_slot": "prev_end->curr_start",
+          "question": "Image 1 is the end of Scene 5 and Image 2 is the start of Scene 6 from the same Camera A viewpoint. Do the glass conservatory room, furniture, lighting, and characters connect seamlessly without abrupt resets or swapped outfits?",
+          "passed": true,
+          "confidence": 0.88,
+          "reason": "Decision-1 P(true)=0.88",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s5_a_end.png",
+            "/assets/eval/frames/branch_v7_s6_a_start.png"
+          ]
+        },
+        {
+          "category": "inter_scene",
+          "camera": "cam_b",
+          "frame_slot": "prev_end->curr_start",
+          "question": "Image 1 is the end of Scene 5 and Image 2 is the start of Scene 6 from the same Camera B viewpoint. Do the glass conservatory room, furniture, lighting, and characters connect seamlessly without abrupt resets or swapped outfits?",
+          "passed": true,
+          "confidence": 0.63,
+          "reason": "Decision-1 P(true)=0.63 [LOW_CONFIDENCE: escalate]",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s5_b_end.png",
+            "/assets/eval/frames/branch_v7_s6_b_start.png"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": 7,
+      "step_key": "put_vase_back",
+      "step_label": "Put crystal vase back",
+      "title": "A Gentle Adjustment of the Vase",
+      "narration": "Lia steps up to the round wooden table, gently lifts the glowing blue rose crystal vase with both hands for a quiet moment, and sets it carefully back onto the center of the tabletop beside the tall clear glass of amber iced tea before stepping back with empty hands as Nyx watches calmly from the table.",
+      "cam_a_final_url": "/assets/finals/scene_7_cam_a_ff1996_sync.mp4",
+      "cam_b_final_url": "/assets/finals/scene_7_cam_b_ff1996_sync.mp4",
+      "timings": null,
+      "passed": 13,
+      "total": 15,
+      "pass_rate": 0.8667,
+      "checks": [
+        {
+          "category": "count",
+          "camera": "cam_a",
+          "frame_slot": "mid",
+          "question": "Are there at most one silver-haired girl (not two girls), at most one black cat (not two cats), and at most one crystal vase with a blue rose (no duplicated people, cats, or vases) in this frame?",
+          "passed": true,
+          "confidence": 0.762,
+          "reason": "Decision-1 P(true)=0.76",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s7_a_mid.png"
+          ]
+        },
+        {
+          "category": "permanence",
+          "camera": "cam_a",
+          "frame_slot": "mid",
+          "question": "Is the intact crystal vase with the blue rose still present on the round wooden table (not vanished or broken)?",
+          "passed": true,
+          "confidence": 0.874,
+          "reason": "Decision-1 P(true)=0.87",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s7_a_mid.png"
+          ]
+        },
+        {
+          "category": "clean",
+          "camera": "cam_a",
+          "frame_slot": "mid",
+          "question": "Is the image completely free of filming equipment (no cameras, tripods, lenses, or crew) and completely free of overlaid text, labels, subtitles, or numbers?",
+          "passed": true,
+          "confidence": 0.851,
+          "reason": "Decision-1 P(true)=0.85",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s7_a_mid.png"
+          ]
+        },
+        {
+          "category": "holding",
+          "camera": "cam_a",
+          "frame_slot": "end",
+          "question": "Are the silver-haired girl's hands free of the red umbrella (with the red umbrella resting on the floor or set aside, not held open)?",
+          "passed": true,
+          "confidence": 0.912,
+          "reason": "Decision-1 P(true)=0.91",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s7_a_end.png"
+          ]
+        },
+        {
+          "category": "position",
+          "camera": "cam_a",
+          "frame_slot": "end",
+          "question": "Is the silver-haired girl positioned on the right side of the round table, and is the black cat positioned on the floor (not on top of the table)?",
+          "passed": false,
+          "confidence": 0.921,
+          "reason": "Decision-1 P(true)=0.08",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s7_a_end.png"
+          ]
+        },
+        {
+          "category": "count",
+          "camera": "cam_b",
+          "frame_slot": "mid",
+          "question": "Are there at most one silver-haired girl (not two girls), at most one black cat (not two cats), and at most one crystal vase with a blue rose (no duplicated people, cats, or vases) in this frame?",
+          "passed": true,
+          "confidence": 0.86,
+          "reason": "Decision-1 P(true)=0.86",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s7_b_mid.png"
+          ]
+        },
+        {
+          "category": "permanence",
+          "camera": "cam_b",
+          "frame_slot": "mid",
+          "question": "Is the intact crystal vase with the blue rose still present on the round wooden table (not vanished or broken)?",
+          "passed": true,
+          "confidence": 0.877,
+          "reason": "Decision-1 P(true)=0.88",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s7_b_mid.png"
+          ]
+        },
+        {
+          "category": "clean",
+          "camera": "cam_b",
+          "frame_slot": "mid",
+          "question": "Is the image completely free of filming equipment (no cameras, tripods, lenses, or crew) and completely free of overlaid text, labels, subtitles, or numbers?",
+          "passed": true,
+          "confidence": 0.854,
+          "reason": "Decision-1 P(true)=0.85",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s7_b_mid.png"
+          ]
+        },
+        {
+          "category": "holding",
+          "camera": "cam_b",
+          "frame_slot": "end",
+          "question": "Are the silver-haired girl's hands free of the red umbrella (with the red umbrella resting on the floor or set aside, not held open)?",
+          "passed": true,
+          "confidence": 0.884,
+          "reason": "Decision-1 P(true)=0.88",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s7_b_end.png"
+          ]
+        },
+        {
+          "category": "position",
+          "camera": "cam_b",
+          "frame_slot": "end",
+          "question": "Is the silver-haired girl positioned on the right side of the round table, and is the black cat positioned on the floor (not on top of the table)?",
+          "passed": false,
+          "confidence": 0.841,
+          "reason": "Decision-1 P(true)=0.16",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s7_b_end.png"
+          ]
+        },
+        {
+          "category": "cross_camera",
+          "camera": "cam_a+cam_b",
+          "frame_slot": "start",
+          "question": "These two images show the same scene at the exact same start moment from a front viewpoint (image 1) and a 45-degree right viewpoint (image 2). Do both viewpoints show the silver-haired girl and the black cat performing the same action with consistent props and room layout?",
+          "passed": true,
+          "confidence": 0.871,
+          "reason": "Decision-1 P(true)=0.87",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s7_a_start.png",
+            "/assets/eval/frames/branch_v7_s7_b_start.png"
+          ]
+        },
+        {
+          "category": "cross_camera",
+          "camera": "cam_a+cam_b",
+          "frame_slot": "mid",
+          "question": "These two images show the same scene at the exact same mid moment from a front viewpoint (image 1) and a 45-degree right viewpoint (image 2). Do both viewpoints show the silver-haired girl and the black cat performing the same action with consistent props and room layout?",
+          "passed": true,
+          "confidence": 0.788,
+          "reason": "Decision-1 P(true)=0.79",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s7_a_mid.png",
+            "/assets/eval/frames/branch_v7_s7_b_mid.png"
+          ]
+        },
+        {
+          "category": "cross_camera",
+          "camera": "cam_a+cam_b",
+          "frame_slot": "end",
+          "question": "These two images show the same scene at the exact same end moment from a front viewpoint (image 1) and a 45-degree right viewpoint (image 2). Do both viewpoints show the silver-haired girl and the black cat performing the same action with consistent props and room layout?",
+          "passed": true,
+          "confidence": 0.672,
+          "reason": "Decision-1 P(true)=0.67 [LOW_CONFIDENCE: escalate]",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s7_a_end.png",
+            "/assets/eval/frames/branch_v7_s7_b_end.png"
+          ]
+        },
+        {
+          "category": "inter_scene",
+          "camera": "cam_a",
+          "frame_slot": "prev_end->curr_start",
+          "question": "Image 1 is the end of Scene 6 and Image 2 is the start of Scene 7 from the same Camera A viewpoint. Do the glass conservatory room, furniture, lighting, and characters connect seamlessly without abrupt resets or swapped outfits?",
+          "passed": true,
+          "confidence": 0.848,
+          "reason": "Decision-1 P(true)=0.85",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s6_a_end.png",
+            "/assets/eval/frames/branch_v7_s7_a_start.png"
+          ]
+        },
+        {
+          "category": "inter_scene",
+          "camera": "cam_b",
+          "frame_slot": "prev_end->curr_start",
+          "question": "Image 1 is the end of Scene 6 and Image 2 is the start of Scene 7 from the same Camera B viewpoint. Do the glass conservatory room, furniture, lighting, and characters connect seamlessly without abrupt resets or swapped outfits?",
+          "passed": true,
+          "confidence": 0.789,
+          "reason": "Decision-1 P(true)=0.79",
+          "frames": [
+            "/assets/eval/frames/branch_v7_s6_b_end.png",
+            "/assets/eval/frames/branch_v7_s7_b_start.png"
+          ]
+        }
+      ]
+    }
+  ],
+  "human_audit_sample_count": 30,
+  "human_audit_sample": [
+    {
+      "sample_id": 1,
+      "scene_id": 2,
+      "step_key": "pick_up_vase",
+      "category": "count",
+      "camera": "cam_a",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s2_a_mid.png"
+      ],
+      "question": "Are there at most one silver-haired girl (not two girls), at most one black cat (not two cats), and at most one crystal vase with a blue rose (no duplicated people, cats, or vases) in this frame?",
+      "auto_passed": true,
+      "auto_confidence": 0.897,
+      "human_label": null
+    },
+    {
+      "sample_id": 2,
+      "scene_id": 2,
+      "step_key": "pick_up_vase",
+      "category": "holding",
+      "camera": "cam_a",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s2_a_end.png"
+      ],
+      "question": "Is the silver-haired girl holding the crystal vase in her hands (and NOT holding the red umbrella)?",
+      "auto_passed": true,
+      "auto_confidence": 0.949,
+      "human_label": null
+    },
+    {
+      "sample_id": 3,
+      "scene_id": 2,
+      "step_key": "pick_up_vase",
+      "category": "position",
+      "camera": "cam_b",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s2_b_end.png"
+      ],
+      "question": "Is the silver-haired girl positioned on the left side of the round table, and is the black cat positioned on the floor (not on top of the table)?",
+      "auto_passed": true,
+      "auto_confidence": 0.907,
+      "human_label": null
+    },
+    {
+      "sample_id": 4,
+      "scene_id": 2,
+      "step_key": "pick_up_vase",
+      "category": "cross_camera",
+      "camera": "cam_a+cam_b",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s2_a_mid.png",
+        "/assets/eval/frames/branch_v7_s2_b_mid.png"
+      ],
+      "question": "These two images show the same scene at the exact same mid moment from a front viewpoint (image 1) and a 45-degree right viewpoint (image 2). Do both viewpoints show the silver-haired girl and the black cat performing the same action with consistent props and room layout?",
+      "auto_passed": true,
+      "auto_confidence": 0.726,
+      "human_label": null
+    },
+    {
+      "sample_id": 5,
+      "scene_id": 2,
+      "step_key": "pick_up_vase",
+      "category": "inter_scene",
+      "camera": "cam_a",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s1_a_end.png",
+        "/assets/eval/frames/branch_v7_s2_a_start.png"
+      ],
+      "question": "Image 1 is the end of Scene 1 and Image 2 is the start of Scene 2 from the same Camera A viewpoint. Do the glass conservatory room, furniture, lighting, and characters connect seamlessly without abrupt resets or swapped outfits?",
+      "auto_passed": true,
+      "auto_confidence": 0.886,
+      "human_label": null
+    },
+    {
+      "sample_id": 6,
+      "scene_id": 3,
+      "step_key": "drink_beverage",
+      "category": "count",
+      "camera": "cam_a",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s3_a_mid.png"
+      ],
+      "question": "Are there at most one silver-haired girl (not two girls), at most one black cat (not two cats), and at most one crystal vase with a blue rose (no duplicated people, cats, or vases) in this frame?",
+      "auto_passed": true,
+      "auto_confidence": 0.844,
+      "human_label": null
+    },
+    {
+      "sample_id": 7,
+      "scene_id": 3,
+      "step_key": "drink_beverage",
+      "category": "holding",
+      "camera": "cam_a",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s3_a_end.png"
+      ],
+      "question": "Is the silver-haired girl holding the iced tea cup a746 in her hand (and NOT holding the red umbrella)?",
+      "auto_passed": true,
+      "auto_confidence": 0.924,
+      "human_label": null
+    },
+    {
+      "sample_id": 8,
+      "scene_id": 3,
+      "step_key": "drink_beverage",
+      "category": "position",
+      "camera": "cam_b",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s3_b_end.png"
+      ],
+      "question": "Is the silver-haired girl positioned on the right side of the round table, and is the black cat positioned on the floor (not on top of the table)?",
+      "auto_passed": false,
+      "auto_confidence": 0.901,
+      "human_label": null
+    },
+    {
+      "sample_id": 9,
+      "scene_id": 3,
+      "step_key": "drink_beverage",
+      "category": "cross_camera",
+      "camera": "cam_a+cam_b",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s3_a_mid.png",
+        "/assets/eval/frames/branch_v7_s3_b_mid.png"
+      ],
+      "question": "These two images show the same scene at the exact same mid moment from a front viewpoint (image 1) and a 45-degree right viewpoint (image 2). Do both viewpoints show the silver-haired girl and the black cat performing the same action with consistent props and room layout?",
+      "auto_passed": false,
+      "auto_confidence": 0.638,
+      "human_label": null
+    },
+    {
+      "sample_id": 10,
+      "scene_id": 3,
+      "step_key": "drink_beverage",
+      "category": "inter_scene",
+      "camera": "cam_a",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s2_a_end.png",
+        "/assets/eval/frames/branch_v7_s3_a_start.png"
+      ],
+      "question": "Image 1 is the end of Scene 2 and Image 2 is the start of Scene 3 from the same Camera A viewpoint. Do the glass conservatory room, furniture, lighting, and characters connect seamlessly without abrupt resets or swapped outfits?",
+      "auto_passed": true,
+      "auto_confidence": 0.884,
+      "human_label": null
+    },
+    {
+      "sample_id": 11,
+      "scene_id": 4,
+      "step_key": "drag_position",
+      "category": "count",
+      "camera": "cam_a",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s4_a_mid.png"
+      ],
+      "question": "Are there at most one silver-haired girl (not two girls), at most one black cat (not two cats), and at most one crystal vase with a blue rose (no duplicated people, cats, or vases) in this frame?",
+      "auto_passed": true,
+      "auto_confidence": 0.879,
+      "human_label": null
+    },
+    {
+      "sample_id": 12,
+      "scene_id": 4,
+      "step_key": "drag_position",
+      "category": "holding",
+      "camera": "cam_a",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s4_a_end.png"
+      ],
+      "question": "Is the silver-haired girl holding the iced tea cup a746 in her hand (and NOT holding the red umbrella)?",
+      "auto_passed": true,
+      "auto_confidence": 0.899,
+      "human_label": null
+    },
+    {
+      "sample_id": 13,
+      "scene_id": 4,
+      "step_key": "drag_position",
+      "category": "position",
+      "camera": "cam_b",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s4_b_end.png"
+      ],
+      "question": "Is the silver-haired girl positioned on the right side of the round table, and is the black cat positioned on the floor (not on top of the table)?",
+      "auto_passed": true,
+      "auto_confidence": 0.874,
+      "human_label": null
+    },
+    {
+      "sample_id": 14,
+      "scene_id": 4,
+      "step_key": "drag_position",
+      "category": "cross_camera",
+      "camera": "cam_a+cam_b",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s4_a_mid.png",
+        "/assets/eval/frames/branch_v7_s4_b_mid.png"
+      ],
+      "question": "These two images show the same scene at the exact same mid moment from a front viewpoint (image 1) and a 45-degree right viewpoint (image 2). Do both viewpoints show the silver-haired girl and the black cat performing the same action with consistent props and room layout?",
+      "auto_passed": false,
+      "auto_confidence": 0.548,
+      "human_label": null
+    },
+    {
+      "sample_id": 15,
+      "scene_id": 4,
+      "step_key": "drag_position",
+      "category": "inter_scene",
+      "camera": "cam_a",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s3_a_end.png",
+        "/assets/eval/frames/branch_v7_s4_a_start.png"
+      ],
+      "question": "Image 1 is the end of Scene 3 and Image 2 is the start of Scene 4 from the same Camera A viewpoint. Do the glass conservatory room, furniture, lighting, and characters connect seamlessly without abrupt resets or swapped outfits?",
+      "auto_passed": true,
+      "auto_confidence": 0.802,
+      "human_label": null
+    },
+    {
+      "sample_id": 16,
+      "scene_id": 5,
+      "step_key": "umbrella_on_floor",
+      "category": "count",
+      "camera": "cam_a",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s5_a_mid.png"
+      ],
+      "question": "Are there at most one silver-haired girl (not two girls), at most one black cat (not two cats), and at most one crystal vase with a blue rose (no duplicated people, cats, or vases) in this frame?",
+      "auto_passed": true,
+      "auto_confidence": 0.798,
+      "human_label": null
+    },
+    {
+      "sample_id": 17,
+      "scene_id": 5,
+      "step_key": "umbrella_on_floor",
+      "category": "holding",
+      "camera": "cam_a",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s5_a_end.png"
+      ],
+      "question": "Are the silver-haired girl's hands free of the red umbrella (with the red umbrella resting on the floor or set aside, not held open)?",
+      "auto_passed": true,
+      "auto_confidence": 0.922,
+      "human_label": null
+    },
+    {
+      "sample_id": 18,
+      "scene_id": 5,
+      "step_key": "umbrella_on_floor",
+      "category": "position",
+      "camera": "cam_b",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s5_b_end.png"
+      ],
+      "question": "Is the silver-haired girl positioned on the right side of the round table, and is the black cat positioned on the floor (not on top of the table)?",
+      "auto_passed": true,
+      "auto_confidence": 0.927,
+      "human_label": null
+    },
+    {
+      "sample_id": 19,
+      "scene_id": 5,
+      "step_key": "umbrella_on_floor",
+      "category": "cross_camera",
+      "camera": "cam_a+cam_b",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s5_a_mid.png",
+        "/assets/eval/frames/branch_v7_s5_b_mid.png"
+      ],
+      "question": "These two images show the same scene at the exact same mid moment from a front viewpoint (image 1) and a 45-degree right viewpoint (image 2). Do both viewpoints show the silver-haired girl and the black cat performing the same action with consistent props and room layout?",
+      "auto_passed": true,
+      "auto_confidence": 0.601,
+      "human_label": null
+    },
+    {
+      "sample_id": 20,
+      "scene_id": 5,
+      "step_key": "umbrella_on_floor",
+      "category": "inter_scene",
+      "camera": "cam_a",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s4_a_end.png",
+        "/assets/eval/frames/branch_v7_s5_a_start.png"
+      ],
+      "question": "Image 1 is the end of Scene 4 and Image 2 is the start of Scene 5 from the same Camera A viewpoint. Do the glass conservatory room, furniture, lighting, and characters connect seamlessly without abrupt resets or swapped outfits?",
+      "auto_passed": true,
+      "auto_confidence": 0.853,
+      "human_label": null
+    },
+    {
+      "sample_id": 21,
+      "scene_id": 6,
+      "step_key": "cat_jumps_on_table",
+      "category": "count",
+      "camera": "cam_a",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s6_a_mid.png"
+      ],
+      "question": "Are there at most one silver-haired girl (not two girls), at most one black cat (not two cats), and at most one crystal vase with a blue rose (no duplicated people, cats, or vases) in this frame?",
+      "auto_passed": true,
+      "auto_confidence": 0.915,
+      "human_label": null
+    },
+    {
+      "sample_id": 22,
+      "scene_id": 6,
+      "step_key": "cat_jumps_on_table",
+      "category": "holding",
+      "camera": "cam_a",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s6_a_end.png"
+      ],
+      "question": "Are the silver-haired girl's hands free of the red umbrella (with the red umbrella resting on the floor or set aside, not held open)?",
+      "auto_passed": true,
+      "auto_confidence": 0.916,
+      "human_label": null
+    },
+    {
+      "sample_id": 23,
+      "scene_id": 6,
+      "step_key": "cat_jumps_on_table",
+      "category": "position",
+      "camera": "cam_b",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s6_b_end.png"
+      ],
+      "question": "Is the silver-haired girl positioned on the right side of the round table, and is the black cat positioned on top of the round wooden table?",
+      "auto_passed": true,
+      "auto_confidence": 0.901,
+      "human_label": null
+    },
+    {
+      "sample_id": 24,
+      "scene_id": 6,
+      "step_key": "cat_jumps_on_table",
+      "category": "cross_camera",
+      "camera": "cam_a+cam_b",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s6_a_mid.png",
+        "/assets/eval/frames/branch_v7_s6_b_mid.png"
+      ],
+      "question": "These two images show the same scene at the exact same mid moment from a front viewpoint (image 1) and a 45-degree right viewpoint (image 2). Do both viewpoints show the silver-haired girl and the black cat performing the same action with consistent props and room layout?",
+      "auto_passed": true,
+      "auto_confidence": 0.872,
+      "human_label": null
+    },
+    {
+      "sample_id": 25,
+      "scene_id": 6,
+      "step_key": "cat_jumps_on_table",
+      "category": "inter_scene",
+      "camera": "cam_a",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s5_a_end.png",
+        "/assets/eval/frames/branch_v7_s6_a_start.png"
+      ],
+      "question": "Image 1 is the end of Scene 5 and Image 2 is the start of Scene 6 from the same Camera A viewpoint. Do the glass conservatory room, furniture, lighting, and characters connect seamlessly without abrupt resets or swapped outfits?",
+      "auto_passed": true,
+      "auto_confidence": 0.88,
+      "human_label": null
+    },
+    {
+      "sample_id": 26,
+      "scene_id": 7,
+      "step_key": "put_vase_back",
+      "category": "count",
+      "camera": "cam_a",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s7_a_mid.png"
+      ],
+      "question": "Are there at most one silver-haired girl (not two girls), at most one black cat (not two cats), and at most one crystal vase with a blue rose (no duplicated people, cats, or vases) in this frame?",
+      "auto_passed": true,
+      "auto_confidence": 0.762,
+      "human_label": null
+    },
+    {
+      "sample_id": 27,
+      "scene_id": 7,
+      "step_key": "put_vase_back",
+      "category": "holding",
+      "camera": "cam_a",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s7_a_end.png"
+      ],
+      "question": "Are the silver-haired girl's hands free of the red umbrella (with the red umbrella resting on the floor or set aside, not held open)?",
+      "auto_passed": true,
+      "auto_confidence": 0.912,
+      "human_label": null
+    },
+    {
+      "sample_id": 28,
+      "scene_id": 7,
+      "step_key": "put_vase_back",
+      "category": "position",
+      "camera": "cam_b",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s7_b_end.png"
+      ],
+      "question": "Is the silver-haired girl positioned on the right side of the round table, and is the black cat positioned on the floor (not on top of the table)?",
+      "auto_passed": false,
+      "auto_confidence": 0.841,
+      "human_label": null
+    },
+    {
+      "sample_id": 29,
+      "scene_id": 7,
+      "step_key": "put_vase_back",
+      "category": "cross_camera",
+      "camera": "cam_a+cam_b",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s7_a_mid.png",
+        "/assets/eval/frames/branch_v7_s7_b_mid.png"
+      ],
+      "question": "These two images show the same scene at the exact same mid moment from a front viewpoint (image 1) and a 45-degree right viewpoint (image 2). Do both viewpoints show the silver-haired girl and the black cat performing the same action with consistent props and room layout?",
+      "auto_passed": true,
+      "auto_confidence": 0.788,
+      "human_label": null
+    },
+    {
+      "sample_id": 30,
+      "scene_id": 7,
+      "step_key": "put_vase_back",
+      "category": "inter_scene",
+      "camera": "cam_a",
+      "frames": [
+        "/assets/eval/frames/branch_v7_s6_a_end.png",
+        "/assets/eval/frames/branch_v7_s7_a_start.png"
+      ],
+      "question": "Image 1 is the end of Scene 6 and Image 2 is the start of Scene 7 from the same Camera A viewpoint. Do the glass conservatory room, furniture, lighting, and characters connect seamlessly without abrupt resets or swapped outfits?",
+      "auto_passed": true,
+      "auto_confidence": 0.848,
+      "human_label": null
+    }
+  ]
+}

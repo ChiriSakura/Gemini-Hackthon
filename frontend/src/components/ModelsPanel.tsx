@@ -28,9 +28,27 @@ interface SceneScore {
   total: number;
 }
 
+interface VideoConsistencyCategory {
+  passed: number;
+  total: number;
+  pass_rate: number;
+  avg_confidence?: number;
+}
+
+interface VideoConsistencyReport {
+  timestamp?: string;
+  method?: string;
+  branch_id?: string;
+  scenes_evaluated?: number;
+  overall?: { passed: number; total: number; pass_rate: number };
+  category_summary?: Record<string, VideoConsistencyCategory>;
+  human_audit_sample_count?: number;
+}
+
 interface EvalSummary {
   calibration_20_clips?: { total_clips?: number; accuracy?: number; avg_latency_sec?: number };
   cache_savings?: { naive_total_clips?: number; clips_skipped?: number };
+  video_consistency?: VideoConsistencyReport | null;
   stress_report?: {
     timestamp?: string;
     stateless_baseline?: { judge_score?: number; scenes?: number };
@@ -38,6 +56,16 @@ interface EvalSummary {
     scene_scaling_without_rules?: StressRow[];
   };
 }
+
+const VIDEO_CONSISTENCY_LABELS: Array<{ key: string; label: string }> = [
+  { key: 'count', label: 'Entity count (1 girl, 1 cat, 1 vase)' },
+  { key: 'holding', label: 'Holding state (umbrella / props)' },
+  { key: 'position', label: 'Stage position (left/right, floor/table)' },
+  { key: 'permanence', label: 'Object permanence across scenes' },
+  { key: 'clean', label: 'Clean frame (no cameras / text / numbers)' },
+  { key: 'cross_camera', label: 'Cross-camera sync (start / mid / end)' },
+  { key: 'inter_scene', label: 'Scene-to-scene continuity' },
+];
 
 const STAGES: Array<{ step: string; key: keyof HealthModels; fallback: string; job: string }> = [
   { step: 'Hear & see', key: 'judge', fallback: 'Gemini 4 Hydrogen', job: 'Turns voice, camera and text into one direction; spots a real object held up to the camera.' },
@@ -99,6 +127,15 @@ export const ModelsPanel: React.FC<{ open: boolean; onClose: () => void }> = ({ 
   const stress = summary?.stress_report;
   const scaling = stress?.scene_scaling_with_rule_memory ?? stress?.scene_scaling_without_rules ?? [];
   const baseline = stress?.stateless_baseline?.judge_score;
+  const videoConsistency = summary?.video_consistency ?? null;
+  const videoCategoryRows = videoConsistency?.category_summary
+    ? VIDEO_CONSISTENCY_LABELS.filter((item) => Boolean(videoConsistency.category_summary?.[item.key])).map(
+        (item) => ({
+          ...item,
+          stats: videoConsistency.category_summary![item.key],
+        }),
+      )
+    : [];
 
   return (
     <div className="models-overlay" role="dialog" aria-modal="true" aria-label="Models and evaluation">
@@ -195,6 +232,58 @@ export const ModelsPanel: React.FC<{ open: boolean; onClose: () => void }> = ({ 
               {summary.cache_savings?.clips_skipped != null &&
                 ` Rewriting one scene re-renders only what follows it: ${summary.cache_savings.clips_skipped} of ${summary.cache_savings.naive_total_clips} clips were reused across saved branches.`}
             </p>
+          )}
+        </section>
+
+        <section>
+          <h3>Clip-level consistency (6-scene benchmark)</h3>
+          {videoCategoryRows.length > 0 ? (
+            <>
+              <table className="models-table">
+                <thead>
+                  <tr>
+                    <th>Check category</th>
+                    <th>Passed</th>
+                    <th>Pass rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {videoCategoryRows.map((row) => (
+                    <tr key={row.key}>
+                      <td>{row.label}</td>
+                      <td>
+                        {row.stats.passed} / {row.stats.total}
+                      </td>
+                      <td>{Math.round(row.stats.pass_rate * 100)}%</td>
+                    </tr>
+                  ))}
+                  {videoConsistency?.overall && (
+                    <tr>
+                      <td>
+                        <strong>Overall ({videoConsistency.scenes_evaluated ?? 6} scenes)</strong>
+                      </td>
+                      <td>
+                        <strong>
+                          {videoConsistency.overall.passed} / {videoConsistency.overall.total}
+                        </strong>
+                      </td>
+                      <td>
+                        <strong>{Math.round(videoConsistency.overall.pass_rate * 100)}%</strong>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+              <p className="models-foot">
+                Evaluated on rendered clips from both cameras ({videoConsistency?.method ?? 'baseline'}
+                {videoConsistency?.branch_id ? ` · ${videoConsistency.branch_id}` : ''}).
+                {videoConsistency?.human_audit_sample_count
+                  ? ` Saved ${videoConsistency.human_audit_sample_count} sample frames for human calibration.`
+                  : ''}
+              </p>
+            </>
+          ) : (
+            <p className="models-empty">Clip-level consistency benchmark has not been run yet.</p>
           )}
         </section>
 

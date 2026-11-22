@@ -44,6 +44,7 @@ export interface EvalSummaryResponse {
   dual_cam_stats?: unknown;
   dual_cam_fixed_room?: unknown;
   fast_live_latency?: unknown;
+  video_consistency?: unknown;
   calibration_20_clips?: unknown;
   decisions_multimodal?: unknown;
   audio_mood?: unknown;

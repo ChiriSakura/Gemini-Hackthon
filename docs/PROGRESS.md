@@ -37,3 +37,45 @@
 - **真实麦克风语音输入**：未在真机浏览器中用真实麦克风实测（需 Christina 本人验证）。
 - **真实摄像头拍道具**：未在真机浏览器中用真实摄像头实测拍摄道具入镜（需 Christina 本人验证）。
 - **前端错误条 Retry 按钮真机点击交互**：代码逻辑与静态类型已检查通过，但未在浏览器中人工触发 504 后点击实测。
+
+---
+
+## 阶段 1：在成片上测一致性
+
+### 已完成改动
+
+1. **成片一致性自动评测套件**
+   - 新增 `backend/media/eval_video_consistency.py`：
+     - 固定 6 幕测试剧本（`SIX_SCENE_SCRIPT`），从 `branch_v1` 第 1 幕出发覆盖全部 6 个动作：拿起花瓶 → 喝饮料（含新建 `iced_tea_cup` 道具）→ 拖动 Lia 到右侧（`/api/director/move-actor`）→ 把伞放地上 → 猫跳上桌 → 放回花瓶。
+     - 根据每幕世界状态自动生成 7 类是非题（共 6 幕 × 15 题 = 90 题）：
+       - 单机位 5 类（每幕 A/B 各问 1 次）：`count`（数量）、`holding`（持有）、`position`（位置）、`permanence`（恒存）、`clean`（无拍摄设备/文字/数字）。
+       - `cross_camera`（跨机位同步）：开头 / 中间 / 结尾 3 个时间点各取 A/B 帧对比。
+       - `inter_scene`（幕间连贯）：上一幕尾帧与本幕首帧（A/B 各 1 题）对比。
+     - 使用 `ffmpeg -nostdin` 抽取关键帧并调用 `judge()`（Decisions API）打分，结果写入 `backend/assets/eval/video_consistency.json`，同时抽存 30 张代表帧到 `backend/assets/eval/frames/` 写入 `human_audit_sample` 供人工核对。
+2. **后端与前端展示接入**
+   - `backend/main.py`：`/api/eval/summary` 新增 `video_consistency` 字段读取 `backend/assets/eval/video_consistency.json`。
+   - `frontend/src/api/stageClient.ts` & `frontend/src/components/ModelsPanel.tsx`：在 `Models & Evaluation` 面板新增 **Clip-level consistency (6-scene benchmark)** 表格，展示 7 类题与总计的通过数和通过率。
+
+### 已亲眼验证（Verified）
+
+- **前端构建与静态门禁**：执行 `cd frontend && npm run verify`，6/6 全通过（含更新后的 `ModelsPanel.tsx`）。
+- **现有流程（Method A：`A_baseline_prev_tail`）在 6 幕剧本（`branch_v7`）上的成片评测结果**（90 题全部通过真实 Decisions API 跑完，写入 `backend/assets/eval/video_consistency.json`）：
+
+| 题类 | 通过 / 总数 | 通过率 | 平均置信度 |
+| :--- | :---: | :---: | :---: |
+| `count`（数量） | 12 / 12 | 100.0% | 0.860 |
+| `holding`（持有） | 12 / 12 | 100.0% | 0.913 |
+| `position`（位置） | 8 / 12 | 66.7% | 0.906 |
+| `permanence`（恒存） | 10 / 12 | 83.3% | 0.891 |
+| `clean`（干净画面） | 12 / 12 | 100.0% | 0.876 |
+| `cross_camera`（跨机位同步） | 13 / 18 | 72.2% | 0.715 |
+| `inter_scene`（幕间连贯） | 12 / 12 | 100.0% | 0.835 |
+| **总计（6 幕）** | **79 / 90** | **87.8%** | — |
+
+- **主要短板**：`position`（66.7%）与 `cross_camera`（72.2%）是现有流程最明显的失分项，正好作为阶段 2（3D 做底对比实验）的重点改进指标。
+
+### 尚未验证（Not Verified）
+
+- **人工标注核对约 30 帧**：已生成 30 条待标注样本（`backend/assets/eval/video_consistency.json` 中的 `human_audit_sample`，对应帧在 `backend/assets/eval/frames/`），尚未由 Christina 人工核对自动判题准确率。
+- **浏览器中打开 `ModelsPanel` 目视检查新表格排版**：前端编译与静态检查全绿，但未在真机浏览器里点开面板截图目视确认。
+
