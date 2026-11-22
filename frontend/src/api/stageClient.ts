@@ -187,8 +187,8 @@ export async function fetchHealth(): Promise<BackendHealth> {
   }
 }
 
-const PERCEIVE_TIMEOUT_MS = 18000;
-const FORK_TIMEOUT_MS = 45000;
+const PERCEIVE_TIMEOUT_MS = 65000;
+const FORK_TIMEOUT_MS = 65000;
 const RENDER_TIMEOUT_MS = 105000;
 const STANDARD_RENDER_TIMEOUT_MS = 210000;
 const PROP_TIMEOUT_MS = 90000;
@@ -322,7 +322,13 @@ async function readErrorDetail(res: Response): Promise<string> {
     try {
       const parsed = JSON.parse(raw);
       const d = parsed?.detail;
-      detail = typeof d === 'string' ? d : d ? JSON.stringify(d) : raw;
+      if (typeof d === 'string') {
+        detail = d;
+      } else if (d && typeof d === 'object' && typeof d.message === 'string') {
+        detail = d.message;
+      } else {
+        detail = d ? JSON.stringify(d) : raw;
+      }
     } catch {
       detail = raw;
     }

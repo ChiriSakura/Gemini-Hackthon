@@ -28,6 +28,23 @@ _CLIENT: genai.Client | None = None
 _BETA_CLIENT: genai.Client | None = None
 
 
+class DirectorModelError(RuntimeError):
+    """Structured retryable error raised when a director/judge GenAI call times out or fails after retries."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str = "director_error",
+        status_code: int = 503,
+        retryable: bool = True,
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.status_code = status_code
+        self.retryable = retryable
+
+
 def get_genai_client() -> genai.Client:
     """Return a cached standard `google.genai.Client` initialized from `config.GEMINI_API_KEY`."""
     global _CLIENT
@@ -128,10 +145,13 @@ async def generate_structured(
     response_schema: Type[T],
     temperature: float = 0.2,
     thinking_level: str | None = "LOW",
-    timeout_sec: float = 45.0,
+    timeout_sec: float | None = None,
+    max_retries: int | None = None,
 ) -> T:
-    """Call Gemini asynchronously with strict Pydantic JSON schema output, timeout, and logging."""
+    """Call Gemini asynchronously with strict Pydantic JSON schema output, per-attempt timeout, 1 retry, and logging."""
     client = get_genai_client()
+    eff_timeout = config.DIRECTOR_TIMEOUT_SEC if timeout_sec is None else timeout_sec
+    eff_retries = config.DIRECTOR_MAX_RETRIES if max_retries is None else max(0, max_retries)
     thinking_cfg = types.ThinkingConfig(thinking_level=thinking_level) if thinking_level else None
     gen_config = types.GenerateContentConfig(
         system_instruction=system_instruction,
@@ -140,25 +160,70 @@ async def generate_structured(
         temperature=temperature,
         thinking_config=thinking_cfg,
     )
-    response = await asyncio.wait_for(
-        client.aio.models.generate_content(
-            model=model,
-            contents=contents,
-            config=gen_config,
-        ),
-        timeout=timeout_sec,
-    )
-    raw_text = (response.text or "").strip()
-    if not raw_text:
-        raise ValueError(f"Empty structured response from model={model}")
-    parsed = response_schema.model_validate_json(raw_text)
-    log_genai_call(
-        model=model,
-        prompt={"system": system_instruction, "contents": contents},
-        config={"response_schema": response_schema.__name__, "temperature": temperature, "timeout_sec": timeout_sec},
-        output=parsed,
-    )
-    return parsed
+    total_attempts = 1 + eff_retries
+    last_exc: Exception | None = None
+    timed_out = False
+    for attempt in range(1, total_attempts + 1):
+        try:
+            response = await asyncio.wait_for(
+                client.aio.models.generate_content(
+                    model=model,
+                    contents=contents,
+                    config=gen_config,
+                ),
+                timeout=eff_timeout,
+            )
+            raw_text = (response.text or "").strip()
+            if not raw_text:
+                raise ValueError(f"Empty structured response from model={model}")
+            parsed = response_schema.model_validate_json(raw_text)
+            log_genai_call(
+                model=model,
+                prompt={"system": system_instruction, "contents": contents},
+                config={
+                    "response_schema": response_schema.__name__,
+                    "temperature": temperature,
+                    "timeout_sec": eff_timeout,
+                    "attempt": attempt,
+                },
+                output=parsed,
+            )
+            return parsed
+        except asyncio.TimeoutError as exc:
+            timed_out = True
+            last_exc = exc
+            log_genai_call(
+                model=model,
+                prompt={"system": system_instruction[:160]},
+                config={"response_schema": response_schema.__name__, "timeout_sec": eff_timeout, "attempt": attempt},
+                output={"error": "timeout", "will_retry": attempt < total_attempts},
+            )
+        except Exception as exc:
+            timed_out = False
+            last_exc = exc
+            log_genai_call(
+                model=model,
+                prompt={"system": system_instruction[:160]},
+                config={"response_schema": response_schema.__name__, "timeout_sec": eff_timeout, "attempt": attempt},
+                output={"error": str(exc)[:240], "will_retry": attempt < total_attempts},
+            )
+        if attempt < total_attempts:
+            await asyncio.sleep(0.8)
+
+    if timed_out:
+        raise DirectorModelError(
+            f"Director model ({model}) timed out after {total_attempts} attempts ({int(eff_timeout)}s each). Please retry.",
+            code="director_timeout",
+            status_code=504,
+            retryable=True,
+        ) from last_exc
+    detail = str(last_exc)[:180] if last_exc else "unknown error"
+    raise DirectorModelError(
+        f"Director model ({model}) failed after {total_attempts} attempts: {detail}. Please retry.",
+        code="director_error",
+        status_code=503,
+        retryable=True,
+    ) from last_exc
 
 
 async def generate_text(
@@ -166,27 +231,58 @@ async def generate_text(
     system_instruction: str,
     contents: list[Any],
     temperature: float = 0.3,
-    timeout_sec: float = 45.0,
+    timeout_sec: float | None = None,
+    max_retries: int | None = None,
 ) -> str:
-    """Call Gemini asynchronously for concise plain-text output with timeout and logging."""
+    """Call Gemini asynchronously for concise plain-text output with per-attempt timeout, retry, and logging."""
     client = get_genai_client()
+    eff_timeout = config.DIRECTOR_TIMEOUT_SEC if timeout_sec is None else timeout_sec
+    eff_retries = config.DIRECTOR_MAX_RETRIES if max_retries is None else max(0, max_retries)
     gen_config = types.GenerateContentConfig(
         system_instruction=system_instruction,
         temperature=temperature,
     )
-    response = await asyncio.wait_for(
-        client.aio.models.generate_content(
-            model=model,
-            contents=contents,
-            config=gen_config,
-        ),
-        timeout=timeout_sec,
-    )
-    text = (response.text or "").strip()
-    log_genai_call(
-        model=model,
-        prompt={"system": system_instruction, "contents": contents},
-        config={"temperature": temperature, "timeout_sec": timeout_sec},
-        output=text,
-    )
-    return text
+    total_attempts = 1 + eff_retries
+    last_exc: Exception | None = None
+    timed_out = False
+    for attempt in range(1, total_attempts + 1):
+        try:
+            response = await asyncio.wait_for(
+                client.aio.models.generate_content(
+                    model=model,
+                    contents=contents,
+                    config=gen_config,
+                ),
+                timeout=eff_timeout,
+            )
+            text = (response.text or "").strip()
+            log_genai_call(
+                model=model,
+                prompt={"system": system_instruction, "contents": contents},
+                config={"temperature": temperature, "timeout_sec": eff_timeout, "attempt": attempt},
+                output=text,
+            )
+            return text
+        except asyncio.TimeoutError as exc:
+            timed_out = True
+            last_exc = exc
+        except Exception as exc:
+            timed_out = False
+            last_exc = exc
+        if attempt < total_attempts:
+            await asyncio.sleep(0.8)
+
+    if timed_out:
+        raise DirectorModelError(
+            f"Director model ({model}) timed out after {total_attempts} attempts ({int(eff_timeout)}s each). Please retry.",
+            code="director_timeout",
+            status_code=504,
+            retryable=True,
+        ) from last_exc
+    detail = str(last_exc)[:180] if last_exc else "unknown error"
+    raise DirectorModelError(
+        f"Director model ({model}) failed after {total_attempts} attempts: {detail}. Please retry.",
+        code="director_error",
+        status_code=503,
+        retryable=True,
+    ) from last_exc

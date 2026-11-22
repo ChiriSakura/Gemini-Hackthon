@@ -23,10 +23,11 @@ from typing import Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend import config
+from backend.director.genai_client import DirectorModelError
 from backend.director.hydrogen_judge import (
     check_contradiction,
     classify_rewrite_intent,
@@ -86,6 +87,21 @@ async def _read_upload_bounded(upload: Optional[UploadFile], max_bytes: int, lab
 
 
 app = FastAPI(title="StageState Director API", version="0.3.0")
+
+
+@app.exception_handler(DirectorModelError)
+async def _handle_director_model_error(_request: Request, exc: DirectorModelError) -> JSONResponse:
+    """Return explicit 503/504 JSON with retryable hint instead of an opaque HTTP 500."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "detail": {
+                "code": exc.code,
+                "message": str(exc),
+                "retryable": exc.retryable,
+            }
+        },
+    )
 
 _cors_origins = config.CORS_ORIGINS or ["*"]
 app.add_middleware(

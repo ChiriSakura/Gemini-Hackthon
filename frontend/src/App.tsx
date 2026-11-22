@@ -121,6 +121,15 @@ export default function App(): React.ReactElement {
   const [errorNote, setErrorNote] = useState<string | null>(null);
   const [errorSceneId, setErrorSceneId] = useState<number | null>(null);
   const [canRetryRender, setCanRetryRender] = useState<boolean>(false);
+  const [canRetryExtend, setCanRetryExtend] = useState<boolean>(false);
+  const lastExtendOptsRef = useRef<{
+    branchId: string;
+    fromSceneId: number;
+    text?: string;
+    clip?: Blob | null;
+    parsedDirective?: DirectorInputParsed | null;
+    injectedProp?: InjectedPropPayload | null;
+  } | null>(null);
   const [liveBranchIds, setLiveBranchIds] = useState<Set<string>>(() => new Set());
   const [sculptureFrozen, setSculptureFrozen] = useState(false);
   const [throwOpen, setThrowOpen] = useState(false);
@@ -385,6 +394,8 @@ export default function App(): React.ReactElement {
     setErrorNote(null);
     setErrorSceneId(null);
     setCanRetryRender(false);
+    setCanRetryExtend(false);
+    lastExtendOptsRef.current = null;
     setHeardNote(null);
     setCompareBranchId(null);
     if (baseBranch) {
@@ -444,6 +455,10 @@ export default function App(): React.ReactElement {
     parsedDirective?: DirectorInputParsed | null;
     injectedProp?: InjectedPropPayload | null;
   }): Promise<boolean> => {
+    lastExtendOptsRef.current = opts;
+    setErrorNote(null);
+    setCanRetryExtend(false);
+    setCanRetryRender(false);
     setBusy({
       label: `Continuing story into Scene ${opts.fromSceneId + 1}`,
       typical: 'usually 10–20s',
@@ -465,9 +480,10 @@ export default function App(): React.ReactElement {
     setBusy(null);
 
     if (!extended) {
-      setErrorNote(`Continue failed: ${extendError ?? 'unknown error'}.`);
+      setErrorNote(`Director failed: ${extendError ?? 'unknown error'}`);
       setErrorSceneId(opts.fromSceneId);
-      setCanRetryRender(true);
+      setCanRetryRender(false);
+      setCanRetryExtend(true);
       void refreshHealth(isMockMode);
       return false;
     }
@@ -1136,11 +1152,16 @@ export default function App(): React.ReactElement {
             role="status"
             title={
               backendReachable
-                ? 'No model key configured: running in MOCK MODE with saved runs.'
-                : 'Backend unreachable: running in MOCK MODE with offline fallback.'
+                ? 'No model key configured: browsing saved runs.'
+                : 'Backend unreachable: browsing saved runs.'
             }
           >
-            MOCK MODE
+            Saved
+          </span>
+        )}
+        {apiStatus === 'live' && (
+          <span className="mode-badge live" role="status" title="Connected to live backend models.">
+            Live
           </span>
         )}
       </header>
@@ -1194,6 +1215,18 @@ export default function App(): React.ReactElement {
             <span>
               <strong>{errorNote}</strong>
             </span>
+            {canRetryExtend && !busy && lastExtendOptsRef.current && (
+              <button
+                type="button"
+                className="notice-btn strong"
+                onClick={() => {
+                  const opts = lastExtendOptsRef.current;
+                  if (opts) void runStoryExtend(opts);
+                }}
+              >
+                Retry
+              </button>
+            )}
             {canRetryRender && !renderingScene && (
               <button
                 type="button"
@@ -1226,6 +1259,7 @@ export default function App(): React.ReactElement {
                 setErrorNote(null);
                 setErrorSceneId(null);
                 setCanRetryRender(false);
+                setCanRetryExtend(false);
               }}
             >
               Dismiss
