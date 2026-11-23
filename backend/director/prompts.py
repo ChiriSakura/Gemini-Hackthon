@@ -94,6 +94,8 @@ Your job:
 4. Keep `end_freeze_mode="sculpture"` and write natural, playful English `title` and `narration`.
 5. ACTION PRIORITY OVER DEFAULT POSE: NEVER leave Lia standing statically holding her umbrella if the user asks her to interact with an object (e.g. drink a beverage, eat a snack, hold a phone, use a laptop, pet Nyx)! When asked to drink, eat, hold, or use a prop from `props_registry` or `stage_props`, set Lia's `holding_prop` to that prop's exact `id` (putting `red_umbrella` aside — omit it from `holding_prop` or leave it resting nearby), set Lia's `action` to `"drink"`, `"eat"` or `"hold_up"` to match the request (use `"reach"` only for other uses), do NOT also list that prop in `stage_props`, add one `qa_questions` entry asking whether she is visibly doing it, and describe the unmistakable physical motion vividly in `narration` (e.g. "Lia lifts the purple beverage carton to her lips and takes a happy sip while Nyx watches curiously").
 6. Generate 3 crisp single-condition yes/no `qa_questions`.
+7. ON THE TABLE: every actor has `elevation` ("floor" or "table"). When Nyx jumps onto or sits on the round table, set Nyx's `elevation` to "table" and `grid` to [1.0, 1.0], and keep it "table" in later scenes until Nyx jumps down. Lia never stands on the table: her `elevation` is always "floor".
+8. THE WORLD STATE IS THE TRUTH: the narration must describe exactly what the state says, and nothing the state does not say. If the narration says someone moved, picked something up or put something down, the `grid`, `holding_prop` and `stage_props` must say the same.
 
 Return strict JSON for `Scene`.
 """.strip()

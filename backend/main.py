@@ -37,6 +37,7 @@ from backend.director.hydrogen_judge import (
 )
 from backend.director.neon_director import extend_single_scene, plan_scenes
 from backend.director.rule_memory import add_rule, load_general_rules, load_rules
+from backend.director.world_rules import apply_world_rules, keep_actors_clear_of_table, reconcile_inventory
 from backend.director.state_tree import (
     delete_branch,
     get_branch,
@@ -48,6 +49,7 @@ from backend.director.world_manifest import WorldManifest, get_active_world_mani
 from backend.logger import log_function_call
 from backend.media.prop_maker import create_prop
 from backend.media.video_renderer import (
+    build_blocking_preview,
     export_branch_movie,
     get_render_progress,
     publish_scene_progress,
@@ -329,6 +331,23 @@ def _upsert_prop_appearance_note(
     return joined[:480] if len(joined) > 480 else joined
 
 
+def _prop_heights(registry: dict) -> dict[str, float]:
+    """Physical heights (metres) of the registered props, for drawing them to scale on the 3D stage."""
+    return {pid: float(item.height_m) for pid, item in (registry or {}).items() if getattr(item, "height_m", None)}
+
+
+async def _attach_blocking_preview(scene: Scene, start_state: Optional[Scene], registry: dict) -> bool:
+    """Render the 3D blocking preview for `scene` and store its two clip URLs on the scene. Never raises."""
+    try:
+        preview = await asyncio.to_thread(build_blocking_preview, scene, start_state, _prop_heights(registry))
+    except Exception:
+        return False
+    if not preview:
+        return False
+    scene.media.cam_a_preview_url, scene.media.cam_b_preview_url = preview
+    return True
+
+
 async def _invoke_render_scene_media(
     scene: Scene,
     refs: list[str],
@@ -340,6 +359,8 @@ async def _invoke_render_scene_media(
     fast_live_mode: bool = False,
     prop_descriptions: Optional[dict[str, str]] = None,
     progress_cb=None,
+    start_state: Optional[Scene] = None,
+    prop_heights: Optional[dict[str, float]] = None,
 ):
     """Call `render_scene_media` while safely forwarding `prev_tail_a/b`, `fast_live_mode`, `prop_descriptions`, and `progress_cb`."""
     sig = inspect.signature(render_scene_media)
@@ -358,6 +379,10 @@ async def _invoke_render_scene_media(
         kwargs["prop_descriptions"] = prop_descriptions
     if "progress_cb" in sig.parameters and progress_cb is not None:
         kwargs["progress_cb"] = progress_cb
+    if "start_state" in sig.parameters and start_state is not None:
+        kwargs["start_state"] = start_state
+    if "prop_heights" in sig.parameters and prop_heights:
+        kwargs["prop_heights"] = prop_heights
     return await render_scene_media(scene, refs, **kwargs)
 
 
@@ -592,8 +617,7 @@ async def api_director_extend(
         learned_rules=load_general_rules(),
         end_freeze_mode=end_freeze_mode,
     )
-    _keep_actors_clear_of_table(next_scene)
-    _reconcile_inventory(prefix_scenes[-1], next_scene)
+    apply_world_rules(prefix_scenes[-1], next_scene)
     if thrown_prop_id:
         eff_motion = injected_motion or ("throw_arc" if explicit_handoff else "place")
         on_floor = injected_placement == "floor"
@@ -633,6 +657,10 @@ async def api_director_extend(
             prop_app,
             active_ids,
         )
+
+    reconcile_inventory(prefix_scenes[-1], next_scene)
+    # The instant 3D preview: the stage going from the previous state to the new one, in both views (no model call).
+    await _attach_blocking_preview(next_scene, prefix_scenes[-1], updated_registry)
 
     is_rewound = anchor_id < ordered_scenes[-1].scene_id
     # Never mutate immutable cached baseline branches in-place; fork cleanly instead
@@ -811,68 +839,9 @@ def _describe_stage_spot(grid: list[float]) -> str:
     return f"{side}, {depth}"
 
 
-def _reconcile_inventory(prev_scene: Scene, next_scene: Scene) -> None:
-    """
-    The item ledger: every object exists exactly once and never appears or vanishes on its own.
-
-    - An object in an actor's hands is not also listed on the stage, and no object is listed twice.
-    - Every object of the previous scene is still somewhere in the new scene. One the director forgot stays
-      where it was; one that was in a hand and is no longer held is put down on the floor beside that actor.
-    """
-    held = {a.holding_prop for a in next_scene.actors if a.holding_prop}
-    unique: list[StagePropState] = []
-    seen: set[str] = set()
-    for prop in next_scene.stage_props:
-        if prop.id in held or prop.id in seen:
-            continue
-        seen.add(prop.id)
-        unique.append(prop)
-    next_scene.stage_props = unique
-
-    present = held | seen
-    for prop in prev_scene.stage_props:
-        if prop.id not in present:
-            carried = prop.model_copy(deep=True)
-            carried.entry_motion = "place"
-            carried.entry_origin = None
-            next_scene.stage_props.append(carried)
-            present.add(prop.id)
-    for actor in prev_scene.actors:
-        pid = actor.holding_prop
-        if not pid or pid in present:
-            continue
-        now = next((a for a in next_scene.actors if a.id == actor.id), actor)
-        next_scene.stage_props.append(
-            StagePropState(
-                id=pid,
-                grid=[round(min(2.0, max(0.0, now.grid[0] - 0.3)), 2), round(now.grid[1], 2)],
-                on_floor=True,
-                state="intact",
-            )
-        )
-        present.add(pid)
-
-
-TABLE_CLEARANCE_M = {"nyx": 0.8}
-DEFAULT_TABLE_CLEARANCE_M = 1.05
-
-
-def _keep_actors_clear_of_table(scene: Scene) -> None:
-    """Push any actor standing inside the centre table out to its edge, so sprites and renders do not clip through it."""
-    import math
-
-    for actor in scene.actors:
-        if actor.action == "jump":  # on top of the table on purpose
-            continue
-        wx, wz = (actor.grid[0] - 1) * 2.1, (actor.grid[1] - 1) * 1.7
-        clearance = TABLE_CLEARANCE_M.get(actor.id, DEFAULT_TABLE_CLEARANCE_M)
-        dist = math.hypot(wx, wz)
-        if dist >= clearance:
-            continue
-        if dist < 1e-3:
-            wx, wz, dist = -1.0, 0.0, 1.0
-        wx, wz = wx / dist * clearance, wz / dist * clearance
-        actor.grid = [round(wx / 2.1 + 1, 2), round(wz / 1.7 + 1, 2)]
+# The world rules (item ledger, who is on the table, table clearance) live in backend/director/world_rules.py.
+_reconcile_inventory = reconcile_inventory
+_keep_actors_clear_of_table = keep_actors_clear_of_table
 
 
 @app.post("/api/director/move-actor")
@@ -893,11 +862,38 @@ async def api_director_move_actor(
         if not actor:
             raise HTTPException(status_code=404, detail=f"Actor {actor_id} not found in scene {scene_id}")
         actor.grid = [max(0.0, min(2.0, grid_x)), max(0.0, min(2.0, grid_y))]
+        actor.elevation = "floor"  # a character the user drags is set down on the floor
         _keep_actors_clear_of_table(scene)
         save_branch(branch)
         _USER_MOVED_ACTORS.setdefault((branch_id, scene_id), set()).add(actor_id)
         _save_user_moved()
         return {"branch_id": branch_id, "scene_id": scene_id, "actor_id": actor_id, "grid": actor.grid}
+
+
+@app.post("/api/media/blocking-preview")
+async def api_media_blocking_preview(branch_id: str = Form(...), scene_id: int = Form(...)) -> dict:
+    """
+    The instant 3D preview of one scene: both views of the stage going from the previous scene's state to this
+    one. Drawn from the world state alone (no model call, about two seconds), so it is available at once and
+    stays available when no final clip can be rendered.
+    """
+    async with _get_branch_lock(branch_id):
+        branch = get_branch(branch_id)
+        if not branch:
+            raise HTTPException(status_code=404, detail=f"Branch {branch_id} not found")
+        scene = next((s for s in branch.scenes if s.scene_id == scene_id), None)
+        if not scene:
+            raise HTTPException(status_code=404, detail=f"Scene {scene_id} not found")
+        prev_scene = next((s for s in branch.scenes if s.scene_id == scene_id - 1), None)
+        if not await _attach_blocking_preview(scene, prev_scene, branch.props_registry):
+            raise HTTPException(status_code=503, detail="The 3D stage preview is not available (stage plates missing).")
+        save_branch(branch)
+        return {
+            "branch_id": branch_id,
+            "scene_id": scene_id,
+            "cam_a_preview_url": scene.media.cam_a_preview_url,
+            "cam_b_preview_url": scene.media.cam_b_preview_url,
+        }
 
 
 @app.post("/api/media/render-scene")
@@ -1005,6 +1001,8 @@ async def api_media_render_scene(
                     progress_cb=lambda phase: publish_scene_progress(
                         branch_id, target.scene_id, phase, branch_status="running"
                     ),
+                    start_state=prev_scene,
+                    prop_heights=_prop_heights(branch.props_registry),
                 ),
                 # Camera B waits for Camera A when it is derived from A's frames, so allow the extra pass.
                 timeout=200.0 if (config.CAM_B_KEYFRAMES_FROM_A and not fast_live_mode) else config.RENDER_SCENE_TIMEOUT_SEC,

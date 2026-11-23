@@ -86,3 +86,12 @@ DIRECTOR_MAX_RETRIES: int = int(os.getenv("DIRECTOR_MAX_RETRIES", "1"))
 
 # Send the grey 3D layout sketch to the video model as a second image. Off: it pulled clips away from the start frame.
 SPLIT_ATTACH_LAYOUT_GUIDE: bool = os.getenv("SPLIT_ATTACH_LAYOUT_GUIDE", "false").lower() == "true"
+
+# What each scene's clip is generated from (see docs/3d_first_experiment.md):
+#   prev_tail          - the previous clip's last frames plus text (the original pipeline)
+#   stage3d            - a start frame composited from the 3D stage state (positions and counts are computed)
+#   stage3d_first_last - start AND end frame composited from the 3D stage state; the video model fills the motion
+#   stage3d_video      - the 3D blocking clip is handed to the video model to repaint as anime
+RENDER_BASE: str = os.getenv("RENDER_BASE", "prev_tail").strip().lower()
+# Resolution of the one split-screen generation. 720p gives 640x360 per camera, 1080p gives 960x540.
+SPLIT_RESOLUTION: str = os.getenv("SPLIT_RESOLUTION", "720p").strip().lower()

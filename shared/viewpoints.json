@@ -1,0 +1,5 @@
+{
+  "_comment": "The two fixed stage viewpoints. Single definition: read by backend/media/stage3d.py and by the browser stage. Calibrated so the 3D table lines up with the table painted in backend/assets/stages/plate_cam_*.png.",
+  "cam_a": { "fov": 51.57, "pos": [0.0, 1.43, 4.757], "look_at": [0.0, 1.439, 0.0] },
+  "cam_b": { "fov": 32.9, "pos": [4.606, 1.462, 4.606], "look_at": [0.46, 1.298, -0.415] }
+}

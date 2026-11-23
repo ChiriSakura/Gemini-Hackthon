@@ -83,6 +83,8 @@ class ActorState(BaseModel):
     ] = "stand"
     holding_prop: Optional[str] = None
     height_m: Optional[float] = Field(default=None, ge=0.05, le=3.0)
+    # What the actor stands or sits on. "table" = on top of the round centre table (only the cat fits there).
+    elevation: Literal["floor", "table"] = "floor"
 
 
 class StagePropState(BaseModel):

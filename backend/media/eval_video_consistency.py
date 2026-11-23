@@ -41,7 +41,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from backend import config
 from backend.director.hydrogen_judge import judge
-from backend.director.state_tree import get_branch
+from backend.director.state_tree import get_branch, save_branch
 from backend.main import app
 
 EVAL_DIR = config.ASSETS_DIR / "eval"
@@ -210,8 +210,11 @@ def build_scene_questions(
 
     lia_holding = lia.get("holding_prop")
     lia_side = _describe_lia_side(lia.get("grid", [0.0, 1.0]))
+    # The world state says where the cat is (`elevation`); older saved branches without the field fall back to
+    # the action / script step that put it on the table.
     nyx_on_table = (
-        nyx.get("action") == "jump"
+        nyx.get("elevation") == "table"
+        or nyx.get("action") == "jump"
         or (step_meta is not None and step_meta.get("key") == "cat_jumps_on_table")
         or (0.75 <= float(nyx.get("grid", [2.0, 1.0])[0]) <= 1.25 and 0.75 <= float(nyx.get("grid", [2.0, 1.0])[1]) <= 1.25)
     )
@@ -274,7 +277,8 @@ def build_scene_questions(
         "count": ("mid", q_count),
         "holding": ("end", q_holding),
         "position": ("end", q_position),
-        "permanence": ("mid", q_perm),
+        # Asked on the last frame: an object that is picked up during the clip is still on the table halfway.
+        "permanence": ("end", q_perm),
         "clean": ("mid", q_clean),
     }
 
@@ -650,6 +654,8 @@ async def evaluate_branch_clips(
         "method": method_name,
         "branch_id": branch_id,
         "script_name": "stage1_six_scene_benchmark",
+        # v2: the cat's place is read from `elevation`, and the permanence question is asked on the last frame.
+        "question_set": "v2",
         "scenes_evaluated": len(per_scene_results),
         "overall": {
             "passed": total_passed,
@@ -679,14 +685,147 @@ async def evaluate_branch_clips(
     return report
 
 
+RENDER_BASE_LABELS = {
+    "prev_tail": "A_prev_tail",
+    "stage3d": "B_stage3d_start",
+    "stage3d_first_last": "B2_stage3d_first_last",
+    "stage3d_video": "C_stage3d_video",
+}
+
+
+async def rerender_fixed_states(
+    source_branch_id: str,
+    render_base: str,
+    *,
+    resolution: str = "720p",
+    method_name: Optional[str] = None,
+) -> dict[str, Any]:
+    """
+    Re-render the SAME world states with another render base, so the methods are compared on identical scenes.
+
+    Copies `source_branch_id` (scene 1 keeps its opening clip), settles the world rules on every state, then
+    renders scenes 2..N one after another with `config.RENDER_BASE = render_base`. The director is not called.
+    """
+    from backend.director.world_rules import apply_world_rules
+    from backend.media.video_renderer import render_scene_media
+    from backend.schemas import BranchState, SceneMedia
+
+    src = get_branch(source_branch_id)
+    if not src:
+        raise SystemExit(f"Branch not found: {source_branch_id}")
+    method = method_name or RENDER_BASE_LABELS.get(render_base, render_base)
+    if resolution != "720p":
+        method = f"{method}_{resolution}"
+    branch = BranchState(**json.loads(src.model_dump_json()))
+    branch.branch_id = f"{source_branch_id}_{method}"
+    branch.branch_label = f"{method} on the states of {source_branch_id}"
+    branch.parent_branch_id = source_branch_id
+    scenes = sorted(branch.scenes, key=lambda sc: sc.scene_id)
+    for prev, nxt in zip(scenes, scenes[1:]):
+        apply_world_rules(prev, nxt)
+
+    refs = [str(config.SHARED_ASSETS_DIR / "lia.png"), str(config.SHARED_ASSETS_DIR / "nyx.png")] + [
+        p.image_url for p in branch.props_registry.values()
+    ]
+    prop_descriptions = {
+        pid: ((getattr(p, "appearance_summary", "") or "").strip() or p.name) for pid, p in branch.props_registry.items()
+    }
+    prop_heights = {pid: float(p.height_m) for pid, p in branch.props_registry.items() if p.height_m}
+
+    old_base, old_res = config.RENDER_BASE, config.SPLIT_RESOLUTION
+    config.RENDER_BASE, config.SPLIT_RESOLUTION = render_base, resolution
+    step_timings: list[dict[str, Any]] = []
+    try:
+        for prev, scene in zip(scenes, scenes[1:]):
+            scene.media = SceneMedia()
+            t0 = time.perf_counter()
+            scene.media = await render_scene_media(
+                scene,
+                refs,
+                prev_tail_a=prev.media.cam_a_tail_frame_url,
+                prev_tail_b=prev.media.cam_b_tail_frame_url,
+                fast_live_mode=True,
+                prop_descriptions=prop_descriptions,
+                start_state=prev,
+                prop_heights=prop_heights,
+            )
+            ren_sec = round(time.perf_counter() - t0, 2)
+            step_timings.append(
+                {
+                    "step": scene.scene_id - 1,
+                    "key": SIX_SCENE_SCRIPT[scene.scene_id - 2]["key"] if scene.scene_id - 2 < len(SIX_SCENE_SCRIPT) else f"scene_{scene.scene_id}",
+                    "scene_id": scene.scene_id,
+                    "extend_sec": 0.0,
+                    "render_sec": ren_sec,
+                    "total_sec": ren_sec,
+                    "fallback": bool(scene.media.fallback_to_preview),
+                }
+            )
+            print(f"[{method}] S{scene.scene_id} render={ren_sec}s cam_a={scene.media.cam_a_final_url} cam_b={scene.media.cam_b_final_url}")
+            save_branch(branch)
+    finally:
+        config.RENDER_BASE, config.SPLIT_RESOLUTION = old_base, old_res
+    return {"branch": json.loads(branch.model_dump_json()), "method": method, "step_timings": step_timings}
+
+
+def write_comparison(eval_dir: Path = EVAL_DIR) -> dict[str, Any]:
+    """Collect every `video_consistency*.json` report into one comparison table (JSON + printed Markdown)."""
+    rows: list[dict[str, Any]] = []
+    for path in sorted(eval_dir.glob("video_consistency*.json")):
+        if path.name == "video_consistency_compare.json":
+            continue
+        rep = json.loads(path.read_text(encoding="utf-8"))
+        timings = [sc["timings"]["render_sec"] for sc in rep.get("per_scene", []) if sc.get("timings")]
+        rows.append(
+            {
+                "method": rep.get("method"),
+                "branch_id": rep.get("branch_id"),
+                "report": path.name,
+                "timestamp": rep.get("timestamp"),
+                "question_set": rep.get("question_set", "v1"),
+                "overall": rep.get("overall"),
+                "categories": {c: rep["category_summary"][c] for c in CATEGORY_ORDER if c in rep.get("category_summary", {})},
+                "avg_render_sec": round(sum(timings) / len(timings), 2) if timings else None,
+            }
+        )
+    out = {"timestamp": datetime.now(timezone.utc).isoformat(), "methods": rows}
+    (eval_dir / "video_consistency_compare.json").write_text(json.dumps(out, indent=2, ensure_ascii=False), encoding="utf-8")
+    header = "| Method | " + " | ".join(CATEGORY_ORDER) + " | Overall | Render s/scene | Questions |"
+    print(header)
+    print("|" + "---|" * (len(CATEGORY_ORDER) + 4))
+    for r in rows:
+        cells = [f"{r['categories'][c]['passed']}/{r['categories'][c]['total']}" if c in r["categories"] else "-" for c in CATEGORY_ORDER]
+        ov = r["overall"] or {}
+        print(
+            f"| {r['method']} | " + " | ".join(cells)
+            + f" | {ov.get('passed')}/{ov.get('total')} ({round(100 * ov.get('pass_rate', 0), 1)}%) | {r['avg_render_sec'] or '-'} | {r['question_set']} |"
+        )
+    return out
+
+
 async def _main() -> int:
     parser = argparse.ArgumentParser(description="StageGenesis Stage 1 clip-level video consistency benchmark")
     parser.add_argument("--branch-id", type=str, default=None, help="Evaluate an existing branch instead of running the 6-scene script")
     parser.add_argument("--method", type=str, default="A_baseline_prev_tail", help="Method label recorded in the report")
-    parser.add_argument("--output", type=str, default=str(DEFAULT_OUTPUT_PATH), help="Output JSON path")
+    parser.add_argument("--output", type=str, default=None, help="Output JSON path")
+    parser.add_argument("--states-from", type=str, default=None, help="Re-render this branch's world states with --render-base (the director is not called)")
+    parser.add_argument("--render-base", type=str, default="prev_tail", choices=sorted(RENDER_BASE_LABELS), help="What each clip is generated from")
+    parser.add_argument("--resolution", type=str, default="720p", choices=["720p", "1080p"], help="Resolution of the split-screen generation")
+    parser.add_argument("--compare", action="store_true", help="Only collect the existing reports into the comparison table")
     args = parser.parse_args()
 
-    if args.branch_id:
+    if args.compare:
+        write_comparison()
+        return 0
+
+    if args.states_from:
+        gen = await rerender_fixed_states(args.states_from, args.render_base, resolution=args.resolution)
+        branch_dict = gen["branch"]
+        step_timings = gen["step_timings"]
+        args.method = gen["method"]
+        if not args.output:
+            args.output = str(EVAL_DIR / f"video_consistency_{args.method}.json")
+    elif args.branch_id:
         br = get_branch(args.branch_id)
         if not br:
             raise SystemExit(f"Branch not found: {args.branch_id}")
@@ -701,8 +840,9 @@ async def _main() -> int:
         branch_dict,
         method_name=args.method,
         step_timings=step_timings,
-        output_path=Path(args.output),
+        output_path=Path(args.output or DEFAULT_OUTPUT_PATH),
     )
+    write_comparison()
     return 0
 
 

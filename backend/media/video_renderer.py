@@ -1916,6 +1916,9 @@ async def _render_split_screen_pair(
     cam_b_start: Path,
     reference_images: Optional[list[str]] = None,
     prop_descriptions: Optional[dict[str, str]] = None,
+    stage3d_start: bool = False,
+    end_frames: Optional[tuple[Path, Path]] = None,
+    blocking_clip: Optional[Path] = None,
 ) -> tuple[tuple[str, Optional[str], JudgeResult, int, int], tuple[str, Optional[str], JudgeResult, int, int]]:
     """
     Render Camera A and Camera B in ONE video generation, as two panels of a split screen, then cut them apart.
@@ -1957,6 +1960,16 @@ async def _render_split_screen_pair(
     )
     uploaded = await _get_or_upload_uri(split_frame, use_cache=False)
     uploaded_extra_props: list[tuple[str, str]] = []
+    # 3D-first bases: an end frame and/or a blocking clip, both drawn from the 3D stage state.
+    uploaded_end: Optional[tuple[str, str]] = None
+    if end_frames is not None:
+        end_split = await asyncio.to_thread(
+            _compose_split_frame_sync, end_frames[0], end_frames[1], config.TAILS_DIR / f"{stem}_end.png", extra_prop_paths
+        )
+        uploaded_end = await _get_or_upload_uri(end_split, use_cache=False)
+    uploaded_blocking: Optional[tuple[str, str]] = None
+    if blocking_clip is not None and blocking_clip.is_file():
+        uploaded_blocking = await _get_or_upload_uri(blocking_clip, use_cache=False)
 
     extra_prop_clauses: list[str] = []
     for pid in sorted(active_custom_props):
@@ -2016,6 +2029,30 @@ async def _render_split_screen_pair(
         if uploaded_layout_guide is not None
         else ""
     )
+    stage3d_rule = (
+        "Image 1 was laid out from a 3D stage, so every character and object in it is at its exact place and there is "
+        "exactly one of each. The characters are drawn as still cut-outs in a neutral pose: from the first frame on, "
+        "bring them to life with natural anime movement, soft contact shadows and the room's warm lantern light, and "
+        "turn each character in the RIGHT panel so it faces the same way in the room as in the LEFT panel. The room, "
+        "the furniture and both viewpoints stay exactly as in Image 1. "
+        if stage3d_start
+        else ""
+    )
+    end_frame_rule = (
+        "Image 2 is the exact LAST frame of this clip, laid out from the same 3D stage: the clip begins on Image 1 "
+        "and by its final frame every character and object stands exactly where Image 2 shows it, holding exactly "
+        "what Image 2 shows. Animate smoothly from Image 1 to Image 2. "
+        if uploaded_end is not None
+        else ""
+    )
+    blocking_rule = (
+        "The attached video is the blocking pass of this same clip, made on the 3D stage: plain cut-out figures glide "
+        "to where each character goes. Repaint it as finished anime: keep every position and the timing of the "
+        "blocking pass in both panels, but draw real movement (walking, turning, reaching, jumping) instead of "
+        "gliding cut-outs. "
+        if uploaded_blocking is not None
+        else ""
+    )
     clean_action = _milden_safety_phrasing(_strip_camera_directives(scene.narration))
     prompt = (
         "Split-screen video. The frame holds two panels side by side with black bars above and below, exactly as in "
@@ -2027,6 +2064,7 @@ async def _render_split_screen_pair(
         "never mirror positions across the table or swap which hand holds an object between panels. "
         f"{_viewpoint_words(epipolar_summary)}"
         f"{layout_guide_rule}"
+        f"{stage3d_rule}{end_frame_rule}{blocking_rule}"
         "Every movement happens at exactly the same instant in both panels: the same characters do the same action "
         "with the same timing, only seen from the two viewpoints. The world is one and the same in both panels: "
         "anything opened, closed, picked up, put down, broken or spilled looks identical in both, and every object "
@@ -2043,8 +2081,12 @@ async def _render_split_screen_pair(
     input_parts: list[dict] = [
         {"type": "image", "uri": uploaded[0], "mime_type": uploaded[1]},
     ]
-    if uploaded_layout_guide is not None:
+    if uploaded_end is not None:
+        input_parts.append({"type": "image", "uri": uploaded_end[0], "mime_type": uploaded_end[1]})
+    if uploaded_layout_guide is not None and uploaded_end is None:
         input_parts.append({"type": "image", "uri": uploaded_layout_guide[0], "mime_type": uploaded_layout_guide[1]})
+    if uploaded_blocking is not None:
+        input_parts.append({"type": "video", "uri": uploaded_blocking[0], "mime_type": uploaded_blocking[1]})
     for uri, mime in uploaded_extra_props:
         input_parts.append({"type": "image", "uri": uri, "mime_type": mime})
     input_parts.append({"type": "text", "text": prompt})
@@ -2054,7 +2096,8 @@ async def _render_split_screen_pair(
     try:
         await asyncio.wait_for(
             asyncio.to_thread(
-                _generate_omni_take_sync, _resolve_video_model(), input_parts, duration_int, "720p",
+                _generate_omni_take_sync, _resolve_video_model(), input_parts, duration_int,
+                config.SPLIT_RESOLUTION if config.SPLIT_RESOLUTION in ("720p", "1080p") else "720p",
                 config.VIDEO_ASPECT_RATIO, split_video,
             ),
             timeout=90.0,
@@ -2079,7 +2122,13 @@ async def _render_split_screen_pair(
     log_genai_call(
         model=_resolve_video_model(),
         prompt={"mode": "split_screen_pair", "scene_id": scene.scene_id},
-        config={"video_sec": video_sec},
+        config={
+            "video_sec": video_sec,
+            "stage3d_start": stage3d_start,
+            "end_frame": uploaded_end is not None,
+            "blocking_clip": uploaded_blocking is not None,
+            "resolution": config.SPLIT_RESOLUTION,
+        },
         output={"cam_a": out_a.name, "cam_b": out_b.name, "qa_a": qa_a.overall_score, "qa_b": qa_b.overall_score},
     )
     return (
@@ -2180,6 +2229,66 @@ async def reblock_start_frames(
     return f"/assets/tails/{out_a.name}", f"/assets/tails/{out_b.name}"
 
 
+def build_stage3d_inputs(
+    scene: Scene, start_state: Scene, render_base: str, prop_heights: Optional[dict[str, float]] = None
+) -> dict:
+    """
+    Composite the 3D-first inputs for one scene: both viewpoints' start frames from `start_state`, and for the
+    richer bases the end frames from `scene` (stage3d_first_last) or the blocking clip (stage3d_video).
+    """
+    from backend.media import stage3d
+
+    if not stage3d.plates_ready():
+        raise RuntimeError("stage plates are missing (run backend/media/build_stage_plates.py)")
+    tag = uuid.uuid4().hex[:6]
+    stem = config.TAILS_DIR / f"scene_{scene.scene_id}_3d_{tag}"
+    out: dict = {
+        "start": (
+            stage3d.compose_stage_frame(start_state, "cam_a", stem.with_name(f"{stem.name}_start_a.png"), prop_heights=prop_heights),
+            stage3d.compose_stage_frame(start_state, "cam_b", stem.with_name(f"{stem.name}_start_b.png"), prop_heights=prop_heights),
+        )
+    }
+    if render_base == "stage3d_first_last":
+        out["end"] = (
+            stage3d.compose_stage_frame(scene, "cam_a", stem.with_name(f"{stem.name}_end_a.png"), prop_heights=prop_heights),
+            stage3d.compose_stage_frame(scene, "cam_b", stem.with_name(f"{stem.name}_end_b.png"), prop_heights=prop_heights),
+        )
+    if render_base == "stage3d_video":
+        seconds = float(max(3, min(10, int(round(scene.duration_sec or config.VIDEO_DURATION_SEC)))))
+        out["blocking"] = stage3d.render_blocking_clip(
+            start_state, scene, config.PREVIEWS_DIR / f"scene_{scene.scene_id}_blocking_{tag}.mp4",
+            seconds=seconds, prop_heights=prop_heights, ffmpeg_exe=_resolve_ffmpeg_exe(),
+        )
+    return out
+
+
+def build_blocking_preview(
+    scene: Scene, start_state: Optional[Scene], prop_heights: Optional[dict[str, float]] = None
+) -> Optional[tuple[str, str]]:
+    """
+    The instant 3D preview of a scene: the stage going from `start_state` to `scene`, for both viewpoints.
+
+    No model call, about two seconds. Returns the two preview clip URLs (camera A, camera B), or None when the
+    stage plates are not available.
+    """
+    from backend.media import stage3d
+
+    if not stage3d.plates_ready():
+        return None
+    tag = uuid.uuid4().hex[:6]
+    seconds = float(max(3, min(10, int(round(scene.duration_sec or config.VIDEO_DURATION_SEC)))))
+    split = stage3d.render_blocking_clip(
+        start_state or scene, scene, config.PREVIEWS_DIR / f"scene_{scene.scene_id}_blocking_{tag}_split.mp4",
+        seconds=seconds, prop_heights=prop_heights, ffmpeg_exe=_resolve_ffmpeg_exe(),
+    )
+    out_a = config.PREVIEWS_DIR / f"scene_{scene.scene_id}_cam_a_blocking_{tag}.mp4"
+    out_b = config.PREVIEWS_DIR / f"scene_{scene.scene_id}_cam_b_blocking_{tag}.mp4"
+    _crop_split_panel_sync(split, False, out_a)
+    _crop_split_panel_sync(split, True, out_b)
+    split.unlink(missing_ok=True)
+    return f"/assets/previews/{out_a.name}", f"/assets/previews/{out_b.name}"
+
+
 @log_function_call
 async def render_scene_media(
     scene: Scene,
@@ -2193,8 +2302,16 @@ async def render_scene_media(
     fast_live_mode: bool = False,
     prop_descriptions: Optional[dict[str, str]] = None,
     progress_cb: Optional[Callable[[str], None]] = None,
+    start_state: Optional[Scene] = None,
+    prop_heights: Optional[dict[str, float]] = None,
 ) -> SceneMedia:
-    """Render Camera A then derive Camera B (+45 deg orbit), emitting granular SSE progress phases."""
+    """
+    Render both cameras of one scene, emitting granular SSE progress phases.
+
+    `start_state` is the world state the scene starts from (the previous scene's state). With a `stage3d*`
+    render base (config.RENDER_BASE) the start frame, and optionally the end frame or a blocking clip, are
+    composited from the 3D stage instead of being taken from the previous clip.
+    """
     def _emit(phase: str) -> None:
         if progress_cb is not None:
             try:
@@ -2223,11 +2340,29 @@ async def render_scene_media(
         and opening_a.is_file()
         and opening_b.is_file()
     )
-    if live_keyframe_enabled and ((prev_tail_a and prev_tail_b) or use_opening):
+    render_base = config.RENDER_BASE if config.RENDER_BASE.startswith("stage3d") else "prev_tail"
+    stage3d_inputs: Optional[dict] = None
+    if render_base != "prev_tail" and live_keyframe_enabled:
+        try:
+            stage3d_inputs = await asyncio.to_thread(
+                build_stage3d_inputs, scene, start_state or scene, render_base, prop_heights
+            )
+        except Exception as exc:  # no plates, missing cut-out...: use the previous clip's frames instead
+            log_genai_call(
+                model="stage3d",
+                prompt={"mode": render_base, "scene_id": scene.scene_id},
+                config={},
+                output={"fallback": f"{type(exc).__name__}: {str(exc)[:200]}"},
+            )
+            stage3d_inputs = None
+    if live_keyframe_enabled and (stage3d_inputs or (prev_tail_a and prev_tail_b) or use_opening):
         _emit("rendering_split_screen")
         try:
-            start_a = opening_a if use_opening else _resolve_asset_to_local_path(prev_tail_a)
-            start_b = opening_b if use_opening else _resolve_asset_to_local_path(prev_tail_b)
+            if stage3d_inputs:
+                start_a, start_b = stage3d_inputs["start"]
+            else:
+                start_a = opening_a if use_opening else _resolve_asset_to_local_path(prev_tail_a)
+                start_b = opening_b if use_opening else _resolve_asset_to_local_path(prev_tail_b)
             if start_a and start_b and start_a.is_file() and start_b.is_file():
                 split_pair = await _render_split_screen_pair(
                     scene,
@@ -2235,6 +2370,9 @@ async def render_scene_media(
                     start_b,
                     reference_images=reference_images,
                     prop_descriptions=prop_descriptions,
+                    stage3d_start=bool(stage3d_inputs),
+                    end_frames=(stage3d_inputs or {}).get("end"),
+                    blocking_clip=(stage3d_inputs or {}).get("blocking"),
                 )
         except Exception as exc:  # any failure falls back to the per-camera paths below
             log_genai_call(
