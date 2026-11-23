@@ -1352,9 +1352,11 @@ export class ThreeStageManager {
       }
 
       // A closed umbrella that was put down lies flat along the floor (as on the backend stage), not upright.
-      const lyingOnFloor = isUmbrella && prop.on_floor && umbrellaVariant === 'closed';
+      // The same goes for an umbrella laid on the table.
+      const lyingOnFloor = isUmbrella && !prop.heldByActor && umbrellaVariant === 'closed';
       if (lyingOnFloor) {
-        entity.targetPos.set(x + maxPropH / 2, 0.06, z);
+        if (prop.on_floor) entity.targetPos.set(x + maxPropH / 2, 0.06, z);
+        else entity.targetPos.set(maxPropH / 2, TABLE_TOP_M + 0.06, 0.12);
       }
       if (isBroken && !entity.usingBrokenAsset) {
         entity.sprite.material.opacity = 0.55;

@@ -117,6 +117,8 @@ export interface ExtendStoryPayload {
   injectedProp?: InjectedPropPayload | null;
   endFreezeMode?: 'sculpture' | 'none';
   detectThrowPeak?: boolean;
+  /** `improvised`: the text is a situation and the actors decide for themselves what to do. */
+  mode?: 'directed' | 'improvised';
 }
 
 export interface RenderScenePayload {
@@ -258,6 +260,7 @@ export async function extendDirectorStory(
   if (payload.injectedProp) {
     formData.append('injected_prop_json', JSON.stringify(payload.injectedProp));
   }
+  formData.append('mode', payload.mode ?? 'directed');
   formData.append('end_freeze_mode', payload.endFreezeMode ?? 'sculpture');
   formData.append('detect_throw_peak', String(payload.detectThrowPeak ?? true));
 

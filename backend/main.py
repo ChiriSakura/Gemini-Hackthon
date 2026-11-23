@@ -37,6 +37,7 @@ from backend.director.hydrogen_judge import (
 )
 from backend.director.neon_director import extend_single_scene, plan_scenes
 from backend.director.rule_memory import add_rule, load_general_rules, load_rules
+from backend.director.improv import improvise_scene
 from backend.director.timeline import diff_branches, graft
 from backend.director.world_rules import apply_world_rules, keep_actors_clear_of_table, reconcile_inventory
 from backend.director.state_tree import (
@@ -367,6 +368,17 @@ def _upsert_prop_appearance_note(
     return joined[:480] if len(joined) > 480 else joined
 
 
+def _improv_summary(report: Optional[dict]) -> Optional[str]:
+    """One line saying what each actor wanted in an improvised scene and whether it happened."""
+    if not report:
+        return None
+    parts = []
+    for item in report.get("intents", []):
+        what = item["verb"] + (f" {item['target']}" if item.get("target") else "")
+        parts.append(f"{item['actor']}: {what} ({item.get('feeling', '')})" + ("" if item["applied"] else f" - not possible: {item.get('why_not')}"))
+    return "Improvised. " + "; ".join(parts)
+
+
 def _prop_heights(registry: dict) -> dict[str, float]:
     """Physical heights (metres) of the registered props, for drawing them to scale on the 3D stage."""
     return {pid: float(item.height_m) for pid, item in (registry or {}).items() if getattr(item, "height_m", None)}
@@ -558,8 +570,13 @@ async def api_director_extend(
     parsed_directive_json: Optional[str] = Form(None),
     injected_prop_json: Optional[str] = Form(None),
     clip: Optional[UploadFile] = File(None),
+    mode: str = Form("directed"),
+    improv_seed: Optional[int] = Form(None),
 ) -> BranchState:
     """
+    `mode="improvised"`: `text` is a situation, not a direction. Each actor decides for itself what to do and an
+    arbiter turns the wishes into one legal world state (backend/director/improv.py). Otherwise:
+
     Unbounded Living-Sculpture continuation endpoint (`Design_Infinite_Sculpture.md` Sec 3.2):
     - If `from_scene_id` is omitted or equals the latest scene of `branch_id`, appends a new
       single scene `Scene N+1` onto `branch_id` (protecting `branch_v1` baseline by auto-forking).
@@ -585,6 +602,9 @@ async def api_director_extend(
             parsed = DirectorInputParsed.model_validate_json(parsed_directive_json)
         except Exception:
             parsed = None
+    improvised = mode == "improvised"
+    if parsed is None and improvised and text and text.strip():
+        parsed = DirectorInputParsed(instruction=text.strip())  # a typed situation needs no perception call
     if parsed is None:
         parsed = await parse_director_input(
             clip_bytes=clip_bytes,
@@ -595,6 +615,7 @@ async def api_director_extend(
     parsed.target_scene_id = next_scene_id
     parsed.mode = "extend" if anchor_id == ordered_scenes[-1].scene_id else "fork"
 
+    situation_text = parsed.instruction  # before any stage note is appended for the director model
     # The user moved characters on the 3D stage: tell the director where they now stand, so the new scene
     # (and therefore the video) starts from those spots.
     moved_ids = _USER_MOVED_ACTORS.get((branch_id, anchor_id), set())
@@ -646,13 +667,17 @@ async def api_director_extend(
         if getattr(prop_item, "appearance_summary", ""):
             parsed.prop_description = prop_item.appearance_summary
 
-    next_scene = await extend_single_scene(
-        parsed_input=parsed,
-        prior_scenes=prefix_scenes,
-        props_registry=updated_registry,
-        learned_rules=load_general_rules(),
-        end_freeze_mode=end_freeze_mode,
-    )
+    improv_report: Optional[dict] = None
+    if improvised:
+        next_scene, improv_report = await improvise_scene(situation_text, prefix_scenes, seed=improv_seed)
+    else:
+        next_scene = await extend_single_scene(
+            parsed_input=parsed,
+            prior_scenes=prefix_scenes,
+            props_registry=updated_registry,
+            learned_rules=load_general_rules(),
+            end_freeze_mode=end_freeze_mode,
+        )
     apply_world_rules(prefix_scenes[-1], next_scene)
     if thrown_prop_id:
         eff_motion = injected_motion or ("throw_arc" if explicit_handoff else "place")
@@ -715,13 +740,13 @@ async def api_director_extend(
             branch_label=f"Continue from S{anchor_id}: {parsed.instruction[:24]}",
             parent_branch_id=parent.branch_id,
             forked_from_scene=next_scene_id,
-            rewrite_summary=parsed.instruction,
+            rewrite_summary=_improv_summary(improv_report) or parsed.instruction,
             props_registry=updated_registry,
             scenes=[*prefix_scenes, next_scene],
         )
     else:
         parent.props_registry = updated_registry
-        parent.rewrite_summary = parsed.instruction
+        parent.rewrite_summary = _improv_summary(improv_report) or parsed.instruction
         parent.scenes = [*prefix_scenes, next_scene]
         out_branch = parent
 
@@ -923,7 +948,9 @@ async def api_media_blocking_preview(branch_id: str = Form(...), scene_id: int =
         prev_scene = next((s for s in branch.scenes if s.scene_id == scene_id - 1), None)
         if not await _attach_blocking_preview(scene, prev_scene, branch.props_registry):
             raise HTTPException(status_code=503, detail="The 3D stage preview is not available (stage plates missing).")
-        save_branch(branch)
+        # Saved example branches are read-only: their preview is returned but not written into the file.
+        if not (branch_id == "branch_v1" or branch_id.endswith("_cached")):
+            save_branch(branch)
         return {
             "branch_id": branch_id,
             "scene_id": scene_id,
@@ -1065,7 +1092,7 @@ async def api_media_render_scene(
                 fallback=True,
                 branch_status="completed",
             )
-        except Exception:
+        except Exception as exc:
             publish_scene_progress(
                 branch_id,
                 target.scene_id,
@@ -1073,7 +1100,24 @@ async def api_media_render_scene(
                 fallback=True,
                 branch_status="completed",
             )
-            raise
+            # The video model could not be reached or refused the request. Say so plainly (not a bare 500);
+            # the scene keeps its 3D preview, which needs no model.
+            reason = f"{type(exc).__name__}: {str(exc)[:160]}"
+            unreachable = any(k in reason for k in ("401", "403", "UNAUTHENTICATED", "PERMISSION_DENIED", "API key"))
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "code": "video_model_unavailable",
+                    "message": (
+                        "The video model rejected the API key, so no final clip was rendered. "
+                        if unreachable
+                        else "The final clip could not be rendered. "
+                    )
+                    + "The scene keeps its 3D preview.",
+                    "reason": reason,
+                    "retryable": not unreachable,
+                },
+            ) from exc
 
         # R-38: Re-read latest branch under per-branch lock and update ONLY this scene_id
         # so concurrent per-scene renders on the same branch never overwrite each other.

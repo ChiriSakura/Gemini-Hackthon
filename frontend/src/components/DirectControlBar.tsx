@@ -25,6 +25,9 @@ interface DirectControlBarProps {
     text?: string;
     confirmContradiction?: boolean;
   }) => Promise<boolean> | void;
+  /** Improvised mode: the text is a situation and the actors decide for themselves what to do. */
+  improvised?: boolean;
+  onToggleImprovised?: () => void;
 }
 
 const MAX_CLIP_MS = 30000;
@@ -93,6 +96,8 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
   onDismissContradiction,
   onForceRewrite,
   onSubmitPrompt,
+  improvised = false,
+  onToggleImprovised,
 }) => {
   const [text, setText] = useState('');
   const [recording, setRecording] = useState(false);
@@ -375,13 +380,30 @@ export const DirectControlBar: React.FC<DirectControlBarProps> = ({
       )}
 
       <form className="dock-row" onSubmit={handleTextSubmit}>
+        {onToggleImprovised && (
+          <button
+            type="button"
+            className={`dock-btn dock-mode ${improvised ? 'on' : ''}`}
+            aria-pressed={Boolean(improvised)}
+            title={
+              improvised
+                ? 'Improvised: you give a situation, the characters decide what they do. Click for Directed.'
+                : 'Directed: you say what happens. Click for Improvised.'
+            }
+            onClick={onToggleImprovised}
+          >
+            {improvised ? 'Improvised' : 'Directed'}
+          </button>
+        )}
         <div className="dock-field">
           <input
             ref={textInputRef}
             type="text"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Speak or type what happens next…"
+            placeholder={
+              improvised ? 'Describe a situation; Lia and Nyx decide what they do…' : 'Speak or type what happens next…'
+            }
             aria-label="Direct the next scene"
           />
         </div>

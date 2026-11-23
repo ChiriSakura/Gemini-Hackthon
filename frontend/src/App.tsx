@@ -165,6 +165,8 @@ export default function App(): React.ReactElement {
   const [evalModalOpen, setEvalModalOpen] = useState<boolean>(false);
   const [modelsOpen, setModelsOpen] = useState<boolean>(false);
   const [timelinesOpen, setTimelinesOpen] = useState<boolean>(false);
+  // Directed: the user says what happens. Improvised: the user gives a situation and the actors decide.
+  const [improvised, setImprovised] = useState<boolean>(false);
   const [isPlayingStory, setIsPlayingStory] = useState<boolean>(false);
   const [, setTargetSceneId] = useState<number>(2);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -464,6 +466,7 @@ export default function App(): React.ReactElement {
     clip?: Blob | null;
     parsedDirective?: DirectorInputParsed | null;
     injectedProp?: InjectedPropPayload | null;
+    mode?: 'directed' | 'improvised';
   }): Promise<boolean> => {
     lastExtendOptsRef.current = opts;
     setErrorNote(null);
@@ -486,6 +489,7 @@ export default function App(): React.ReactElement {
       injectedProp: opts.injectedProp,
       endFreezeMode: 'sculpture',
       detectThrowPeak: true,
+      mode: opts.mode,
     });
     setBusy(null);
 
@@ -603,6 +607,21 @@ export default function App(): React.ReactElement {
       setActiveSceneIndex(Math.max(0, anchorSceneId - 1));
       setViewMode('preview');
       return true;
+    }
+
+    // Improvised mode: the typed text is a situation; the actors decide what they do, so no perception step.
+    if (improvised && opts.text && opts.text.trim() && !opts.clip) {
+      try {
+        return await runStoryExtend({
+          branchId: anchorBranchId,
+          fromSceneId: anchorSceneId,
+          text: opts.text,
+          mode: 'improvised',
+        });
+      } finally {
+        submittingRef.current = false;
+        setSubmitting(false);
+      }
     }
 
     // Stage 1: Fast perception (~2s Heard / Saw + needs_prop_prompt)
@@ -763,7 +782,7 @@ export default function App(): React.ReactElement {
           ? 'content_blocked after retry — '
           : '';
       setErrorNote(
-        `${blockedPrefix}Render failed: ${renderError ?? 'unknown error'}. Staying on the 2.5D live stage.`,
+        `${blockedPrefix}Render failed: ${renderError ?? 'unknown error'}${(renderError ?? '').includes('3D preview') ? '' : '. Staying on the 3D preview.'}`,
       );
       setErrorSceneId(scene.scene_id);
       setCanRetryRender(true);
@@ -1325,6 +1344,8 @@ export default function App(): React.ReactElement {
           onDismissContradiction={() => setPendingConflict(null)}
           onForceRewrite={handleForceRewrite}
           onSubmitPrompt={handleSubmitPrompt}
+          improvised={improvised}
+          onToggleImprovised={() => setImprovised((v) => !v)}
         />
       </div>
 

@@ -187,11 +187,11 @@ def _paste_sprite(
     canvas.alpha_composite(resized, dest=(int(round(base[0] - px_w / 2.0)), int(round(base[1] - px_h))))
 
 
-def _draw_floor_umbrella(canvas: Image.Image, cam: StageCamera, wx: float, wz: float) -> None:
-    """A closed red umbrella lying flat on the floor, drawn from the painted closed-umbrella cut-out."""
+def _draw_floor_umbrella(canvas: Image.Image, cam: StageCamera, wx: float, wz: float, wy: float = 0.0) -> None:
+    """A closed red umbrella lying flat (on the floor, or on the table top at height `wy`)."""
     length = 0.9
-    left, right = cam.project((wx - length / 2.0, 0.0, wz)), cam.project((wx + length / 2.0, 0.0, wz))
-    centre = cam.project((wx, 0.0, wz))
+    left, right = cam.project((wx - length / 2.0, wy, wz)), cam.project((wx + length / 2.0, wy, wz))
+    centre = cam.project((wx, wy, wz))
     if not (left and right and centre):
         return
     sprite = _load_rgba(config.PROPS_DIR / "red_umbrella_closed.png")
@@ -398,8 +398,11 @@ def compose_stage_image(
             continue  # one of everything: a held object is never also drawn on the table or the floor
         wx, wz = grid_to_world(prop.grid)
         if prop.id == "red_umbrella":
+            # put down, the closed umbrella lies flat: on the floor, or across the table top
             if prop.on_floor:
                 add((wx, 0.04, wz), lambda x=wx, z=wz: _draw_floor_umbrella(canvas, cam, x, z), bias=0.3)
+            else:
+                add((0.0, TABLE_TOP_M, 0.12), lambda: _draw_floor_umbrella(canvas, cam, 0.0, 0.12, TABLE_TOP_M), bias=-0.2)
             continue
         sprite = _prop_sprite(prop.id, prop.state, prop.on_floor)
         if sprite is None:
