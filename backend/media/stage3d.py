@@ -126,7 +126,29 @@ def _prop_sprite(prop_id: str, state: str = "intact", on_floor: bool = False) ->
         return _load_rgba(config.PROPS_DIR / "crystal_vase.png") or _load_rgba(config.SHARED_ASSETS_DIR / "crystal_vase.png")
     if prop_id == "red_umbrella":
         return None  # drawn as geometry so it lies flat on the floor
-    return _load_rgba(config.PROPS_DIR / f"{prop_id}.png")
+    sprite = _load_rgba(config.PROPS_DIR / f"{prop_id}.png")
+    if sprite is not None and state == "broken":
+        return _broken_look(prop_id, sprite)
+    return sprite
+
+
+@functools.lru_cache(maxsize=32)
+def _broken_cached(prop_id: str, size: tuple[int, int], data: bytes) -> Image.Image:
+    sprite = Image.frombytes("RGBA", size, data)
+    w, h = sprite.size
+    out = Image.new("RGBA", (int(w * 1.9), int(h * 0.8)), (0, 0, 0, 0))
+    left = sprite.crop((0, 0, w // 2, h)).rotate(62, expand=True, resample=Image.Resampling.BICUBIC)
+    right = sprite.crop((w // 2, 0, w, h)).rotate(-70, expand=True, resample=Image.Resampling.BICUBIC)
+    for piece, x in ((left, 0), (right, out.width - right.width)):
+        piece = piece.resize((max(1, int(piece.width * 0.8)), max(1, int(piece.height * 0.8))))
+        out.alpha_composite(piece, dest=(max(0, min(out.width - piece.width, x)), max(0, out.height - piece.height)))
+    bbox = out.getbbox()
+    return out.crop(bbox) if bbox else out
+
+
+def _broken_look(prop_id: str, sprite: Image.Image) -> Image.Image:
+    """An object without its own broken cut-out is shown as two tipped-over halves lying apart."""
+    return _broken_cached(prop_id, sprite.size, sprite.tobytes())
 
 
 def prop_height_m(prop_id: str, state: str = "intact", heights: Optional[dict[str, float]] = None) -> float:
