@@ -2947,3 +2947,22 @@ body::before {
 .arch-node.in, .arch-node.out { background: rgba(253, 230, 138, 0.1); border-color: rgba(253, 230, 138, 0.35); }
 .arch-node.state { background: rgba(45, 212, 191, 0.12); border-color: rgba(45, 212, 191, 0.4); }
 .arch-arrow { align-self: center; color: rgba(203, 213, 225, 0.6); font-size: 16px; }
+
+/* Timelines panel */
+.timeline-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.timeline-pick label { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.timeline-pick label span { font-weight: 600; color: #fde68a; }
+.timeline-pick select, .timeline-graft select { min-width: 0; flex: 1; padding: 7px 10px; border-radius: 10px; border: 1px solid rgba(148, 163, 184, 0.35); background: rgba(15, 18, 40, 0.9); color: #e2e8f0; font-size: 13px; }
+.timeline-graft select { flex: 0 0 auto; }
+.timeline-table td { vertical-align: top; }
+.timeline-table tr.timeline-same td { color: rgba(203, 213, 225, 0.55); }
+.timeline-diffs { margin: 0; padding-left: 16px; display: grid; gap: 3px; }
+.timeline-graft { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 13px; }
+.timeline-button { padding: 7px 16px; border-radius: 999px; border: 1px solid rgba(253, 230, 138, 0.45); background: rgba(253, 230, 138, 0.12); color: #fde68a; font-size: 13px; cursor: pointer; }
+.timeline-button:hover:not(:disabled) { background: rgba(253, 230, 138, 0.22); }
+.timeline-button:disabled { opacity: 0.55; cursor: default; }
+.timeline-result { margin-top: 12px; padding: 12px 16px; border-radius: 12px; background: rgba(45, 212, 191, 0.08); border: 1px solid rgba(45, 212, 191, 0.3); font-size: 13px; line-height: 1.5; }
+.timeline-result p { margin: 0 0 8px; }
+.timeline-bridge { color: #99f6e4; }
+@media (max-width: 640px) { .timeline-pick { grid-template-columns: 1fr; } }
+.topbar-tab.topbar-tab-next { margin-left: 8px; }

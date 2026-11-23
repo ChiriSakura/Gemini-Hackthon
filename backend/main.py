@@ -37,6 +37,7 @@ from backend.director.hydrogen_judge import (
 )
 from backend.director.neon_director import extend_single_scene, plan_scenes
 from backend.director.rule_memory import add_rule, load_general_rules, load_rules
+from backend.director.timeline import diff_branches, graft
 from backend.director.world_rules import apply_world_rules, keep_actors_clear_of_table, reconcile_inventory
 from backend.director.state_tree import (
     delete_branch,
@@ -153,6 +154,41 @@ def api_get_world_manifest() -> WorldManifest:
 def api_list_branches() -> list[BranchState]:
     """Return all saved branches (seeds `branch_v1` from `shared/mock_branch_1.json` if empty)."""
     return list_branches()
+
+
+@app.get("/api/timeline/diff")
+def api_timeline_diff(a: str = Query(...), b: str = Query(...)) -> dict:
+    """Compare two timelines scene by scene: who stands where, who holds what, where every object is."""
+    branch_a, branch_b = get_branch(a), get_branch(b)
+    if not branch_a or not branch_b:
+        raise HTTPException(status_code=404, detail="Branch not found")
+    return diff_branches(branch_a, branch_b)
+
+
+@app.post("/api/timeline/graft")
+async def api_timeline_graft(
+    base_branch_id: str = Form(...),
+    base_scene_id: int = Form(...),
+    donor_branch_id: str = Form(...),
+    donor_from_scene_id: int = Form(...),
+) -> dict:
+    """
+    Continue one timeline with another timeline's later scenes. When the two worlds do not match at the join,
+    a bridging scene is inserted. The new timeline is saved as its own branch; nothing existing is changed.
+    """
+    base, donor = get_branch(base_branch_id), get_branch(donor_branch_id)
+    if not base or not donor:
+        raise HTTPException(status_code=404, detail="Branch not found")
+    try:
+        out, report = graft(base, base_scene_id, donor, donor_from_scene_id, _next_branch_id())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    ordered = sorted(out.scenes, key=lambda s: s.scene_id)
+    for prev, scene in zip(ordered, ordered[1:]):
+        if not scene.media.cam_a_final_url:
+            await _attach_blocking_preview(scene, prev, out.props_registry)
+    save_branch(out)
+    return {"report": report, "branch": json.loads(out.model_dump_json())}
 
 
 @app.get("/api/branches/{branch_id}", response_model=BranchState)

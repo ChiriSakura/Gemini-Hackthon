@@ -37,6 +37,7 @@ import {
 } from './components/DualCameraStage';
 import { EvalModal } from './components/EvalModal';
 import { ModelsPanel } from './components/ModelsPanel';
+import { TimelinePanel } from './components/TimelinePanel';
 import { StoryBranchTree } from './components/StoryBranchTree';
 import { INITIAL_MOCK_BRANCHES } from './data/mockBranches';
 import type { PreviewExportResult } from './stage/ThreeStageManager';
@@ -163,6 +164,7 @@ export default function App(): React.ReactElement {
   });
   const [evalModalOpen, setEvalModalOpen] = useState<boolean>(false);
   const [modelsOpen, setModelsOpen] = useState<boolean>(false);
+  const [timelinesOpen, setTimelinesOpen] = useState<boolean>(false);
   const [isPlayingStory, setIsPlayingStory] = useState<boolean>(false);
   const [, setTargetSceneId] = useState<number>(2);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -1154,6 +1156,9 @@ export default function App(): React.ReactElement {
         <button type="button" className="topbar-tab" onClick={() => setModelsOpen(true)}>
           Models &amp; Evaluation
         </button>
+        <button type="button" className="topbar-tab topbar-tab-next" onClick={() => setTimelinesOpen(true)}>
+          Timelines
+        </button>
         {apiStatus === 'saved' && (
           <span
             className="mode-badge saved"
@@ -1344,6 +1349,19 @@ export default function App(): React.ReactElement {
       />
 
       <ModelsPanel open={modelsOpen} onClose={() => setModelsOpen(false)} />
+      <TimelinePanel
+        open={timelinesOpen}
+        branches={branches}
+        activeBranchId={activeBranch.branch_id}
+        onClose={() => setTimelinesOpen(false)}
+        onGrafted={(grafted) => {
+          setBranches((prev) => [...prev.filter((b) => b.branch_id !== grafted.branch_id), grafted]);
+          setLiveBranchIds((prev) => new Set(prev).add(grafted.branch_id));
+          setActiveBranchId(grafted.branch_id);
+          setActiveSceneIndex(0);
+          setTimelinesOpen(false);
+        }}
+      />
       <EvalModal
         open={evalModalOpen}
         onClose={() => setEvalModalOpen(false)}
