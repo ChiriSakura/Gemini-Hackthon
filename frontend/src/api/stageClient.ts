@@ -715,3 +715,26 @@ export async function moveStageActor(
     return false;
   }
 }
+
+/**
+ * Ask the backend for the instant 3D preview of one scene: both views of the stage going from the previous
+ * scene's state to this one. It is drawn from the world state alone (no model call), so it is ready in about
+ * two seconds and stays available when no final clip can be rendered.
+ */
+export async function fetchBlockingPreview(
+  branchId: string,
+  sceneId: number,
+): Promise<{ camA: string; camB: string } | null> {
+  const formData = new FormData();
+  formData.append('branch_id', branchId);
+  formData.append('scene_id', String(sceneId));
+  try {
+    const res = await fetch('/api/media/blocking-preview', { method: 'POST', body: formData });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { cam_a_preview_url?: string; cam_b_preview_url?: string };
+    if (!body.cam_a_preview_url || !body.cam_b_preview_url) return null;
+    return { camA: body.cam_a_preview_url, camB: body.cam_b_preview_url };
+  } catch {
+    return null;
+  }
+}

@@ -71,6 +71,8 @@ export interface ActorState {
   action: ActorAction;
   holding_prop: string | null;
   height_m?: number | null;
+  /** What the actor stands or sits on. `table` = on top of the round centre table. */
+  elevation?: 'floor' | 'table';
 }
 
 export type PropEntryMotion = 'place' | 'throw_arc' | 'held';

@@ -111,7 +111,8 @@ def _load_rgba(path: Path) -> Optional[Image.Image]:
 
 def _actor_sprite(actor: ActorState) -> Optional[Image.Image]:
     if actor.id == "lia":
-        name = "lia.png" if actor.holding_prop == "red_umbrella" else "lia_no_umbrella.png"
+        closed_in_hand = actor.holding_prop == "red_umbrella" and actor.action != "shared_umbrella"
+        name = "lia.png" if closed_in_hand else "lia_no_umbrella.png"
         return _load_rgba(config.SHARED_ASSETS_DIR / name) or _load_rgba(config.SHARED_ASSETS_DIR / "lia.png")
     if actor.id == "nyx":
         return _load_rgba(config.SHARED_ASSETS_DIR / "nyx.png")
@@ -194,12 +195,45 @@ def _draw_floor_umbrella(canvas: Image.Image, cam: StageCamera, wx: float, wz: f
     )
 
 
-def hand_anchor(actor: ActorState) -> tuple[float, float, float]:
+# How each action in the schema shows on the 3D stage. `height` squashes the figure (kneeling, sitting),
+# `hop` lifts it in an arc during the clip, `lift` is how high a held object is carried (metres).
+ACTION_POSES: dict[str, dict[str, float]] = {
+    "stand": {},
+    "walk": {},
+    "reach": {"lift": 1.05},
+    "kneel": {"height": 0.73},
+    "crouch": {"height": 0.73},
+    "sit": {"height": 0.82},
+    "jump": {"hop": 0.38},
+    "flee": {"hop": 0.08},
+    "nuzzle": {},
+    "shared_umbrella": {},
+    "catch_from_camera": {"hop": 0.12, "lift": 1.3},
+    "drink": {"lift": 1.18, "sip": 0.16},
+    "eat": {"lift": 1.12, "sip": 0.1},
+    "hold_up": {"lift": 1.3},
+}
+
+
+def action_pose(actor: ActorState, phase: float = 1.0) -> dict[str, float]:
+    """The pose numbers of an actor's action at `phase` (0 = start of the clip, 1 = its last frame)."""
+    spec = ACTION_POSES.get(actor.action, {})
+    height = spec.get("height", 1.0)
+    if actor.id == "nyx" and actor.action == "sit":
+        height = 1.0  # the cat's cut-out already sits
+    swing = math.sin(math.pi * min(1.0, max(0.0, phase)))  # 0 at both ends, 1 halfway
+    return {
+        "height": height,
+        "hop": spec.get("hop", 0.0) * swing,
+        "lift": spec.get("lift", 0.92) + spec.get("sip", 0.0) * swing,
+    }
+
+
+def hand_anchor(actor: ActorState, phase: float = 1.0) -> tuple[float, float, float]:
     """Where a held object sits: in front of the chest, on the side that faces the table."""
     wx, wy, wz = actor_world_position(actor)
     toward_table = 1.0 if wx < 0 else -1.0
-    lift = 1.18 if actor.action in ("hold_up", "drink", "eat") else 0.92
-    return wx + 0.2 * toward_table, wy + lift, wz + 0.1
+    return wx + 0.2 * toward_table, wy + action_pose(actor, phase)["lift"], wz + 0.1
 
 
 def render_empty_room_geometry(cam_id: str, out_path: Path, width: int = 1280, height: int = 720) -> Path:
@@ -283,6 +317,7 @@ def compose_stage_image(
     height: int = 720,
     prop_heights: Optional[dict[str, float]] = None,
     actor_overrides: Optional[dict[str, tuple[float, float, float]]] = None,
+    phase: float = 1.0,
 ) -> Image.Image:
     """
     Draw `scene`'s world state from one viewpoint: the fixed room plate plus every actor and prop where the state
@@ -304,20 +339,27 @@ def compose_stage_image(
         if sprite is None:
             continue
         pos = (actor_overrides or {}).get(actor.id) or actor_world_position(actor)
+        pose = action_pose(actor, phase)
         if actor.id == "lia":
-            h_m = 1.18 if actor.action in ("kneel", "crouch") else LIA_HEIGHT_M
+            h_m = LIA_HEIGHT_M * pose["height"]
             flip = actor.facing == "left"
         else:
-            h_m = NYX_HEIGHT_M
+            h_m = NYX_HEIGHT_M * pose["height"]
             flip = actor.facing == "right"
-        add(pos, lambda s=sprite, p=pos, h=h_m, f=flip: _paste_sprite(canvas, cam, s, p, h, flip_x=f))
+        feet = (pos[0], pos[1] + pose["hop"], pos[2])
+        add(pos, lambda s=sprite, p=feet, h=h_m, f=flip: _paste_sprite(canvas, cam, s, p, h, flip_x=f))
+        if actor.holding_prop == "red_umbrella" and actor.action == "shared_umbrella":
+            canopy = _load_rgba(config.PROPS_DIR / "red_umbrella_open.png")
+            if canopy is not None:
+                top = (pos[0] + 0.12, pos[1] + 1.2, pos[2] + 0.02)
+                add(pos, lambda s=canopy, p=top: _paste_sprite(canvas, cam, s, p, 1.05, shadow=False), bias=-0.3)
 
         held = actor.holding_prop
         if held and held != "red_umbrella":
             hs = _prop_sprite(held)
             if hs is not None:
                 moved = actor.model_copy(update={"grid": actor.grid})
-                ax, ay, az = hand_anchor(moved)
+                ax, ay, az = hand_anchor(moved, phase)
                 if actor_overrides and actor.id in actor_overrides:
                     ox, oy, oz = actor_overrides[actor.id]
                     bx, by, bz = actor_world_position(actor)
@@ -380,12 +422,13 @@ def compose_split_stage_image(
     prop_heights: Optional[dict[str, float]] = None,
     actor_overrides: Optional[dict[str, tuple[float, float, float]]] = None,
     supersample: int = 2,
+    phase: float = 1.0,
 ) -> Image.Image:
     """Both viewpoints of `scene` side by side (front view left, 45 degree view right), black bars above and below."""
     canvas = Image.new("RGB", (SPLIT_W, SPLIT_H), (0, 0, 0))
     for idx, cam_id in enumerate(("cam_a", "cam_b")):
         panel = compose_stage_image(
-            scene, cam_id, PANEL_W * supersample, PANEL_H * supersample, prop_heights, actor_overrides
+            scene, cam_id, PANEL_W * supersample, PANEL_H * supersample, prop_heights, actor_overrides, phase
         )
         if supersample != 1:
             panel = panel.resize((PANEL_W, PANEL_H), Image.Resampling.LANCZOS)
@@ -409,16 +452,20 @@ def _ease(t: float) -> float:
     return t * t * (3.0 - 2.0 * t)
 
 
-def blocking_frames(start_state: Scene, end_state: Scene, steps: int) -> list[tuple[Scene, dict[str, tuple[float, float, float]]]]:
+def blocking_frames(
+    start_state: Scene, end_state: Scene, steps: int
+) -> list[tuple[Scene, dict[str, tuple[float, float, float]], float]]:
     """
     The in-between world states from `start_state` to `end_state`: actors glide (eased) between their positions,
-    and what they hold and what lies on the stage switches halfway. Returns (state to draw, actor positions) pairs.
+    and what they hold and what lies on the stage switches halfway. Returns (state to draw, actor positions,
+    phase of the clip from 0 to 1) for every frame.
     """
     start_pos = {a.id: actor_world_position(a) for a in start_state.actors}
     end_pos = {a.id: actor_world_position(a) for a in end_state.actors}
-    frames: list[tuple[Scene, dict[str, tuple[float, float, float]]]] = []
+    frames: list[tuple[Scene, dict[str, tuple[float, float, float]], float]] = []
     for i in range(steps):
-        t = _ease(i / max(1, steps - 1))
+        raw_t = i / max(1, steps - 1)
+        t = _ease(raw_t)
         base = start_state if t < 0.5 else end_state
         overrides: dict[str, tuple[float, float, float]] = {}
         for actor in base.actors:
@@ -434,7 +481,7 @@ def blocking_frames(start_state: Scene, end_state: Scene, steps: int) -> list[tu
                 p0[1] + (p1[1] - p0[1]) * t + hop,
                 p0[2] + (p1[2] - p0[2]) * t,
             )
-        frames.append((base, overrides))
+        frames.append((base, overrides, raw_t))
     return frames
 
 
@@ -464,8 +511,8 @@ def render_blocking_clip(
     ]
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
     try:
-        for state, overrides in blocking_frames(start_state, end_state, steps):
-            frame = compose_split_stage_image(state, prop_heights, overrides, supersample=1)
+        for state, overrides, phase in blocking_frames(start_state, end_state, steps):
+            frame = compose_split_stage_image(state, prop_heights, overrides, supersample=1, phase=phase)
             proc.stdin.write(frame.tobytes())
         proc.stdin.close()
         if proc.wait(timeout=120) != 0:

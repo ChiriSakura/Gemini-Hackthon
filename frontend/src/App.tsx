@@ -145,9 +145,17 @@ export default function App(): React.ReactElement {
     () => new Set(),
   );
   const [soundEnabled, setSoundEnabled] = useState(false);
-  const [activeBranchId, setActiveBranchId] = useState<string>('branch_v1');
+  // `?branch=<id>` opens a saved branch directly (and `&scene=<n>` one of its scenes); the default is the baseline.
+  const [activeBranchId, setActiveBranchId] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'branch_v1';
+    return new URLSearchParams(window.location.search).get('branch') || 'branch_v1';
+  });
   const [compareBranchId, setCompareBranchId] = useState<string | null>(null);
-  const [activeSceneIndex, setActiveSceneIndex] = useState<number>(0);
+  const [activeSceneIndex, setActiveSceneIndex] = useState<number>(() => {
+    if (typeof window === 'undefined') return 0;
+    const wanted = Number(new URLSearchParams(window.location.search).get('scene'));
+    return Number.isInteger(wanted) && wanted >= 1 ? wanted - 1 : 0;
+  });
   const [viewMode, setViewMode] = useState<'preview' | 'final'>('preview');
   const [cleanCaptureMode, setCleanCaptureMode] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;

@@ -163,6 +163,69 @@ def test_viewpoints_single_definition():
         assert raw[cam]["fov"] == stage3d.VIEWPOINTS[cam]["fov"]
 
 
+def test_every_action_shows_on_the_stage():
+    """Each action in the schema has a pose entry, and the ones that change the figure really change the picture."""
+    import typing
+
+    from backend.media import stage3d
+
+    actions = typing.get_args(ActorState.model_fields["action"].annotation)
+    assert set(actions) <= set(stage3d.ACTION_POSES), set(actions) - set(stage3d.ACTION_POSES)
+
+    def frame(action: str, phase: float, holding=None):
+        s = _scene(2, {"grid": [0.4, 1.4], "action": action, "holding": holding}, {}, [])
+        return stage3d.compose_stage_image(s, "cam_a", 640, 360, {"star_token": 0.2}, None, phase).tobytes()
+
+    stand = frame("stand", 0.5)
+    for action in ("kneel", "crouch", "sit", "jump", "flee", "catch_from_camera"):
+        assert frame(action, 0.5) != stand, f"{action} looks the same as standing"
+    carried = frame("stand", 0.5, "star_token")
+    for action in ("drink", "eat", "hold_up", "reach"):
+        assert frame(action, 0.5, "star_token") != carried, f"{action} does not move the held object"
+    assert frame("shared_umbrella", 0.5, "red_umbrella") != frame("stand", 0.5, "red_umbrella")
+
+
+def _viewpoints_check_payload() -> dict:
+    """World points and where backend/media/stage3d.py puts them on screen, for the browser-side comparison."""
+    from backend.media import stage3d
+
+    width, height = 1280, 720
+    named = {
+        "table_base": (0.0, 0.0, 0.0),
+        "table_top": (0.0, 0.75, 0.0),
+        "lia_default_feet": (-2.1, 0.0, 0.0),
+        "lia_default_head": (-2.1, 1.62, 0.0),
+        "nyx_default_feet": (2.1, 0.0, 0.0),
+        "front_row": (0.0, 0.0, 1.7),
+        "back_row": (0.0, 0.0, -1.7),
+        "cat_on_table": (-0.28, 0.75, 0.04),
+        "right_front": (1.6, 0.0, 1.2),
+    }
+    points: dict = {}
+    for cam_id in ("cam_a", "cam_b"):
+        cam = stage3d.StageCamera(cam_id, width, height)
+        points[cam_id] = []
+        for name, world in named.items():
+            pr = cam.project(world)
+            points[cam_id].append({"name": name, "world": list(world), "pixel": [round(pr[0], 3), round(pr[1], 3)]})
+    return {"width": width, "height": height, "points": points}
+
+
+def test_viewpoints_check_file_is_current():
+    """shared/viewpoints_check.json is what frontend/scripts/test_viewpoints.mjs compares the browser camera to."""
+    from backend import config
+
+    path = config.SHARED_DIR / "viewpoints_check.json"
+    payload = _viewpoints_check_payload()
+    if "--write-viewpoints-check" in sys.argv or not path.is_file():
+        path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    assert json.loads(path.read_text(encoding="utf-8")) == payload, "run with --write-viewpoints-check after changing the viewpoints"
+    from backend.media import stage3d
+
+    spot = stage3d.actor_world_position(ActorState(id="nyx", name="Nyx", grid=[1.0, 1.0], elevation="table"))
+    assert [round(v, 2) for v in spot] == [-0.28, 0.75, 0.04], "the browser stage uses the same on-table spot"
+
+
 if __name__ == "__main__":
     failed = 0
     tests = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_") and callable(f)]

@@ -22,7 +22,7 @@ import React, {
   useState,
 } from 'react';
 import type { RenderProgressSnapshot } from '../api/stageClient';
-import { moveStageActor } from '../api/stageClient';
+import { fetchBlockingPreview, moveStageActor } from '../api/stageClient';
 import {
   ThreeStageManager,
   type PreviewExportResult,
@@ -226,6 +226,9 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
     const [activeCutCam, setActiveCutCam] = useState<'A' | 'B'>('A');
     const [narrationExpanded, setNarrationExpanded] = useState(false);
     const [failedVideoUrls, setFailedVideoUrls] = useState<Record<string, boolean>>({});
+    const [blockingPreviews, setBlockingPreviews] = useState<
+      Record<string, { camA: string; camB: string } | 'pending' | 'none'>
+    >({});
 
     const markVideoFailed = (url: string) => {
       setFailedVideoUrls((prev) => (prev[url] ? prev : { ...prev, [url]: true }));
@@ -457,7 +460,55 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
       Boolean(camBUrl) &&
       !(camBUrl && failedVideoUrls[camBUrl]);
 
+    // No final clip for this scene (not rendered yet, or it cannot be rendered): show the 3D preview clip,
+    // the stage going from the previous state to this one, drawn from the world state alone.
+    // A saved preview clip that no longer loads (for example a fresh checkout without the file) counts as missing,
+    // so it is asked for again.
+    const isBlockingClip = (url?: string | null): url is string =>
+      Boolean(url && /_blocking_[0-9a-f]+\.mp4$/.test(url) && !failedVideoUrls[url]);
+    const previewKey = `${activeBranch.branch_id}:${scene.scene_id}`;
+    const fetchedPreview = blockingPreviews[previewKey];
+    const previewAUrl = isBlockingClip(scene.media.cam_a_preview_url)
+      ? scene.media.cam_a_preview_url
+      : typeof fetchedPreview === 'object'
+        ? fetchedPreview.camA
+        : undefined;
+    const previewBUrl = isBlockingClip(scene.media.cam_b_preview_url)
+      ? scene.media.cam_b_preview_url
+      : typeof fetchedPreview === 'object'
+        ? fetchedPreview.camB
+        : undefined;
+    const needsPreview = viewMode === 'final' && (!showFinalA || !showFinalB) && (!previewAUrl || !previewBUrl);
+    useEffect(() => {
+      if (!needsPreview || fetchedPreview !== undefined) return;
+      let cancelled = false;
+      setBlockingPreviews((prev) => ({ ...prev, [previewKey]: 'pending' }));
+      void fetchBlockingPreview(activeBranch.branch_id, scene.scene_id).then((urls) => {
+        if (cancelled) return;
+        setBlockingPreviews((prev) => ({ ...prev, [previewKey]: urls ?? 'none' }));
+      });
+      return () => {
+        cancelled = true;
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [needsPreview, previewKey]);
+    const showPreviewA =
+      viewMode === 'final' && !showFinalA && Boolean(previewAUrl) && !(previewAUrl && failedVideoUrls[previewAUrl]);
+    const showPreviewB =
+      viewMode === 'final' && !showFinalB && Boolean(previewBUrl) && !(previewBUrl && failedVideoUrls[previewBUrl]);
+    const showClipA = showFinalA || showPreviewA;
+    const showClipB = showFinalB || showPreviewB;
+    const pendingLabel = renderingScene
+      ? 'Generating…'
+      : fetchedPreview === 'pending'
+        ? 'Preparing 3D preview…'
+        : 'Not generated yet';
+    const previewBadge = renderingScene ? '3D preview · final clip rendering…' : '3D preview';
+
     const camADeck: Array<{ url: string; poster?: string; active: boolean }> = [];
+    if (showPreviewA && previewAUrl) {
+      camADeck.push({ url: previewAUrl, active: true });
+    }
     if (showFinalA && camAUrl) {
       camADeck.push({ url: camAUrl, poster: camAPoster, active: true });
       if (nextCamAUrl && nextCamAUrl !== camAUrl && !failedVideoUrls[nextCamAUrl]) {
@@ -469,6 +520,9 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
       }
     }
     const camBDeck: Array<{ url: string; poster?: string; active: boolean }> = [];
+    if (showPreviewB && previewBUrl) {
+      camBDeck.push({ url: previewBUrl, active: true });
+    }
     if (showFinalB && camBUrl) {
       camBDeck.push({ url: camBUrl, poster: camBPoster, active: true });
       if (nextCamBUrl && nextCamBUrl !== camBUrl && !failedVideoUrls[nextCamBUrl]) {
@@ -542,7 +596,7 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
         <div className="stage-cams">
           {/* Camera A stays mounted so the Three.js loop keeps running */}
           <div className={`cam ${onAir('A')}`}>
-            <canvas ref={canvasARef} style={{ display: showFinalA ? 'none' : 'block' }} />
+            <canvas ref={canvasARef} style={{ display: showClipA ? 'none' : 'block' }} />
             {camADeck.map((slot) => (
               <StageVideo
                 key={slot.url}
@@ -557,11 +611,12 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
                 onToggle={handleToggleVideos}
               />
             ))}
-            {!worldView && !showFinalA && (
+            {!worldView && !showClipA && (
               <div className="cam-pending" role="status">
-                <span>{renderingScene ? 'Generating…' : 'Not generated yet'}</span>
+                <span>{pendingLabel}</span>
               </div>
             )}
+            {showPreviewA && <div className="cam-preview-badge">{previewBadge}</div>}
             <div className="cam-caption">
               <span>A</span>
             </div>
@@ -569,7 +624,7 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
 
           {/* Camera B stays mounted alongside Camera A */}
           <div className={`cam ${onAir('B')}`}>
-            <canvas ref={canvasBRef} style={{ display: showFinalB ? 'none' : 'block' }} />
+            <canvas ref={canvasBRef} style={{ display: showClipB ? 'none' : 'block' }} />
             {camBDeck.map((slot) => (
               <StageVideo
                 key={slot.url}
@@ -583,11 +638,12 @@ export const DualCameraStage = forwardRef<DualCameraStageHandle, DualCameraStage
                 onToggle={handleToggleVideos}
               />
             ))}
-            {!worldView && !showFinalB && (
+            {!worldView && !showClipB && (
               <div className="cam-pending" role="status">
-                <span>{renderingScene ? 'Generating…' : 'Not generated yet'}</span>
+                <span>{pendingLabel}</span>
               </div>
             )}
+            {showPreviewB && <div className="cam-preview-badge">{previewBadge}</div>}
             <div className="cam-caption">
               <span>B</span>
             </div>

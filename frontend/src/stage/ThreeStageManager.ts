@@ -12,6 +12,7 @@
  * - Exports 4-second `.webm` preview clips via `canvas.captureStream()` with an
  *   automatic start+end PNG keyframe fallback (`preserveDrawingBuffer: true`).
  */
+import viewpoints from '../../../shared/viewpoints.json';
 import * as THREE from 'three';
 import type { LightingPreset, PropRegistryItem, Scene } from '../types/schema';
 
@@ -72,7 +73,17 @@ interface PropFlightState {
   durationSec: number;
 }
 
-const WORLD_UNITS_PER_METER = 1.36;
+// The stage is in metres, the same as the backend stage (backend/media/stage3d.py).
+const WORLD_UNITS_PER_METER = 1;
+const LIA_HEIGHT_M = 1.62;
+const NYX_HEIGHT_M = 0.42;
+const TABLE_TOP_M = 0.75;
+/** Where an actor on the table sits: left of the table centre, beside whatever stands in the middle. */
+const ON_TABLE_SPOT = { x: -0.28, z: 0.04 };
+/** The two fixed viewpoints, defined once in shared/viewpoints.json for the browser and the backend. */
+const VIEW_A = viewpoints.cam_a;
+const VIEW_B = viewpoints.cam_b;
+const PLATE_URLS = { a: '/assets/stages/plate_cam_a.png', b: '/assets/stages/plate_cam_b.png' };
 const PROP_ASSET_ROOT = `${'/assets'}/props`;
 
 /**
@@ -311,7 +322,7 @@ export class ThreeStageManager {
 
   private currentLighting: LightingPreset = 'warm_dim';
   private cameraShake = false;
-  private cameraBTarget = new THREE.Vector3(0, 0.9, 0);
+  private cameraBTarget = new THREE.Vector3(VIEW_B.look_at[0], VIEW_B.look_at[1], VIEW_B.look_at[2]);
   private currentCameraBTarget = new THREE.Vector3(0, 0.9, 0);
   private targetBgColor = new THREE.Color('#0c101d');
   private targetAmbientColor = new THREE.Color('#cbd5e1');
@@ -332,7 +343,7 @@ export class ThreeStageManager {
   private disposed = false;
 
   // Drag-to-orbit: both cameras turn around the stage by the same angle, so B stays 45 degrees from A.
-  private cameraATarget = new THREE.Vector3(0, 0.9, 0);
+  private cameraATarget = new THREE.Vector3(VIEW_A.look_at[0], VIEW_A.look_at[1], VIEW_A.look_at[2]);
   private orbitYaw = 0;
   private orbitPitch = 0;
   private orbitZoom = 1;
@@ -438,6 +449,55 @@ export class ThreeStageManager {
   }
   private contextLost = false;
   private pixelArtMode = false;
+
+  // The painted room. At the two fixed viewpoints each view shows the same room picture the backend composites
+  // its frames onto, with the 3D actors and props drawn over it. When the user orbits (or in pixel-art mode)
+  // the plain 3D room is shown instead, because a flat picture cannot turn.
+  private bgColor = new THREE.Color('#090d18');
+  private stageFog = new THREE.FogExp2('#090d18', 0.055);
+  private roomGroup = new THREE.Group();
+  private tableOccluder = new THREE.Group();
+  private plateA: THREE.Texture | null = null;
+  private plateB: THREE.Texture | null = null;
+
+  private loadPlates(): void {
+    const loader = new THREE.TextureLoader();
+    const load = (url: string, assign: (tex: THREE.Texture) => void) => {
+      loader.load(
+        url,
+        (tex) => {
+          tex.colorSpace = THREE.SRGBColorSpace;
+          assign(tex);
+        },
+        undefined,
+        () => undefined, // no plate: the plain 3D room stays
+      );
+    };
+    load(PLATE_URLS.a, (tex) => (this.plateA = tex));
+    load(PLATE_URLS.b, (tex) => (this.plateB = tex));
+
+    // Invisible stand-in for the painted table: it writes depth only, so an actor behind the table is hidden by it.
+    const depthOnly = new THREE.MeshBasicMaterial({ colorWrite: false });
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.58, 0.58, 0.05, 28), depthOnly);
+    top.position.set(0, TABLE_TOP_M - 0.025, 0);
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.16, TABLE_TOP_M - 0.05, 12), depthOnly);
+    stem.position.set(0, (TABLE_TOP_M - 0.05) / 2, 0);
+    this.tableOccluder.add(top, stem);
+    this.tableOccluder.visible = false;
+    this.scene.add(this.tableOccluder);
+  }
+
+  /** True when the views sit at their fixed viewpoints and the painted room can stand in for the 3D room. */
+  private usePlates(): boolean {
+    return (
+      !this.pixelArtMode &&
+      this.plateA !== null &&
+      this.plateB !== null &&
+      this.orbitYaw === 0 &&
+      this.orbitPitch === 0 &&
+      this.orbitZoom === 1
+    );
+  }
   private diffHaloEnabled = true;
 
   private handleContextLost = (event: Event): void => {
@@ -478,19 +538,21 @@ export class ThreeStageManager {
     this.canvasB = canvasB;
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color('#090d18');
-    this.scene.fog = new THREE.FogExp2('#090d18', 0.055);
+    this.scene.background = this.bgColor;
+    this.scene.fog = this.stageFog;
+    this.scene.add(this.roomGroup);
+    this.loadPlates();
 
     // Bottom-center anchored 3D standee card (pivot at y = 0) shared across world-locked actors & props
     this.standeeGeometry = new THREE.PlaneGeometry(1, 1);
     this.standeeGeometry.translate(0, 0.5, 0);
 
-    this.cameraA = new THREE.PerspectiveCamera(44, 16 / 9, 0.1, 50);
-    this.cameraA.position.set(0, 2.75, 6.2);
-    this.cameraA.lookAt(0, 0.9, 0);
+    this.cameraA = new THREE.PerspectiveCamera(VIEW_A.fov, 16 / 9, 0.1, 50);
+    this.cameraA.position.set(VIEW_A.pos[0], VIEW_A.pos[1], VIEW_A.pos[2]);
+    this.cameraA.lookAt(this.cameraATarget);
 
-    this.cameraB = new THREE.PerspectiveCamera(36, 16 / 9, 0.1, 50);
-    this.cameraB.position.set(3.25, 1.95, 3.55);
+    this.cameraB = new THREE.PerspectiveCamera(VIEW_B.fov, 16 / 9, 0.1, 50);
+    this.cameraB.position.set(VIEW_B.pos[0], VIEW_B.pos[1], VIEW_B.pos[2]);
     this.cameraB.lookAt(this.cameraBTarget);
 
     for (const canvas of [canvasA, canvasB]) {
@@ -632,12 +694,12 @@ export class ThreeStageManager {
     });
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
-    this.scene.add(floor);
+    this.roomGroup.add(floor);
 
     // 3x3 grid lines
     const gridHelper = new THREE.GridHelper(6.3, 3, 0x38bdf8, 0x334155);
     gridHelper.position.y = 0.012;
-    this.scene.add(gridHelper);
+    this.roomGroup.add(gridHelper);
 
     // Victorian glasshouse arched window backdrop
     const backWallGeo = new THREE.PlaneGeometry(8.2, 4.5);
@@ -648,7 +710,7 @@ export class ThreeStageManager {
     });
     const backWall = new THREE.Mesh(backWallGeo, backWallMat);
     backWall.position.set(0, 2.25, -3.05);
-    this.scene.add(backWall);
+    this.roomGroup.add(backWall);
 
     // Center round table at grid [1, 1] -> world (0, 0)
     const tableTop = new THREE.Mesh(
@@ -656,7 +718,7 @@ export class ThreeStageManager {
       new THREE.MeshStandardMaterial({ color: '#334155', roughness: 0.28, metalness: 0.55 }),
     );
     tableTop.position.set(0, 0.72, 0);
-    this.scene.add(tableTop);
+    this.roomGroup.add(tableTop);
 
     // Subtle brass trim ring on center table
     const tableRim = new THREE.Mesh(
@@ -665,14 +727,14 @@ export class ThreeStageManager {
     );
     tableRim.rotation.x = Math.PI / 2;
     tableRim.position.set(0, 0.76, 0);
-    this.scene.add(tableRim);
+    this.roomGroup.add(tableRim);
 
     const tableLeg = new THREE.Mesh(
       new THREE.CylinderGeometry(0.1, 0.22, 0.72, 16),
       new THREE.MeshStandardMaterial({ color: '#1e293b', metalness: 0.6 }),
     );
     tableLeg.position.set(0, 0.36, 0);
-    this.scene.add(tableLeg);
+    this.roomGroup.add(tableLeg);
   }
 
   private buildGlassShards(): THREE.Group {
@@ -874,7 +936,7 @@ export class ThreeStageManager {
     );
     for (const actor of displayActors) {
       activeActorIds.add(actor.id);
-      const { x, z } = gridToWorld(actor.grid);
+      const { x, z } = actor.elevation === 'table' ? ON_TABLE_SPOT : gridToWorld(actor.grid);
       const isNyx = actor.id === 'nyx';
       const baseActor = baselineByActorId.get(actor.id);
       const changedFromBaseline = Boolean(
@@ -888,11 +950,13 @@ export class ThreeStageManager {
         typeof actor.height_m === 'number' && actor.height_m > 0
           ? Math.min(2.6, Math.max(0.35, actor.height_m * WORLD_UNITS_PER_METER))
           : isNyx
-            ? 0.65
-            : 2.25;
+            ? NYX_HEIGHT_M
+            : LIA_HEIGHT_M;
       const maxH = scaledH;
-      const maxW = isNyx ? Math.max(0.68, maxH * 1.05) : Math.max(1.75, maxH * 0.78);
-      const floorY = 0.015;
+      const maxW = isNyx ? maxH * 1.05 : maxH * 0.9;
+      // The world state says what the actor stands on: the floor, or the top of the round table.
+      const onTable = actor.elevation === 'table';
+      const floorY = onTable ? TABLE_TOP_M : 0.015;
 
       let entity = this.actorEntities.get(actor.id);
       const actorYaw = facingToWorldYaw(actor.facing);
@@ -1002,10 +1066,10 @@ export class ThreeStageManager {
       sumPos.add(new THREE.Vector3(entity.targetPos.x, maxH * 0.45, entity.targetPos.z));
     }
 
-    // Lock Camera B's target to the shared stage center (0, 0.9, 0) matching Camera A and `stage_blueprint.py`
-    // so both views observe the exact same world coordinates purely from a +45 deg camera orbit.
+    // Camera B never follows the actors: its target is the fixed one from shared/viewpoints.json,
+    // so both views observe the exact same world coordinates.
     void sumPos;
-    this.cameraBTarget.set(0, 0.9, 0);
+    this.cameraBTarget.set(VIEW_B.look_at[0], VIEW_B.look_at[1], VIEW_B.look_at[2]);
 
     // Hide unused actors
     for (const [id, ent] of this.actorEntities.entries()) {
@@ -1031,6 +1095,7 @@ export class ThreeStageManager {
       entry_origin?: number[] | null;
       heldByActor?: boolean;
       umbrellaOpen?: boolean;
+      heldLift?: number;
     }> = sceneData.stage_props.map((p) => ({ ...p }));
 
     for (const actor of sceneData.actors) {
@@ -1048,13 +1113,15 @@ export class ThreeStageManager {
             grid: [
               isUmbrella
                 ? Math.max(0, actor.grid[0] - 0.16)
-                : Math.min(2, actor.grid[0] + 0.18),
-              actor.grid[1],
+                : // in the hand on the side that faces the table, as on the backend stage
+                  actor.grid[0] + (actor.grid[0] < 1 ? 0.2 : -0.2) / 2.1,
+              isUmbrella ? actor.grid[1] : actor.grid[1] + 0.1 / 1.7,
             ],
             on_floor: false,
             state: isUmbrella ? (umbrellaOpen ? 'open' : 'closed') : 'held',
             heldByActor: true,
             umbrellaOpen,
+            heldLift: ['hold_up', 'drink', 'eat'].includes(actor.action) ? 1.18 : 0.92,
           });
         }
       }
@@ -1119,7 +1186,7 @@ export class ThreeStageManager {
       // R-24: Foot-bottom anchoring (`center=(0.5, 0)`) + optional `height_m` scaling
       const customH =
         typeof regItem?.height_m === 'number' && regItem.height_m > 0
-          ? Math.min(1.8, Math.max(0.24, regItem.height_m * WORLD_UNITS_PER_METER))
+          ? Math.min(1.8, Math.max(0.06, regItem.height_m * WORLD_UNITS_PER_METER))
           : null;
       const maxPropH =
         customH ??
@@ -1128,27 +1195,26 @@ export class ThreeStageManager {
           : isUmbrella
             ? umbrellaVariant === 'open'
               ? 1.05
-              : 0.85
+              : 0.9
             : prop.id === 'crystal_vase'
-              ? 0.46
-              : prop.heldByActor
-                ? 0.34
-                : 0.40);
+              ? 0.38
+              : 0.22);
       const maxPropW = isChair
         ? maxPropH * 0.9
         : isUmbrella && umbrellaVariant === 'open'
           ? maxPropH * 1.15
           : maxPropH * 0.95;
 
+      // A held object sits in front of the chest (higher while drinking, eating or holding it up).
       const y = prop.heldByActor
         ? isUmbrella
           ? umbrellaVariant === 'open'
             ? 1.25
             : 0.14
-          : 0.86
+          : (prop.heldLift ?? 0.92) - maxPropH / 2
         : prop.on_floor || isChair
           ? 0.015
-          : 0.77;
+          : TABLE_TOP_M;
 
       let entity = this.propEntities.get(prop.id);
       const rescalePropToBox = (ent: SpriteEntity, tex?: THREE.Texture | null) => {
@@ -1285,12 +1351,17 @@ export class ThreeStageManager {
         applyPropTexture(entity, preferredUrl, baseImageUrl);
       }
 
+      // A closed umbrella that was put down lies flat along the floor (as on the backend stage), not upright.
+      const lyingOnFloor = isUmbrella && prop.on_floor && umbrellaVariant === 'closed';
+      if (lyingOnFloor) {
+        entity.targetPos.set(x + maxPropH / 2, 0.06, z);
+      }
       if (isBroken && !entity.usingBrokenAsset) {
         entity.sprite.material.opacity = 0.55;
         entity.sprite.rotation.z = 0.65;
       } else {
         entity.sprite.material.opacity = 1.0;
-        entity.sprite.rotation.z = 0;
+        entity.sprite.rotation.z = lyingOnFloor ? Math.PI / 2 : 0;
       }
 
       // W2-V2-03: Auto-trigger 3D parabolic throw-in arc once per scene for thrown props
@@ -1427,12 +1498,8 @@ export class ThreeStageManager {
       this.sculptureFrozen && this.activePropFlights.size === 0 && !this.cameraGrabState ? 1 : 0;
     this.sculptureTintBlend += (desiredBlend - this.sculptureTintBlend) * Math.min(1, dt * 3.8);
 
-    if (this.scene.background instanceof THREE.Color) {
-      this.scene.background.lerp(this.targetBgColor, t);
-    }
-    if (this.scene.fog instanceof THREE.FogExp2) {
-      this.scene.fog.color.lerp(this.targetBgColor, t);
-    }
+    this.bgColor.lerp(this.targetBgColor, t);
+    this.stageFog.color.lerp(this.targetBgColor, t);
     const blendedAmbient = this.targetAmbientColor
       .clone()
       .lerp(this.colorSculptureAmbient, this.sculptureTintBlend * 0.72);
@@ -1470,7 +1537,13 @@ export class ThreeStageManager {
       }
       this.updateCameras(dt, elapsed, isEffectivelyFrozen);
 
+      const plates = this.usePlates();
+      this.roomGroup.visible = !plates;
+      this.tableOccluder.visible = plates;
+      this.scene.fog = plates ? null : this.stageFog;
+      this.scene.background = plates ? this.plateA : this.bgColor;
       this.rendererA.render(this.scene, this.cameraA);
+      this.scene.background = plates ? this.plateB : this.bgColor;
       this.rendererB.render(this.scene, this.cameraB);
     };
     tick();
@@ -1643,10 +1716,16 @@ export class ThreeStageManager {
     const shakeX = this.cameraShake && !frozen ? Math.sin(elapsed * 38) * 0.08 : 0;
     const shakeY = this.cameraShake && !frozen ? Math.cos(elapsed * 43) * 0.06 : 0;
 
-    this.placeCamera(this.cameraA, shakeX, 2.75 + shakeY, 6.2, this.cameraATarget);
+    this.placeCamera(this.cameraA, VIEW_A.pos[0] + shakeX, VIEW_A.pos[1] + shakeY, VIEW_A.pos[2], this.cameraATarget);
 
     this.currentCameraBTarget.lerp(this.cameraBTarget, Math.min(1, dt * 5.0));
-    this.placeCamera(this.cameraB, 3.25 + shakeX * 0.8, 1.95 + shakeY * 0.8, 3.55, this.currentCameraBTarget);
+    this.placeCamera(
+      this.cameraB,
+      VIEW_B.pos[0] + shakeX * 0.8,
+      VIEW_B.pos[1] + shakeY * 0.8,
+      VIEW_B.pos[2],
+      this.currentCameraBTarget,
+    );
   }
 
   /**

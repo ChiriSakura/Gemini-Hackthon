@@ -2871,6 +2871,21 @@ body::before {
   pointer-events: none;
 }
 
+.cam-preview-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(9, 13, 24, 0.72);
+  border: 1px solid rgba(125, 211, 252, 0.45);
+  color: rgba(186, 230, 253, 0.95);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+  z-index: 6;
+}
+
 
 /* Models & Evaluation panel */
 .topbar-tab {

@@ -1,0 +1,754 @@
+{
+  "branch_id": "branch_v7_3d",
+  "branch_label": "3D preview: same states, no final clips",
+  "parent_branch_id": "branch_v7",
+  "forked_from_scene": 2,
+  "rewrite_summary": "Lia gently lifts the crystal vase for a moment and sets it carefully back onto the center of the round wooden table, then steps back with empty hands.",
+  "contradiction_warning": null,
+  "props_registry": {
+    "red_umbrella": {
+      "name": "Crimson Vintage Umbrella",
+      "image_url": "/assets/actors/lia.png",
+      "state": "held",
+      "origin": "preset",
+      "height_m": null,
+      "appearance_summary": ""
+    },
+    "crystal_vase": {
+      "name": "Blue Rose Crystal Vase",
+      "image_url": "/assets/props/crystal_vase.png",
+      "state": "broken",
+      "origin": "preset",
+      "height_m": null,
+      "appearance_summary": ""
+    },
+    "iced_tea_cup_a746": {
+      "name": "iced_tea_cup",
+      "image_url": "/assets/props/iced_tea_cup_a746.png",
+      "state": "glowing",
+      "origin": "text_generated",
+      "height_m": 0.13,
+      "appearance_summary": "a tall clear glass of amber iced tea with a lemon slice"
+    }
+  },
+  "scenes": [
+    {
+      "scene_id": 1,
+      "title": "Rainy Night Encounter",
+      "duration_sec": 4.0,
+      "narration": "Under warm dim lantern light, Lia stands on the left side of the glass conservatory holding a closed crimson umbrella at her side while black cat Nyx sits on the right gazing at the blue-rose crystal vase on the center table.",
+      "vocal_emotion": "neutral",
+      "gesture_intent": "none",
+      "direction_hint": "none",
+      "lighting": "warm_dim",
+      "camera_shake": false,
+      "audio_mood": "soft_rain_and_quiet_glasshouse_ambience",
+      "environment_notes": "arched_glass_conservatory night_rain_outside warm_wall_lanterns glowing_blue_rose glass_vase round_wooden_table herringbone_wood_floor polished_floor_reflections potted_palm_plants",
+      "needs_rerender": false,
+      "reused_from_branch": "branch_v1",
+      "end_freeze_mode": "sculpture",
+      "parent_scene_id": null,
+      "actors": [
+        {
+          "id": "lia",
+          "name": "Lia",
+          "asset_url": "/assets/actors/lia.png",
+          "grid": [
+            0.0,
+            1.0
+          ],
+          "facing": "right",
+          "action": "stand",
+          "holding_prop": "red_umbrella",
+          "height_m": null,
+          "elevation": "floor"
+        },
+        {
+          "id": "nyx",
+          "name": "Nyx",
+          "asset_url": "/assets/actors/nyx.png",
+          "grid": [
+            2.0,
+            1.0
+          ],
+          "facing": "left",
+          "action": "sit",
+          "holding_prop": null,
+          "height_m": null,
+          "elevation": "floor"
+        }
+      ],
+      "stage_props": [
+        {
+          "id": "crystal_vase",
+          "grid": [
+            1.0,
+            1.0
+          ],
+          "on_floor": false,
+          "state": "intact",
+          "entry_motion": "place",
+          "entry_origin": null
+        }
+      ],
+      "qa_questions": [
+        "Is the silver-haired girl standing on the left holding a closed (not open) red umbrella at her side?",
+        "Is the black cat with a golden moon collar sitting on the right?",
+        "Is the crystal vase with a blue rose standing intact on the center round table?",
+        "Do Camera A (front wide) and Camera B (45-degree close-up) match actor positions?",
+        "Are there no extra unintended human characters in the scene?"
+      ],
+      "media": {
+        "cam_a_preview_url": null,
+        "cam_b_preview_url": null,
+        "cam_a_final_url": "/assets/finals/scene_1_cam_a_b23469_sync.mp4",
+        "cam_b_final_url": "/assets/finals/scene_1_cam_b_b23469_sync.mp4",
+        "cam_a_tail_frame_url": "/assets/tails/scene_1_cam_a_b23469_sync_tail.png",
+        "cam_b_tail_frame_url": "/assets/tails/scene_1_cam_b_b23469_sync_tail.png",
+        "qa_result": {
+          "overall_score": 0.772,
+          "all_passed": false,
+          "items": [
+            {
+              "question": "[CAM A] Is the silver-haired girl standing on the left holding a closed (not open) red umbrella at her side?",
+              "passed": true,
+              "confidence": 0.933,
+              "reason": "Decision-1 P(true)=0.93"
+            },
+            {
+              "question": "[CAM A] Is the black cat with a golden moon collar sitting on the right?",
+              "passed": true,
+              "confidence": 0.862,
+              "reason": "Decision-1 P(true)=0.86"
+            },
+            {
+              "question": "[CAM A] Is the crystal vase with a blue rose standing intact on the center round table?",
+              "passed": true,
+              "confidence": 0.912,
+              "reason": "Decision-1 P(true)=0.91"
+            },
+            {
+              "question": "[CAM A] Do Camera A (front wide) and Camera B (45-degree close-up) match actor positions?",
+              "passed": true,
+              "confidence": 0.558,
+              "reason": "Decision-1 P(true)=0.56 [LOW_CONFIDENCE: escalate]"
+            },
+            {
+              "question": "[CAM A] Are there no extra unintended human characters in the scene?",
+              "passed": true,
+              "confidence": 0.911,
+              "reason": "Decision-1 P(true)=0.91"
+            },
+            {
+              "question": "[CAM B] Is the silver-haired girl standing on the left holding a closed (not open) red umbrella at her side?",
+              "passed": true,
+              "confidence": 0.882,
+              "reason": "Decision-1 P(true)=0.88"
+            },
+            {
+              "question": "[CAM B] Is the black cat with a golden moon collar sitting on the right?",
+              "passed": false,
+              "confidence": 0.618,
+              "reason": "Decision-1 P(true)=0.38 [LOW_CONFIDENCE: escalate]"
+            },
+            {
+              "question": "[CAM B] Is the crystal vase with a blue rose standing intact on the center round table?",
+              "passed": true,
+              "confidence": 0.9,
+              "reason": "Decision-1 P(true)=0.90"
+            },
+            {
+              "question": "[CAM B] Do Camera A (front wide) and Camera B (45-degree close-up) match actor positions?",
+              "passed": true,
+              "confidence": 0.604,
+              "reason": "Decision-1 P(true)=0.60 [LOW_CONFIDENCE: escalate]"
+            },
+            {
+              "question": "[CAM B] Are there no extra unintended human characters in the scene?",
+              "passed": true,
+              "confidence": 0.884,
+              "reason": "Decision-1 P(true)=0.88"
+            },
+            {
+              "question": "[Dual-Cam] Camera A & Camera B room, actor, and vase consistency",
+              "passed": false,
+              "confidence": 0.341,
+              "reason": "Cross-Cam Decision-1 (thresh=0.80) P(room=0.66, actors=0.84, vase=0.91)"
+            }
+          ]
+        },
+        "qa_score": 0.782,
+        "qa_retries": 0,
+        "selected_candidate_index": 0,
+        "fallback_to_preview": false
+      }
+    },
+    {
+      "scene_id": 2,
+      "title": "Holding the Crystal Vase",
+      "duration_sec": 4.0,
+      "narration": "Lia sets her closed crimson umbrella down on the herringbone floor to the left, walks over to the center round wooden table, and gently lifts the glowing blue-rose crystal vase with both hands while Nyx watches curiously from the right.",
+      "vocal_emotion": "neutral",
+      "gesture_intent": "none",
+      "direction_hint": "none",
+      "lighting": "warm_dim",
+      "camera_shake": false,
+      "audio_mood": "soft_rain_and_quiet_glasshouse_ambience",
+      "environment_notes": "arched_glass_conservatory night_rain_outside warm_wall_lanterns glowing_blue_rose glass_vase round_wooden_table herringbone_wood_floor polished_floor_reflections potted_palm_plants | iced_tea_cup_a746: a tall clear glass of amber iced tea with a lemon slice",
+      "needs_rerender": true,
+      "reused_from_branch": null,
+      "end_freeze_mode": "sculpture",
+      "parent_scene_id": 1,
+      "actors": [
+        {
+          "id": "lia",
+          "name": "Lia",
+          "asset_url": "assets/actors/lia.png",
+          "grid": [
+            0.5,
+            1.0
+          ],
+          "facing": "front",
+          "action": "hold_up",
+          "holding_prop": "crystal_vase",
+          "height_m": null,
+          "elevation": "floor"
+        },
+        {
+          "id": "nyx",
+          "name": "Nyx",
+          "asset_url": "assets/actors/nyx.png",
+          "grid": [
+            2.0,
+            1.0
+          ],
+          "facing": "left",
+          "action": "sit",
+          "holding_prop": null,
+          "height_m": null,
+          "elevation": "floor"
+        }
+      ],
+      "stage_props": [
+        {
+          "id": "red_umbrella",
+          "grid": [
+            0.0,
+            1.0
+          ],
+          "on_floor": true,
+          "state": "intact",
+          "entry_motion": "place",
+          "entry_origin": null
+        },
+        {
+          "id": "iced_tea_cup_a746",
+          "grid": [
+            1.08,
+            1.08
+          ],
+          "on_floor": false,
+          "state": "glowing",
+          "entry_motion": "place",
+          "entry_origin": null
+        }
+      ],
+      "qa_questions": [
+        "Is Lia standing by the center round table visibly holding up the blue-rose crystal vase with both hands?",
+        "Is the closed red umbrella resting on the floor on the left side of the conservatory?",
+        "Is the black cat Nyx sitting on the right side watching Lia?"
+      ],
+      "media": {
+        "cam_a_preview_url": null,
+        "cam_b_preview_url": null,
+        "cam_a_final_url": null,
+        "cam_b_final_url": null,
+        "cam_a_tail_frame_url": null,
+        "cam_b_tail_frame_url": null,
+        "qa_result": null,
+        "qa_score": 0.0,
+        "qa_retries": 0,
+        "selected_candidate_index": 0,
+        "fallback_to_preview": false
+      }
+    },
+    {
+      "scene_id": 3,
+      "title": "A Calm Sip of Iced Tea",
+      "duration_sec": 4.0,
+      "narration": "Lia gently sets the glowing blue-rose crystal vase back onto the center round wooden table, picks up the tall clear glass of amber iced tea with a lemon slice, lifts it to her lips, and takes a calm sip while Nyx watches peacefully from the right.",
+      "vocal_emotion": "neutral",
+      "gesture_intent": "none",
+      "direction_hint": "none",
+      "lighting": "warm_dim",
+      "camera_shake": false,
+      "audio_mood": "soft_rain_and_quiet_glasshouse_ambience",
+      "environment_notes": "arched_glass_conservatory night_rain_outside warm_wall_lanterns glowing_blue_rose glass_vase round_wooden_table herringbone_wood_floor polished_floor_reflections potted_palm_plants | iced_tea_cup_a746: a tall clear glass of amber iced tea with a lemon slice",
+      "needs_rerender": false,
+      "reused_from_branch": null,
+      "end_freeze_mode": "sculpture",
+      "parent_scene_id": 2,
+      "actors": [
+        {
+          "id": "lia",
+          "name": "Lia",
+          "asset_url": "assets/actors/lia.png",
+          "grid": [
+            1.75,
+            1.1
+          ],
+          "facing": "front",
+          "action": "drink",
+          "holding_prop": "iced_tea_cup_a746",
+          "height_m": null,
+          "elevation": "floor"
+        },
+        {
+          "id": "nyx",
+          "name": "Nyx",
+          "asset_url": "assets/actors/nyx.png",
+          "grid": [
+            2.0,
+            1.0
+          ],
+          "facing": "left",
+          "action": "sit",
+          "holding_prop": null,
+          "height_m": null,
+          "elevation": "floor"
+        }
+      ],
+      "stage_props": [
+        {
+          "id": "red_umbrella",
+          "grid": [
+            0.0,
+            1.0
+          ],
+          "on_floor": true,
+          "state": "intact",
+          "entry_motion": "place",
+          "entry_origin": null
+        },
+        {
+          "id": "crystal_vase",
+          "grid": [
+            1.0,
+            1.0
+          ],
+          "on_floor": false,
+          "state": "intact",
+          "entry_motion": "place",
+          "entry_origin": null
+        }
+      ],
+      "qa_questions": [
+        "Is Lia visibly lifting the tall clear glass of amber iced tea with a lemon slice to her lips to take a sip?",
+        "Is the glowing blue-rose crystal vase resting intact on the center round wooden table?",
+        "Is the closed red umbrella resting on the floor to the left while Nyx sits on the right watching Lia?"
+      ],
+      "media": {
+        "cam_a_preview_url": null,
+        "cam_b_preview_url": null,
+        "cam_a_final_url": null,
+        "cam_b_final_url": null,
+        "cam_a_tail_frame_url": null,
+        "cam_b_tail_frame_url": null,
+        "qa_result": null,
+        "qa_score": 0.0,
+        "qa_retries": 0,
+        "selected_candidate_index": 0,
+        "fallback_to_preview": false
+      }
+    },
+    {
+      "scene_id": 4,
+      "title": "A Warm Glance at Nyx",
+      "duration_sec": 4.0,
+      "narration": "Standing on the right side of the conservatory floor, Lia lowers the tall clear glass of amber iced tea with a lemon slice and turns to look warmly toward Nyx, who sits calmly beside her returning her gentle gaze.",
+      "vocal_emotion": "neutral",
+      "gesture_intent": "none",
+      "direction_hint": "right",
+      "lighting": "warm_dim",
+      "camera_shake": false,
+      "audio_mood": "soft_rain_and_quiet_glasshouse_ambience",
+      "environment_notes": "arched_glass_conservatory night_rain_outside warm_wall_lanterns glowing_blue_rose glass_vase round_wooden_table herringbone_wood_floor polished_floor_reflections potted_palm_plants | iced_tea_cup_a746: a tall clear glass of amber iced tea with a lemon slice",
+      "needs_rerender": false,
+      "reused_from_branch": null,
+      "end_freeze_mode": "sculpture",
+      "parent_scene_id": 3,
+      "actors": [
+        {
+          "id": "lia",
+          "name": "Lia",
+          "asset_url": "assets/actors/lia.png",
+          "grid": [
+            1.75,
+            1.1
+          ],
+          "facing": "right",
+          "action": "stand",
+          "holding_prop": "iced_tea_cup_a746",
+          "height_m": null,
+          "elevation": "floor"
+        },
+        {
+          "id": "nyx",
+          "name": "Nyx",
+          "asset_url": "assets/actors/nyx.png",
+          "grid": [
+            2.0,
+            1.0
+          ],
+          "facing": "left",
+          "action": "sit",
+          "holding_prop": null,
+          "height_m": null,
+          "elevation": "floor"
+        }
+      ],
+      "stage_props": [
+        {
+          "id": "red_umbrella",
+          "grid": [
+            0.0,
+            1.0
+          ],
+          "on_floor": true,
+          "state": "intact",
+          "entry_motion": "place",
+          "entry_origin": null
+        },
+        {
+          "id": "crystal_vase",
+          "grid": [
+            1.0,
+            1.0
+          ],
+          "on_floor": false,
+          "state": "intact",
+          "entry_motion": "place",
+          "entry_origin": null
+        }
+      ],
+      "qa_questions": [
+        "Is Lia standing on the right side of the room looking warmly toward Nyx?",
+        "Is Lia holding the tall clear glass of amber iced tea with a lemon slice?",
+        "Is the glowing blue-rose crystal vase resting intact on the center round wooden table?"
+      ],
+      "media": {
+        "cam_a_preview_url": null,
+        "cam_b_preview_url": null,
+        "cam_a_final_url": null,
+        "cam_b_final_url": null,
+        "cam_a_tail_frame_url": null,
+        "cam_b_tail_frame_url": null,
+        "qa_result": null,
+        "qa_score": 0.0,
+        "qa_retries": 0,
+        "selected_candidate_index": 0,
+        "fallback_to_preview": false
+      }
+    },
+    {
+      "scene_id": 5,
+      "title": "Resting Hands and Furled Umbrella",
+      "duration_sec": 4.0,
+      "narration": "With the tall clear glass of amber iced tea set aside on the wooden table, Lia neatly places the closed red umbrella on the herringbone wooden floor beside her feet, then straightens up and rests her empty hands calmly at her sides while Nyx watches quietly nearby.",
+      "vocal_emotion": "neutral",
+      "gesture_intent": "none",
+      "direction_hint": "none",
+      "lighting": "warm_dim",
+      "camera_shake": false,
+      "audio_mood": "soft_rain_and_quiet_glasshouse_ambience",
+      "environment_notes": "arched_glass_conservatory night_rain_outside warm_wall_lanterns glowing_blue_rose glass_vase round_wooden_table herringbone_wood_floor polished_floor_reflections potted_palm_plants | iced_tea_cup_a746: a tall clear glass of amber iced tea with a lemon slice",
+      "needs_rerender": false,
+      "reused_from_branch": null,
+      "end_freeze_mode": "sculpture",
+      "parent_scene_id": 4,
+      "actors": [
+        {
+          "id": "lia",
+          "name": "Lia",
+          "asset_url": "assets/actors/lia.png",
+          "grid": [
+            1.75,
+            1.1
+          ],
+          "facing": "right",
+          "action": "stand",
+          "holding_prop": null,
+          "height_m": null,
+          "elevation": "floor"
+        },
+        {
+          "id": "nyx",
+          "name": "Nyx",
+          "asset_url": "assets/actors/nyx.png",
+          "grid": [
+            2.0,
+            1.0
+          ],
+          "facing": "left",
+          "action": "sit",
+          "holding_prop": null,
+          "height_m": null,
+          "elevation": "floor"
+        }
+      ],
+      "stage_props": [
+        {
+          "id": "red_umbrella",
+          "grid": [
+            1.6,
+            1.1
+          ],
+          "on_floor": true,
+          "state": "intact",
+          "entry_motion": "place",
+          "entry_origin": null
+        },
+        {
+          "id": "crystal_vase",
+          "grid": [
+            1.0,
+            1.0
+          ],
+          "on_floor": false,
+          "state": "intact",
+          "entry_motion": "place",
+          "entry_origin": null
+        },
+        {
+          "id": "iced_tea_cup_a746",
+          "grid": [
+            1.1,
+            1.0
+          ],
+          "on_floor": false,
+          "state": "intact",
+          "entry_motion": "place",
+          "entry_origin": null
+        }
+      ],
+      "qa_questions": [
+        "Is the closed red umbrella resting neatly on the wooden floor beside Lia's feet?",
+        "Are Lia's empty hands resting calmly at her sides?",
+        "Is Nyx sitting calmly beside Lia on the right side of the conservatory floor?"
+      ],
+      "media": {
+        "cam_a_preview_url": null,
+        "cam_b_preview_url": null,
+        "cam_a_final_url": null,
+        "cam_b_final_url": null,
+        "cam_a_tail_frame_url": null,
+        "cam_b_tail_frame_url": null,
+        "qa_result": null,
+        "qa_score": 0.0,
+        "qa_retries": 0,
+        "selected_candidate_index": 0,
+        "fallback_to_preview": false
+      }
+    },
+    {
+      "scene_id": 6,
+      "title": "Nyx's Graceful Leap onto the Table",
+      "duration_sec": 4.0,
+      "narration": "With a soft flick of her tail, Nyx leaps gracefully up onto the round wooden center table and settles neatly beside the blue rose crystal vase and the tall clear glass of amber iced tea, while Lia turns toward the center table and watches her calmly.",
+      "vocal_emotion": "neutral",
+      "gesture_intent": "none",
+      "direction_hint": "center",
+      "lighting": "warm_dim",
+      "camera_shake": false,
+      "audio_mood": "soft_rain_and_quiet_glasshouse_ambience",
+      "environment_notes": "arched_glass_conservatory night_rain_outside warm_wall_lanterns glowing_blue_rose glass_vase round_wooden_table herringbone_wood_floor polished_floor_reflections potted_palm_plants | iced_tea_cup_a746: a tall clear glass of amber iced tea with a lemon slice",
+      "needs_rerender": false,
+      "reused_from_branch": null,
+      "end_freeze_mode": "sculpture",
+      "parent_scene_id": 5,
+      "actors": [
+        {
+          "id": "lia",
+          "name": "Lia",
+          "asset_url": "assets/actors/lia.png",
+          "grid": [
+            1.75,
+            1.1
+          ],
+          "facing": "left",
+          "action": "stand",
+          "holding_prop": null,
+          "height_m": null,
+          "elevation": "floor"
+        },
+        {
+          "id": "nyx",
+          "name": "Nyx",
+          "asset_url": "assets/actors/nyx.png",
+          "grid": [
+            1.0,
+            1.0
+          ],
+          "facing": "right",
+          "action": "sit",
+          "holding_prop": null,
+          "height_m": null,
+          "elevation": "table"
+        }
+      ],
+      "stage_props": [
+        {
+          "id": "red_umbrella",
+          "grid": [
+            1.6,
+            1.1
+          ],
+          "on_floor": true,
+          "state": "intact",
+          "entry_motion": "place",
+          "entry_origin": null
+        },
+        {
+          "id": "crystal_vase",
+          "grid": [
+            1.0,
+            1.0
+          ],
+          "on_floor": false,
+          "state": "intact",
+          "entry_motion": "place",
+          "entry_origin": null
+        },
+        {
+          "id": "iced_tea_cup_a746",
+          "grid": [
+            1.1,
+            1.0
+          ],
+          "on_floor": false,
+          "state": "intact",
+          "entry_motion": "place",
+          "entry_origin": null
+        }
+      ],
+      "qa_questions": [
+        "Is Nyx sitting on top of the round wooden center table beside the crystal vase?",
+        "Is Lia standing on the right side of the conservatory watching Nyx on the center table?",
+        "Is the closed red umbrella still resting on the wooden floor beside Lia's feet?"
+      ],
+      "media": {
+        "cam_a_preview_url": null,
+        "cam_b_preview_url": null,
+        "cam_a_final_url": null,
+        "cam_b_final_url": null,
+        "cam_a_tail_frame_url": null,
+        "cam_b_tail_frame_url": null,
+        "qa_result": null,
+        "qa_score": 0.0,
+        "qa_retries": 0,
+        "selected_candidate_index": 0,
+        "fallback_to_preview": false
+      }
+    },
+    {
+      "scene_id": 7,
+      "title": "A Gentle Adjustment of the Vase",
+      "duration_sec": 4.0,
+      "narration": "Lia steps up to the round wooden table, gently lifts the glowing blue rose crystal vase with both hands for a quiet moment, and sets it carefully back onto the center of the tabletop beside the tall clear glass of amber iced tea before stepping back with empty hands as Nyx watches calmly from the table.",
+      "vocal_emotion": "neutral",
+      "gesture_intent": "none",
+      "direction_hint": "center",
+      "lighting": "warm_dim",
+      "camera_shake": false,
+      "audio_mood": "soft_rain_and_quiet_glasshouse_ambience",
+      "environment_notes": "arched_glass_conservatory night_rain_outside warm_wall_lanterns glowing_blue_rose glass_vase round_wooden_table herringbone_wood_floor polished_floor_reflections potted_palm_plants | iced_tea_cup_a746: a tall clear glass of amber iced tea with a lemon slice",
+      "needs_rerender": false,
+      "reused_from_branch": null,
+      "end_freeze_mode": "sculpture",
+      "parent_scene_id": 6,
+      "actors": [
+        {
+          "id": "lia",
+          "name": "Lia",
+          "asset_url": "assets/actors/lia.png",
+          "grid": [
+            1.65,
+            1.1
+          ],
+          "facing": "left",
+          "action": "stand",
+          "holding_prop": null,
+          "height_m": null,
+          "elevation": "floor"
+        },
+        {
+          "id": "nyx",
+          "name": "Nyx",
+          "asset_url": "assets/actors/nyx.png",
+          "grid": [
+            1.0,
+            1.0
+          ],
+          "facing": "right",
+          "action": "sit",
+          "holding_prop": null,
+          "height_m": null,
+          "elevation": "table"
+        }
+      ],
+      "stage_props": [
+        {
+          "id": "red_umbrella",
+          "grid": [
+            1.6,
+            1.1
+          ],
+          "on_floor": true,
+          "state": "intact",
+          "entry_motion": "place",
+          "entry_origin": null
+        },
+        {
+          "id": "crystal_vase",
+          "grid": [
+            1.0,
+            1.0
+          ],
+          "on_floor": false,
+          "state": "intact",
+          "entry_motion": "place",
+          "entry_origin": null
+        },
+        {
+          "id": "iced_tea_cup_a746",
+          "grid": [
+            1.1,
+            1.0
+          ],
+          "on_floor": false,
+          "state": "intact",
+          "entry_motion": "place",
+          "entry_origin": null
+        }
+      ],
+      "qa_questions": [
+        "Is the blue rose crystal vase resting intact on the center of the round wooden table?",
+        "Is Lia standing back from the table with empty hands?",
+        "Is Nyx still sitting calmly on the round wooden table beside the crystal vase and iced tea glass?"
+      ],
+      "media": {
+        "cam_a_preview_url": null,
+        "cam_b_preview_url": null,
+        "cam_a_final_url": null,
+        "cam_b_final_url": null,
+        "cam_a_tail_frame_url": null,
+        "cam_b_tail_frame_url": null,
+        "qa_result": null,
+        "qa_score": 0.0,
+        "qa_retries": 0,
+        "selected_candidate_index": 0,
+        "fallback_to_preview": false
+      }
+    }
+  ]
+}
